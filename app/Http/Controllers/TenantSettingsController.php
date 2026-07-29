@@ -23,6 +23,12 @@ class TenantSettingsController extends Controller
                 'msg91_auth_key'   => $setting ? ($setting->msg91_auth_key ? '••••••••' . substr($setting->msg91_auth_key, -4) : '') : '',
                 'openai_api_key'   => $setting ? ($setting->openai_api_key ? '••••••••' . substr($setting->openai_api_key, -4) : '') : '',
                 'flowise_endpoint' => $setting->flowise_endpoint ?? '',
+                'ai_provider' => $setting->ai_provider ?? 'openai',
+                'ai_model' => $setting->ai_model ?? '',
+                'ai_system_prompt' => $setting->ai_system_prompt ?? '',
+                'ai_is_active' => $setting->ai_is_active ?? false,
+                'ai_human_escalation_enabled' => $setting->ai_human_escalation_enabled ?? true,
+                'ai_confidence_threshold' => $setting->ai_confidence_threshold ?? 0.70,
             ],
             'numbers' => $numbers,
         ]);
@@ -34,6 +40,12 @@ class TenantSettingsController extends Controller
             'msg91_auth_key'   => 'nullable|string',
             'openai_api_key'   => 'nullable|string',
             'flowise_endpoint' => 'nullable|url',
+            'ai_provider' => 'nullable|string|in:openai,flowise',
+            'ai_model' => 'nullable|string',
+            'ai_system_prompt' => 'nullable|string',
+            'ai_is_active' => 'nullable|boolean',
+            'ai_human_escalation_enabled' => 'nullable|boolean',
+            'ai_confidence_threshold' => 'nullable|numeric|min:0|max:1',
         ]);
 
         $tenantId = $resolver->getActiveTenantId();
@@ -46,6 +58,12 @@ class TenantSettingsController extends Controller
             $setting->openai_api_key = $validated['openai_api_key'];
         }
         $setting->flowise_endpoint = $validated['flowise_endpoint'] ?? null;
+        $setting->ai_provider = $validated['ai_provider'] ?? 'openai';
+        $setting->ai_model = $validated['ai_model'] ?? null;
+        $setting->ai_system_prompt = $validated['ai_system_prompt'] ?? null;
+        $setting->ai_is_active = $validated['ai_is_active'] ?? false;
+        $setting->ai_human_escalation_enabled = $validated['ai_human_escalation_enabled'] ?? true;
+        $setting->ai_confidence_threshold = $validated['ai_confidence_threshold'] ?? 0.70;
         $setting->save();
 
         return redirect()->back()->with('success', 'Tenant Integration Settings updated successfully.');

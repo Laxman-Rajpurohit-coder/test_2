@@ -14,6 +14,12 @@ class TenantSetting extends Model
         'msg91_auth_key',
         'openai_api_key',
         'flowise_endpoint',
+        'ai_provider',
+        'ai_model',
+        'ai_system_prompt',
+        'ai_is_active',
+        'ai_human_escalation_enabled',
+        'ai_confidence_threshold',
     ];
 
     /**
@@ -22,6 +28,9 @@ class TenantSetting extends Model
     protected $casts = [
         'msg91_auth_key' => 'encrypted',
         'openai_api_key' => 'encrypted',
+        'ai_is_active' => 'boolean',
+        'ai_human_escalation_enabled' => 'boolean',
+        'ai_confidence_threshold' => 'float',
     ];
 
     public function tenant()

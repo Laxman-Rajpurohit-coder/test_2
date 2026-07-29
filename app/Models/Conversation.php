@@ -14,10 +14,12 @@ class Conversation extends Model
         'tenant_id',
         'customer_number',
         'last_message_at',
+        'is_human_escalated',
     ];
 
     protected $casts = [
         'last_message_at' => 'datetime',
+        'is_human_escalated' => 'boolean',
     ];
 
     public function messages()

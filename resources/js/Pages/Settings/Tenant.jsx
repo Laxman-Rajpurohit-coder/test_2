@@ -7,6 +7,12 @@ export default function TenantSettings({ settings, numbers }) {
         msg91_auth_key: settings.msg91_auth_key || '',
         openai_api_key: settings.openai_api_key || '',
         flowise_endpoint: settings.flowise_endpoint || '',
+        ai_provider: settings.ai_provider || 'openai',
+        ai_model: settings.ai_model || '',
+        ai_system_prompt: settings.ai_system_prompt || '',
+        ai_is_active: settings.ai_is_active || false,
+        ai_human_escalation_enabled: settings.ai_human_escalation_enabled ?? true,
+        ai_confidence_threshold: settings.ai_confidence_threshold || 0.70,
     });
 
     const numberForm = useForm({
@@ -76,6 +82,83 @@ export default function TenantSettings({ settings, numbers }) {
                                 placeholder="https://flowise.yourdomain.com/api/v1/prediction/..."
                                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
                             />
+                        </div>
+
+                        <div className="pt-4 mt-4 border-t border-gray-100">
+                            <h3 className="text-sm font-bold text-gray-900 mb-3">AI Bot Fallback Configuration</h3>
+                            
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 mb-1">AI Provider</label>
+                                    <select
+                                        value={data.ai_provider}
+                                        onChange={(e) => setData('ai_provider', e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
+                                    >
+                                        <option value="openai">OpenAI (Direct LLM)</option>
+                                        <option value="flowise">Flowise (LangChain/RAG)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 mb-1">AI Model Name</label>
+                                    <input
+                                        type="text"
+                                        value={data.ai_model}
+                                        onChange={(e) => setData('ai_model', e.target.value)}
+                                        placeholder="e.g. gpt-4o-mini"
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="mb-4">
+                                <label className="block text-xs font-bold text-gray-700 mb-1">System Prompt Context</label>
+                                <textarea
+                                    value={data.ai_system_prompt}
+                                    onChange={(e) => setData('ai_system_prompt', e.target.value)}
+                                    placeholder="You are a helpful customer service assistant for our company..."
+                                    rows="4"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
+                                ></textarea>
+                            </div>
+
+                            <div className="mb-4">
+                                <label className="block text-xs font-bold text-gray-700 mb-1">
+                                    AI Confidence Threshold (0.0 to 1.0)
+                                </label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    max="1"
+                                    value={data.ai_confidence_threshold}
+                                    onChange={(e) => setData('ai_confidence_threshold', e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
+                                />
+                                <p className="text-[10px] text-gray-400 mt-1">If the model scores below this confidence level, it will not answer.</p>
+                            </div>
+
+                            <div className="flex gap-6 mt-2">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={data.ai_is_active}
+                                        onChange={(e) => setData('ai_is_active', e.target.checked)}
+                                        className="rounded border-gray-300 text-[#00a884] focus:ring-[#00a884]"
+                                    />
+                                    <span className="text-xs font-bold text-gray-700">Enable AI Fallback Bot</span>
+                                </label>
+
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={data.ai_human_escalation_enabled}
+                                        onChange={(e) => setData('ai_human_escalation_enabled', e.target.checked)}
+                                        className="rounded border-gray-300 text-[#00a884] focus:ring-[#00a884]"
+                                    />
+                                    <span className="text-xs font-bold text-gray-700">Escalate to Human on Low Confidence</span>
+                                </label>
+                            </div>
                         </div>
 
                         <div className="flex justify-end pt-3">

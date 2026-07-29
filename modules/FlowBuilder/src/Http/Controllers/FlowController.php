@@ -36,8 +36,9 @@ class FlowController extends Controller
             'created_at'      => $f->created_at ? $f->created_at->diffForHumans() : 'Just now',
         ]);
 
-        return Inertia::render('Modules/FlowBuilder/Index', [
-            'flows' => $flows,
+        return Inertia::render('Modules/FlowBuilder/Workspace', [
+            'flows'       => $flows,
+            'active_flow' => null,
         ]);
     }
 
@@ -82,14 +83,30 @@ class FlowController extends Controller
     }
 
     /**
-     * Render Visual Flow Editor Canvas
+     * Render Visual Flow Editor Canvas within Workspace
      */
     public function show(string $id)
     {
+        // 1. Fetch all flows for the sidebar
+        $flows = Flow::withCount(['sessions' => function ($query) {
+            $query->where('status', 'active');
+        }])
+        ->orderBy('created_at', 'desc')
+        ->get()
+        ->map(fn($f) => [
+            'id'              => $f->id,
+            'name'            => $f->name,
+            'is_active'       => $f->is_active,
+            'active_sessions' => $f->sessions_count,
+            'created_at'      => $f->created_at ? $f->created_at->diffForHumans() : 'Just now',
+        ]);
+
+        // 2. Fetch specific flow for the canvas
         $flow = Flow::findOrFail($id);
 
-        return Inertia::render('Modules/FlowBuilder/Editor', [
-            'flow' => [
+        return Inertia::render('Modules/FlowBuilder/Workspace', [
+            'flows'       => $flows,
+            'active_flow' => [
                 'id'        => $flow->id,
                 'name'      => $flow->name,
                 'graph'     => $flow->graph,

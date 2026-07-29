@@ -19,10 +19,10 @@ export default function AppLayout({ children }) {
         { name: 'Bot Auto-Responder', href: '/bot-triggers', icon: '🤖', active: isBotPage },
         { name: 'Flow Builder', href: '/flows', icon: '🔄', active: currentPath.startsWith('/flows') },
         { name: 'Tenant API Settings', href: '/settings/tenant', icon: '🔑', active: isTenantSettingsPage },
-        { name: 'Contacts', href: '#', icon: '📇', hasSub: true },
-        { name: 'Team Management', href: '#', icon: '👥' },
-        { name: 'Integrations', href: '#', icon: '🔌' },
-        { name: 'Message Logs', href: '#', icon: '📜' },
+        { name: 'Contacts', href: '/coming-soon', icon: '📇', hasSub: true, active: currentPath === '/coming-soon' },
+        { name: 'Team Management', href: '/coming-soon', icon: '👥', active: currentPath === '/coming-soon' },
+        { name: 'Integrations', href: '/coming-soon', icon: '🔌', active: currentPath === '/coming-soon' },
+        { name: 'Message Logs', href: '/coming-soon', icon: '📜', active: currentPath === '/coming-soon' },
     ];
 
     return (

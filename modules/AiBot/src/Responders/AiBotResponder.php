@@ -5,14 +5,15 @@ namespace Modules\AiBot\Responders;
 use App\Contracts\BotResponderInterface;
 use App\DTOs\InboundMessageContext;
 use App\Events\MessageReceived;
+use App\Events\ConversationEscalated;
 use App\Jobs\SendMsg91Message;
 use App\Models\Conversation;
+use App\Models\TenantSetting;
 use App\Models\WhatsappMessage;
 use App\Services\Msg91PayloadBuilder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Modules\AiBot\Models\AiBotSetting;
 use Modules\AiBot\Services\AiBotService;
 
 class AiBotResponder implements BotResponderInterface
@@ -31,9 +32,9 @@ class AiBotResponder implements BotResponderInterface
             return false;
         }
 
-        // Fetch Tenant-Scoped Active AI Bot Setting
-        $setting = AiBotSetting::where('is_active', true)->first();
-        if (!$setting || empty($setting->api_key)) {
+        // Fetch Tenant-Scoped Settings
+        $setting = TenantSetting::where('tenant_id', $context->tenantId)->first();
+        if (!$setting || !$setting->ai_is_active) {
             return false;
         }
 
@@ -49,27 +50,45 @@ class AiBotResponder implements BotResponderInterface
         }
 
         // 2. Check Human Escalation Keyword Trigger
-        if ($setting->human_escalation_enabled && $this->isHumanEscalationRequested($messageText)) {
-            Log::info("AiBotResponder: Human escalation requested in message: '{$messageText}'. Escalating conversation {$context->conversationId}.");
-
-            $conversation->update(['is_human_escalated' => true]);
-
-            $escalationText = "I am connecting you to a human support agent. Please wait a moment.";
-            $this->sendWhatsAppReply($context->conversationId, $context->tenantId, $context->customerNumber, $escalationText);
-
+        if ($setting->ai_human_escalation_enabled && $this->isHumanEscalationRequested($messageText)) {
+            $this->escalateToHuman($conversation, $context, "I am connecting you to a human support agent. Please wait a moment.");
             return true; // Successfully handled via escalation
         }
 
-        // 3. Generate Response via LLM Provider (OpenAI / Flowise)
+        // 3. Generate Response via LLM Provider
         $aiReplyText = $this->aiBotService->generateResponse($messageText, $setting);
+        
+        // 4. Handle Low Confidence (Fail-Closed return null) -> Escalate
         if (empty($aiReplyText)) {
-            return false;
+            if ($setting->ai_human_escalation_enabled) {
+                $this->escalateToHuman($conversation, $context, "I'm not completely sure about that. I am connecting you to a human support agent who can help.");
+                return true;
+            }
+            return false; // Could not generate response and escalation is disabled
         }
 
-        // 4. Dispatch Outbound WhatsApp Reply
+        // 5. Dispatch Outbound WhatsApp Reply
         $this->sendWhatsAppReply($context->conversationId, $context->tenantId, $context->customerNumber, $aiReplyText);
 
         return true;
+    }
+
+    /**
+     * Escalate conversation to human agent (DB persistence + WebSocket broadcast)
+     */
+    protected function escalateToHuman(Conversation $conversation, InboundMessageContext $context, string $replyText): void
+    {
+        Log::info("AiBotResponder: Escalating conversation {$context->conversationId} to human agent.");
+
+        $conversation->update(['is_human_escalated' => true]);
+        
+        try {
+            broadcast(new ConversationEscalated($conversation))->toOthers();
+        } catch (\Throwable $e) {
+            Log::warning('WebSocket Broadcast Failed for ConversationEscalated: ' . $e->getMessage());
+        }
+
+        $this->sendWhatsAppReply($context->conversationId, $context->tenantId, $context->customerNumber, $replyText);
     }
 
     /**
@@ -135,6 +154,6 @@ class AiBotResponder implements BotResponderInterface
 
     public function priority(): int
     {
-        return 90; // Lowest priority in pipeline (runs after Priority 10 Flow & Priority 50 Keyword)
+        return 90; // Lowest priority in pipeline
     }
 }

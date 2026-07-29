@@ -2,46 +2,56 @@
 
 namespace Modules\AiBot\Services;
 
+use App\Models\TenantSetting;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Modules\AiBot\Models\AiBotSetting;
 
 class AiBotService
 {
     /**
      * Generate AI response via configured provider (OpenAI / Flowise).
      */
-    public function generateResponse(string $userPrompt, AiBotSetting $setting): ?string
+    public function generateResponse(string $userPrompt, TenantSetting $setting): ?string
     {
-        if (!$setting->is_active || empty($setting->api_key)) {
+        if (!$setting->ai_is_active) {
             return null;
         }
 
-        if ($setting->provider === 'flowise') {
+        if ($setting->ai_provider === 'flowise') {
+            if (empty($setting->flowise_endpoint)) {
+                return null; // Fail-closed
+            }
             return $this->generateFlowiseResponse($userPrompt, $setting);
         }
 
+        if (empty($setting->openai_api_key)) {
+            return null; // Fail-closed
+        }
         return $this->generateOpenAiResponse($userPrompt, $setting);
     }
 
     /**
-     * Generate response via OpenAI Chat Completions API.
+     * Generate response via OpenAI Chat Completions API with confidence threshold.
      */
-    protected function generateOpenAiResponse(string $userPrompt, AiBotSetting $setting): ?string
+    protected function generateOpenAiResponse(string $userPrompt, TenantSetting $setting): ?string
     {
-        $model = $setting->model_or_chatflow_id ?: 'gpt-4o-mini';
-        $systemPrompt = $setting->system_prompt ?: 'You are a helpful customer support assistant for WhatsApp.';
+        $model = $setting->ai_model ?: 'gpt-4o-mini';
+        $systemPrompt = $setting->ai_system_prompt ?: 'You are a helpful customer support assistant for WhatsApp.';
+
+        // Instruct the model to return JSON with reply and confidence.
+        $jsonPrompt = $systemPrompt . "\n\nYou MUST respond in raw JSON format with two keys: 'reply' (string) and 'confidence' (number between 0.0 and 1.0 indicating how certain you are).";
 
         try {
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $setting->api_key,
+                'Authorization' => 'Bearer ' . $setting->openai_api_key,
                 'Content-Type'  => 'application/json',
             ])
             ->timeout(10)
             ->post('https://api.openai.com/v1/chat/completions', [
                 'model'    => $model,
+                'response_format' => ['type' => 'json_object'],
                 'messages' => [
-                    ['role' => 'system', 'content' => $systemPrompt],
+                    ['role' => 'system', 'content' => $jsonPrompt],
                     ['role' => 'user', 'content' => $userPrompt],
                 ],
                 'temperature' => 0.7,
@@ -50,7 +60,18 @@ class AiBotService
 
             if ($response->successful()) {
                 $data = $response->json();
-                return trim($data['choices'][0]['message']['content'] ?? '');
+                $content = $data['choices'][0]['message']['content'] ?? '{}';
+                
+                $parsed = json_decode($content, true);
+                $reply = $parsed['reply'] ?? '';
+                $confidence = (float) ($parsed['confidence'] ?? 1.0);
+
+                if ($confidence < $setting->ai_confidence_threshold) {
+                    Log::info("AiBotService: OpenAI response confidence ({$confidence}) was below threshold ({$setting->ai_confidence_threshold}). Escalating.");
+                    return null;
+                }
+
+                return trim($reply);
             }
 
             Log::error("AiBotService: OpenAI API error ({$response->status()}): " . $response->body());
@@ -64,19 +85,14 @@ class AiBotService
     /**
      * Generate response via Flowise Prediction API.
      */
-    protected function generateFlowiseResponse(string $userPrompt, AiBotSetting $setting): ?string
+    protected function generateFlowiseResponse(string $userPrompt, TenantSetting $setting): ?string
     {
-        $chatflowId = $setting->model_or_chatflow_id;
-        $baseUrl = config('services.flowise.url', 'https://flowise.example.com');
-        $endpoint = "{$baseUrl}/api/v1/prediction/{$chatflowId}";
-
         try {
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $setting->api_key,
                 'Content-Type'  => 'application/json',
             ])
             ->timeout(10)
-            ->post($endpoint, [
+            ->post($setting->flowise_endpoint, [
                 'question' => $userPrompt,
             ]);
 
