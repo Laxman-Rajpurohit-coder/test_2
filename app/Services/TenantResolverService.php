@@ -1,0 +1,117 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\TenantSetting;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+
+class TenantResolverService
+{
+    protected ?int $activeTenantId = null;
+
+    /**
+     * Set the active tenant context for the current request / job lifetime.
+     */
+    public function setActiveTenantId(?int $tenantId): void
+    {
+        $this->activeTenantId = $tenantId;
+    }
+
+    /**
+     * Get active tenant ID, falling back to authenticated user's tenant_id or Tenant 1.
+     */
+    public function getActiveTenantId(): int
+    {
+        if ($this->activeTenantId !== null) {
+            return $this->activeTenantId;
+        }
+
+        if (auth()->check() && !empty(auth()->user()->tenant_id)) {
+            return (int) auth()->user()->tenant_id;
+        }
+
+        return 1; // Default Tenant 1
+    }
+
+    /**
+     * Resolve Tenant ID by WhatsApp integrated number (many-to-one mapping).
+     */
+    public function getTenantIdByIntegratedNumber(string $integratedNumber): int
+    {
+        $cleanNumber = trim($integratedNumber);
+        $record = DB::table('tenant_numbers')
+            ->where('integrated_number', $cleanNumber)
+            ->first();
+
+        if ($record) {
+            return (int) $record->tenant_id;
+        }
+
+        Log::warning("TenantResolverService: Number {$integratedNumber} not mapped to any tenant. Falling back to Tenant 1.");
+        return 1;
+    }
+
+    /**
+     * Resolve MSG91 Auth Key for tenant.
+     * Tenant 1: falls back to .env.
+     * Tenant 2+: returns null if unconfigured (Feature Disabled Cost Guard).
+     */
+    public function getMsg91AuthKey(?int $tenantId = null): ?string
+    {
+        $targetTenantId = $tenantId ?? $this->getActiveTenantId();
+        $setting = TenantSetting::where('tenant_id', $targetTenantId)->first();
+
+        if ($setting && !empty($setting->msg91_auth_key)) {
+            return $setting->msg91_auth_key; // Automatically decrypted by Encrypted Cast
+        }
+
+        if ($targetTenantId === 1) {
+            return config('services.msg91.auth_key');
+        }
+
+        Log::warning("TenantResolverService: MSG91 Auth Key missing for Tenant {$targetTenantId}. Access disabled.");
+        return null;
+    }
+
+    /**
+     * Resolve OpenAI API Key for tenant.
+     * Tenant 1: falls back to .env.
+     * Tenant 2+: returns null if unconfigured (Feature Disabled Cost Guard).
+     */
+    public function getOpenAiApiKey(?int $tenantId = null): ?string
+    {
+        $targetTenantId = $tenantId ?? $this->getActiveTenantId();
+        $setting = TenantSetting::where('tenant_id', $targetTenantId)->first();
+
+        if ($setting && !empty($setting->openai_api_key)) {
+            return $setting->openai_api_key; // Automatically decrypted by Encrypted Cast
+        }
+
+        if ($targetTenantId === 1) {
+            return config('services.openai.api_key') ?? env('OPENAI_API_KEY');
+        }
+
+        Log::warning("TenantResolverService: OpenAI API Key missing for Tenant {$targetTenantId}. AI Assistant disabled.");
+        return null;
+    }
+
+    /**
+     * Resolve Flowise Endpoint for tenant.
+     */
+    public function getFlowiseEndpoint(?int $tenantId = null): ?string
+    {
+        $targetTenantId = $tenantId ?? $this->getActiveTenantId();
+        $setting = TenantSetting::where('tenant_id', $targetTenantId)->first();
+
+        if ($setting && !empty($setting->flowise_endpoint)) {
+            return $setting->flowise_endpoint;
+        }
+
+        if ($targetTenantId === 1) {
+            return config('services.flowise.endpoint') ?? env('FLOWISE_ENDPOINT');
+        }
+
+        return null;
+    }
+}
