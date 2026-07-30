@@ -16,13 +16,25 @@ class ChatController extends Controller
     // Render the main React Chat Interface
     public function view()
     {
-        return Inertia::render('Chat/Index');
+        $tenantNumbers = \Illuminate\Support\Facades\DB::table('tenant_numbers')
+            ->where('tenant_id', app(\App\Services\TenantResolverService::class)->getActiveTenantId())
+            ->get();
+
+        return Inertia::render('Chat/Index', [
+            'tenantNumbers' => $tenantNumbers
+        ]);
     }
 
     // API: Fetch list of conversations (Scoped via BelongsToTenant)
-    public function index()
+    public function index(Request $request)
     {
-        $conversations = Conversation::orderBy('last_message_at', 'desc')->get();
+        $query = Conversation::orderBy('last_message_at', 'desc');
+
+        if ($request->filled('tenant_number_id')) {
+            $query->where('tenant_number_id', $request->input('tenant_number_id'));
+        }
+
+        $conversations = $query->get();
             
         return response()->json($conversations);
     }
@@ -97,8 +109,15 @@ class ChatController extends Controller
             'vendor_timestamp' => now(),
         ]);
 
-        // 2. Dispatch Background Job to MSG91 using config()
-        $integratedNumber = config('services.msg91.integrated_number');
+        // 2. Dispatch Background Job to MSG91 using real tenant number
+        try {
+            $integratedNumber = app(\App\Services\TenantResolverService::class)->getIntegratedNumber($conversation->tenant_id);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Configuration Error',
+                'message' => 'No integrated WhatsApp number found for this tenant. Cannot send messages.'
+            ], 422);
+        }
         
         $msg91Payload = [
             'integrated_number' => $integratedNumber,
@@ -205,7 +224,14 @@ class ChatController extends Controller
             'vendor_timestamp' => now(),
         ]);
 
-        $integratedNumber = config('services.msg91.integrated_number');
+        try {
+            $integratedNumber = app(\App\Services\TenantResolverService::class)->getIntegratedNumber($conversation->tenant_id);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Configuration Error',
+                'message' => 'No integrated WhatsApp number found for this tenant. Cannot send messages.'
+            ], 422);
+        }
 
         $msg91Payload = [
             'integrated_number' => $integratedNumber,

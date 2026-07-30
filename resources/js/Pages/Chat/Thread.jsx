@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { usePage } from '@inertiajs/react';
 import Composer from './Composer';
 
 export default function Thread({ conversation }) {
@@ -254,16 +255,22 @@ export default function Thread({ conversation }) {
 
             {/* Bottom Message Input Bar */}
             <div className="flex-shrink-0">
-                <Composer conversation={conversation} onSent={(newMessage) => {
-                    if (newMessage) {
-                        setMessages(prev => {
-                            const exists = prev.some(m => m.id === newMessage.id);
-                            return exists ? prev.map(m => m.id === newMessage.id ? newMessage : m) : [...prev, newMessage];
-                        });
-                    } else {
-                        fetchMessages();
-                    }
-                }} />
+                {usePage().props.impersonation?.is_impersonating ? (
+                    <div className="bg-[#202c33] p-4 text-center text-[#8696a0] border-t border-[#222d34] text-sm">
+                        Sending messages is disabled while impersonating.
+                    </div>
+                ) : (
+                    <Composer conversation={conversation} onSent={(newMessage) => {
+                        if (newMessage) {
+                            setMessages(prev => {
+                                const exists = prev.some(m => m.id === newMessage.id);
+                                return exists ? prev.map(m => m.id === newMessage.id ? newMessage : m) : [...prev, newMessage];
+                            });
+                        } else {
+                            fetchMessages();
+                        }
+                    }} />
+                )}
             </div>
 
             <style>{`

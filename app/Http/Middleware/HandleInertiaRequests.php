@@ -49,7 +49,12 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $request->user() ? $request->user()->load('tenant') : null,
+            ],
+            'impersonation' => [
+                'is_impersonating' => session()->has('impersonating_tenant_id'),
+                'tenant_id' => session('impersonating_tenant_id'),
+                'tenant_name' => session()->has('impersonating_tenant_id') ? \App\Models\Tenant::find(session('impersonating_tenant_id'))?->name ?? 'Unknown' : null,
             ],
         ];
     }

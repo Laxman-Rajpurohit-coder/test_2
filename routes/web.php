@@ -19,10 +19,26 @@ Route::get('/', function () {
 });
 
 // Master SAAS Dashboard Route (Points to Modules\Analytics\Http\Controllers\AnalyticsController)
-Route::get('/dashboard', [AnalyticsController::class, 'index'])
+Route::get('/dashboard', [\Modules\Analytics\Http\Controllers\AnalyticsController::class, 'index'])
     ->middleware(['auth', 'verified'])->name('dashboard');
 
-Route::middleware(['auth'])->group(function () {
+// Admin Auth Routes
+Route::get('/admin/login', [\App\Http\Controllers\Admin\AuthController::class, 'create'])->name('admin.login');
+Route::post('/admin/login', [\App\Http\Controllers\Admin\AuthController::class, 'store'])->name('admin.login.store');
+Route::post('/admin/logout', [\App\Http\Controllers\Admin\AuthController::class, 'destroy'])->name('admin.logout');
+
+Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/tenants', [\App\Http\Controllers\Admin\TenantController::class, 'index'])->name('tenants.index');
+    Route::post('/tenants', [\App\Http\Controllers\Admin\TenantController::class, 'store'])->name('tenants.store');
+    Route::get('/tenants/{tenant}/stats', [\App\Http\Controllers\Admin\TenantController::class, 'stats'])->name('tenants.stats');
+    Route::patch('/tenants/{tenant}/status', [\App\Http\Controllers\Admin\TenantController::class, 'updateStatus'])->name('tenants.status');
+    Route::delete('/tenants/{tenant}', [\App\Http\Controllers\Admin\TenantController::class, 'destroy'])->name('tenants.destroy');
+
+    Route::post('/impersonate/{tenant}', [\App\Http\Controllers\Admin\ImpersonationController::class, 'start'])->name('impersonate.start');
+    Route::post('/impersonate-stop', [\App\Http\Controllers\Admin\ImpersonationController::class, 'stop'])->name('impersonate.stop');
+});
+
+Route::middleware(['auth:web,admin', \App\Http\Middleware\BlockImpersonationWrites::class])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

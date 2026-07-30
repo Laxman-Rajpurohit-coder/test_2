@@ -41,22 +41,27 @@ class ProcessMsg91Webhook implements ShouldQueue
 
             $customerName = $this->payload['customerName'] ?? null;
 
-            // Resolve Tenant ID by integratedNumber in webhook payload AND bind to TenantResolverService
+            // Resolve Tenant ID and Tenant Number ID by integratedNumber in webhook payload
             $integratedNumber = $this->payload['integratedNumber'] ?? config('services.msg91.integrated_number') ?? '917425889008';
-            $tenantId = app(TenantResolverService::class)->getTenantIdByIntegratedNumber($integratedNumber);
+            
+            $tenantNumberRecord = app(TenantResolverService::class)->getTenantNumberRecord($integratedNumber);
+            $tenantId = $tenantNumberRecord ? (int) $tenantNumberRecord->tenant_id : 1;
+            $tenantNumberId = $tenantNumberRecord ? $tenantNumberRecord->id : null;
+            
             app(TenantResolverService::class)->setActiveTenantId($tenantId);
 
-            // 1. PostgreSQL atomic upsert for conversations (with tenant_id)
+            // 1. PostgreSQL atomic upsert for conversations (with tenant_id and tenant_number_id)
             $convSql = "
-                INSERT INTO conversations (tenant_id, customer_number, last_message_at, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT (customer_number)
+                INSERT INTO conversations (tenant_id, tenant_number_id, customer_number, last_message_at, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT (tenant_id, customer_number)
                 DO UPDATE SET 
+                    tenant_number_id = EXCLUDED.tenant_number_id,
                     last_message_at = EXCLUDED.last_message_at,
                     updated_at = EXCLUDED.updated_at
                 RETURNING id
             ";
-            $convResult = DB::select($convSql, [$tenantId, $customerNumber, now(), now(), now()]);
+            $convResult = DB::select($convSql, [$tenantId, $tenantNumberId, $customerNumber, now(), now(), now()]);
             $conversationId = $convResult[0]->id;
 
             // Direct parser for MSG91 Webhook Schema (URL, ContentType, Text, Caption, Button/List Payloads)

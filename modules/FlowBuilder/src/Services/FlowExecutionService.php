@@ -256,46 +256,26 @@ class FlowExecutionService
      */
     protected function sendWhatsAppReply(FlowSession $session, string $text): void
     {
-        DB::transaction(function () use ($session, $text) {
-            $outboundMessageId = Str::uuid()->toString();
+        $integratedNumber = app(\App\Services\TenantResolverService::class)->getIntegratedNumber($session->tenant_id);
 
-            $contentStruct = [
-                'type' => 'text',
-                'text' => $text,
-            ];
+        $contentStruct = [
+            'type' => 'text',
+            'text' => $text,
+        ];
 
-            // Build MSG91 Outbound Payload using canonical Msg91PayloadBuilder helper
-            $msg91Payload = Msg91PayloadBuilder::build(
-                $session->customer_number,
-                'text',
-                ['text' => $text]
-            );
+        $msg91Payload = \App\Services\Msg91PayloadBuilder::build(
+            $session->customer_number,
+            'text',
+            ['text' => $text],
+            $integratedNumber
+        );
 
-            $outboundMessage = WhatsappMessage::create([
-                'id'               => $outboundMessageId,
-                'tenant_id'        => $session->tenant_id,
-                'conversation_id'  => $session->conversation_id,
-                'request_id'       => null,
-                'meta_uuid'        => null,
-                'direction'        => 'outbound',
-                'status'           => 'queued',
-                'content'          => json_encode($contentStruct),
-                'failure_reason'   => null,
-                'vendor_timestamp' => now(),
-            ]);
-
-            Conversation::where('id', $session->conversation_id)
-                ->update(['last_message_at' => now(), 'updated_at' => now()]);
-
-            try {
-                broadcast(new MessageReceived($session->conversation_id, $outboundMessage))->toOthers();
-            } catch (\Throwable $e) {
-                Log::warning('WebSocket Broadcast Failed in FlowExecutionService: ' . $e->getMessage());
-            }
-
-            // Dispatch MSG91 HTTP outbound job strictly AFTER transaction commits
-            SendMsg91Message::dispatch($outboundMessageId, $msg91Payload, $session->conversation_id)->afterCommit();
-        });
+        \App\Services\OutboundReplyService::send(
+            $session->conversation_id,
+            $session->tenant_id,
+            $contentStruct,
+            $msg91Payload
+        );
     }
 
     /**

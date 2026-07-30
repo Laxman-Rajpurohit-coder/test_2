@@ -4,12 +4,17 @@ import AppLayout from '@/Layouts/AppLayout';
 import Sidebar from './Sidebar';
 import Thread from './Thread';
 
-export default function ChatIndex({ auth }) {
+export default function ChatIndex({ auth, tenantNumbers }) {
     const [conversations, setConversations] = useState([]);
     const [activeConversation, setActiveConversation] = useState(null);
+    const [selectedNumberId, setSelectedNumberId] = useState(null);
 
     const fetchConversations = () => {
-        window.axios.get('/api/conversations').then(res => {
+        let url = '/api/conversations';
+        if (selectedNumberId) {
+            url += `?tenant_number_id=${selectedNumberId}`;
+        }
+        window.axios.get(url).then(res => {
             setConversations(res.data);
         });
     };
@@ -18,7 +23,7 @@ export default function ChatIndex({ auth }) {
         fetchConversations();
         const interval = setInterval(fetchConversations, 10000); // Polling fallback
         return () => clearInterval(interval);
-    }, []);
+    }, [selectedNumberId]);
 
     return (
         <AppLayout>
@@ -32,6 +37,9 @@ export default function ChatIndex({ auth }) {
                         activeConversation={activeConversation} 
                         onSelect={setActiveConversation} 
                         user={auth?.user}
+                        tenantNumbers={tenantNumbers}
+                        selectedNumberId={selectedNumberId}
+                        onSelectNumber={setSelectedNumberId}
                     />
                 </aside>
                 

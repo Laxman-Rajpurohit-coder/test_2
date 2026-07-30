@@ -15,7 +15,9 @@ class IdentifyTenant
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (auth()->check() && !empty(auth()->user()->tenant_id)) {
+        if (session()->has('impersonating_tenant_id')) {
+            app(TenantResolverService::class)->setActiveTenantId((int) session('impersonating_tenant_id'));
+        } elseif (auth()->check() && !empty(auth()->user()->tenant_id)) {
             app(TenantResolverService::class)->setActiveTenantId((int) auth()->user()->tenant_id);
         }
 

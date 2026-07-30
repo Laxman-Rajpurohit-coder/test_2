@@ -56,7 +56,7 @@ class BotTriggerService
     /**
      * Evaluate incoming message text against active bot triggers.
      */
-    public function matchAndBuildResponse(string $messageText, string $customerNumber, ?string $customerName = null): ?array
+    public function matchAndBuildResponse(string $messageText, string $customerNumber, string $integratedNumber, ?string $customerName = null): ?array
     {
         $matchedTrigger = $this->matchTrigger($messageText);
 
@@ -100,7 +100,8 @@ class BotTriggerService
         $msg91Payload = Msg91PayloadBuilder::build(
             $customerNumber,
             $matchedTrigger->response_type,
-            $data
+            $data,
+            $integratedNumber
         );
 
         return [

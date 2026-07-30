@@ -13,13 +13,16 @@ class Conversation extends Model
     protected $fillable = [
         'tenant_id',
         'customer_number',
+        'customer_name',
         'last_message_at',
         'is_human_escalated',
+        'ai_fallback_count',
     ];
 
     protected $casts = [
         'last_message_at' => 'datetime',
         'is_human_escalated' => 'boolean',
+        'ai_fallback_count' => 'integer',
     ];
 
     public function messages()
