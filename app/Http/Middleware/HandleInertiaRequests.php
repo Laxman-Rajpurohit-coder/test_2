@@ -46,15 +46,21 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $user = $request->user();
+        // Only regular tenant Users have a tenant relationship; AdminUser does not.
+        $isRegularUser = $user instanceof \App\Models\User;
+        $tenant = $isRegularUser ? $user->tenant : null;
+
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user() ? $request->user()->load('tenant') : null,
+                'user' => $user ? ($isRegularUser ? $user->load('tenant') : $user) : null,
             ],
+            'tenant_features' => $tenant?->features ?? [],
             'impersonation' => [
                 'is_impersonating' => session()->has('impersonating_tenant_id'),
-                'tenant_id' => session('impersonating_tenant_id'),
-                'tenant_name' => session()->has('impersonating_tenant_id') ? \App\Models\Tenant::find(session('impersonating_tenant_id'))?->name ?? 'Unknown' : null,
+                'tenant_id'        => session('impersonating_tenant_id'),
+                'tenant_name'      => session()->has('impersonating_tenant_id') ? \App\Models\Tenant::find(session('impersonating_tenant_id'))?->name ?? 'Unknown' : null,
             ],
         ];
     }

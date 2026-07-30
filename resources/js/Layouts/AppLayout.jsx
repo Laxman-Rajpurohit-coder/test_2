@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 
 export default function AppLayout({ children }) {
-    const { auth } = usePage().props;
+    const { auth, tenant_features } = usePage().props;
     const userName = auth?.user?.name || 'MTech Systems';
     const userEmail = auth?.user?.email || 'admin@msg91.com';
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -13,17 +13,19 @@ export default function AppLayout({ children }) {
     const isBotPage = currentPath.startsWith('/bot-triggers');
     const isTenantSettingsPage = currentPath.startsWith('/settings/tenant');
 
+    const features = tenant_features || {};
+
     const navigation = [
         { name: 'Dashboard', href: '/dashboard', icon: '🎛️', active: currentPath === '/dashboard' || currentPath.startsWith('/analytics') },
         { name: 'Inbox', href: '/chat', icon: '💬', badge: 'Live', active: isChatPage },
-        { name: 'Bot Auto-Responder', href: '/bot-triggers', icon: '🤖', active: isBotPage },
-        { name: 'Flow Builder', href: '/flows', icon: '🔄', active: currentPath.startsWith('/flows') },
+        features.bot_auto_responder && { name: 'Bot Auto-Responder', href: '/bot-triggers', icon: '🤖', active: isBotPage },
+        features.flow_builder && { name: 'Flow Builder', href: '/flows', icon: '🔄', active: currentPath.startsWith('/flows') },
         { name: 'Tenant API Settings', href: '/settings/tenant', icon: '🔑', active: isTenantSettingsPage },
         { name: 'Contacts', href: '/coming-soon', icon: '📇', hasSub: true, active: currentPath === '/coming-soon' },
         { name: 'Team Management', href: '/coming-soon', icon: '👥', active: currentPath === '/coming-soon' },
         { name: 'Integrations', href: '/coming-soon', icon: '🔌', active: currentPath === '/coming-soon' },
         { name: 'Message Logs', href: '/coming-soon', icon: '📜', active: currentPath === '/coming-soon' },
-    ];
+    ].filter(Boolean);
 
     return (
         <div className="min-h-screen bg-[#f4f6f9] text-gray-800 flex font-sans antialiased">

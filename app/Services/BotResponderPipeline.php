@@ -38,6 +38,14 @@ class BotResponderPipeline
      */
     public function process(InboundMessageContext $context): bool
     {
+        // Feature Toggle Guard: abort immediately if tenant doesn't have bot_auto_responder enabled.
+        // This prevents backend compute (AI calls, Flow execution) for tenants without the feature.
+        $tenant = \App\Models\Tenant::find($context->tenantId);
+        if (!$tenant || !$tenant->hasFeature('bot_auto_responder')) {
+            Log::info("BotResponderPipeline: Tenant {$context->tenantId} does not have 'bot_auto_responder' feature enabled. Pipeline skipped for message {$context->messageId}.");
+            return false;
+        }
+
         foreach ($this->responders as $entry) {
             $responder = $entry['responder'];
             

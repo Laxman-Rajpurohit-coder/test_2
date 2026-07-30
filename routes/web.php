@@ -11,10 +11,10 @@ use Inertia\Inertia;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
+        'canLogin'      => Route::has('login'),
+        'canRegister'   => Route::has('register'),
+        'laravelVersion'=> Application::VERSION,
+        'phpVersion'    => PHP_VERSION,
     ]);
 });
 
@@ -55,12 +55,21 @@ Route::middleware(['auth:web,admin', \App\Http\Middleware\BlockImpersonationWrit
     Route::post('/api/conversations/{id}/messages', [ChatController::class, 'store']);
     Route::post('/api/conversations/{id}/media', [ChatController::class, 'storeMedia']);
 
-    // Automated Bot Trigger Routes
-    Route::get('/bot-triggers', [BotTriggerController::class, 'index'])->name('bot-triggers.index');
-    Route::post('/bot-triggers', [BotTriggerController::class, 'store'])->name('bot-triggers.store');
-    Route::put('/bot-triggers/{id}', [BotTriggerController::class, 'update'])->name('bot-triggers.update');
-    Route::patch('/bot-triggers/{id}/toggle', [BotTriggerController::class, 'toggleActive'])->name('bot-triggers.toggle');
-    Route::delete('/bot-triggers/{id}', [BotTriggerController::class, 'destroy'])->name('bot-triggers.destroy');
+    // Automated Bot Trigger Routes (requires bot_auto_responder feature)
+    Route::middleware(['feature:bot_auto_responder'])->group(function () {
+        Route::get('/bot-triggers', [BotTriggerController::class, 'index'])->name('bot-triggers.index');
+        Route::post('/bot-triggers', [BotTriggerController::class, 'store'])->name('bot-triggers.store');
+        Route::put('/bot-triggers/{id}', [BotTriggerController::class, 'update'])->name('bot-triggers.update');
+        Route::patch('/bot-triggers/{id}/toggle', [BotTriggerController::class, 'toggleActive'])->name('bot-triggers.toggle');
+        Route::delete('/bot-triggers/{id}', [BotTriggerController::class, 'destroy'])->name('bot-triggers.destroy');
+    });
+
+    // Flow Builder Routes (requires flow_builder feature)
+    Route::middleware(['feature:flow_builder'])->group(function () {
+        Route::get('/flows', function () {
+            return Inertia::render('Flows/Index');
+        })->name('flows.index');
+    });
 
     // Tenant Integration Settings Routes
     Route::get('/settings/tenant', [TenantSettingsController::class, 'edit'])->name('settings.tenant.edit');
