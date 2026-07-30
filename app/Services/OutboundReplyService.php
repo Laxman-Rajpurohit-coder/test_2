@@ -13,7 +13,12 @@ use Illuminate\Support\Str;
 class OutboundReplyService
 {
     /**
-     * Send Outbound WhatsApp Message with Atomic DB::transaction and ->afterCommit() dispatching.
+     * Creates and queues an outbound WhatsApp message while atomically updating its conversation.
+     *
+     * @param int $conversationId The conversation receiving the message.
+     * @param int $tenantId The tenant associated with the conversation.
+     * @param array $contentStruct The message content to store.
+     * @param array $msg91Payload The payload passed to the Msg91 delivery job.
      */
     public static function send(int $conversationId, int $tenantId, array $contentStruct, array $msg91Payload): void
     {

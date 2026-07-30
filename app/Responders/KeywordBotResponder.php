@@ -22,6 +22,12 @@ class KeywordBotResponder implements BotResponderInterface
         $this->botService = $botService;
     }
 
+    /**
+     * Attempts to handle an inbound message using configured keyword triggers.
+     *
+     * @param InboundMessageContext $context The inbound message and conversation details.
+     * @return bool `true` if a keyword response was sent, `false` if no keyword matched.
+     */
     public function attemptHandle(InboundMessageContext $context): bool
     {
         $integratedNumber = app(\App\Services\TenantResolverService::class)->getIntegratedNumber($context->tenantId);

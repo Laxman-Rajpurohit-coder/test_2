@@ -48,7 +48,9 @@ class User extends Authenticatable
     }
 
     /**
-     * Get the tenant that the user belongs to.
+     * Gets the tenant that the user belongs to.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo The user's tenant relationship.
      */
     public function tenant()
     {

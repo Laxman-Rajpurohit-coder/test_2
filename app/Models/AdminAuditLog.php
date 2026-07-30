@@ -14,6 +14,11 @@ class AdminAuditLog extends Model
         'metadata',
     ];
 
+    /**
+     * Defines attribute casting rules for the model.
+     *
+     * @return array The model's attribute casting configuration.
+     */
     protected function casts(): array
     {
         return [
@@ -21,6 +26,11 @@ class AdminAuditLog extends Model
         ];
     }
 
+    /**
+     * Associates the audit log entry with its administrative user.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo The administrative user relationship.
+     */
     public function adminUser()
     {
         return $this->belongsTo(AdminUser::class);

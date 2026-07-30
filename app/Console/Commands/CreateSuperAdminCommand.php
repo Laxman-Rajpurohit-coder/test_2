@@ -21,7 +21,9 @@ class CreateSuperAdminCommand extends Command
     protected $description = 'Create a new super admin account';
 
     /**
-     * Execute the console command.
+     * Creates a super admin account from command options or interactive input.
+     *
+     * @return int Command success or failure status.
      */
     public function handle()
     {

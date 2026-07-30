@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 
+/**
+ * Render the application shell with responsive navigation and the main content area.
+ * @param {React.ReactNode} children - The content to render inside the main content area.
+ * @returns {JSX.Element} The application layout.
+ */
 export default function AppLayout({ children }) {
     const { auth } = usePage().props;
     const userName = auth?.user?.name || 'MTech Systems';

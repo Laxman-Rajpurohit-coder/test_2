@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Creates the `admin_users` database table.
      */
     public function up(): void
     {
@@ -22,7 +22,7 @@ return new class extends Migration
     }
 
     /**
-     * Reverse the migrations.
+     * Removes the `admin_users` table if it exists.
      */
     public function down(): void
     {

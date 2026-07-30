@@ -31,7 +31,11 @@ class AiBotService
     }
 
     /**
-     * Generate response via OpenAI Chat Completions API with confidence threshold.
+     * Generates a response through the OpenAI Chat Completions API when the response meets the configured confidence threshold.
+     *
+     * @param string $userPrompt The user's prompt to send to OpenAI.
+     * @param TenantSetting $setting Tenant-specific OpenAI configuration and confidence threshold.
+     * @return string|null The trimmed response text, or `null` if the request fails, produces invalid output, or falls below the confidence threshold.
      */
     protected function generateOpenAiResponse(string $userPrompt, TenantSetting $setting): ?string
     {

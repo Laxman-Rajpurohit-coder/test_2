@@ -19,7 +19,9 @@ class TenantResolverService
     }
 
     /**
-     * Get active tenant ID, falling back to authenticated user's tenant_id or Tenant 1.
+     * Resolves the active tenant for the current context.
+     *
+     * @return int The explicitly assigned tenant ID, the authenticated user's tenant ID, or `1` as the default.
      */
     public function getActiveTenantId(): int
     {
@@ -35,7 +37,10 @@ class TenantResolverService
     }
 
     /**
-     * Resolve Tenant Number record by WhatsApp integrated number (many-to-one mapping).
+     * Finds the tenant number record associated with an integrated WhatsApp number.
+     *
+     * @param string $integratedNumber The integrated WhatsApp number to resolve.
+     * @return object|null The matching tenant number record, or null if no mapping exists.
      */
     public function getTenantNumberRecord(string $integratedNumber): ?object
     {
@@ -53,7 +58,11 @@ class TenantResolverService
     }
 
     /**
-     * Legacy method for getting just the tenant ID.
+     * Resolves an integrated WhatsApp number to its tenant ID.
+     *
+     * @param string $integratedNumber The integrated number to resolve.
+     * @return int The ID of the tenant associated with the number.
+     * @throws \Exception If the integrated number is not mapped to a tenant.
      */
     public function getTenantIdByIntegratedNumber(string $integratedNumber): int
     {
@@ -66,8 +75,11 @@ class TenantResolverService
     }
 
     /**
-     * Resolve the primary MSG91 integrated number for a specific tenant.
-     * Throws an exception if no number is configured.
+     * Resolves the integrated WhatsApp number configured for a tenant.
+     *
+     * @param int $tenantId The tenant identifier.
+     * @return string The tenant's integrated WhatsApp number.
+     * @throws \Exception If no integrated WhatsApp number is configured for the tenant.
      */
     public function getIntegratedNumber(int $tenantId): string
     {

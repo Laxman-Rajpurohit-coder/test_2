@@ -2,6 +2,12 @@ import React from 'react';
 import { Head, Link, useForm, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
+/**
+ * Render the admin page for managing tenants.
+ * @param {Object} auth - Authentication data used to identify the current user.
+ * @param {Array} tenants - Tenants displayed in the management table.
+ * @return {JSX.Element} The rendered tenant management page.
+ */
 export default function TenantIndex({ auth, tenants }) {
     return (
         <AuthenticatedLayout
