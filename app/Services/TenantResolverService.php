@@ -35,9 +35,9 @@ class TenantResolverService
     }
 
     /**
-     * Resolve Tenant ID by WhatsApp integrated number (many-to-one mapping).
+     * Resolve Tenant Number record by WhatsApp integrated number (many-to-one mapping).
      */
-    public function getTenantIdByIntegratedNumber(string $integratedNumber): int
+    public function getTenantNumberRecord(string $integratedNumber): ?object
     {
         $cleanNumber = trim($integratedNumber);
         $record = DB::table('tenant_numbers')
@@ -45,11 +45,41 @@ class TenantResolverService
             ->first();
 
         if ($record) {
-            return (int) $record->tenant_id;
+            return $record;
         }
 
-        Log::warning("TenantResolverService: Number {$integratedNumber} not mapped to any tenant. Falling back to Tenant 1.");
-        return 1;
+        Log::warning("TenantResolverService: Number {$integratedNumber} not mapped to any tenant. Falling back to null.");
+        return null;
+    }
+
+    /**
+     * Legacy method for getting just the tenant ID.
+     */
+    public function getTenantIdByIntegratedNumber(string $integratedNumber): int
+    {
+        $record = $this->getTenantNumberRecord($integratedNumber);
+        if ($record) {
+            return (int) $record->tenant_id;
+        }
+        
+        throw new \Exception("SECURITY ABORT: Unmapped integrated number {$integratedNumber} cannot be resolved to a tenant. Failing closed.");
+    }
+
+    /**
+     * Resolve the primary MSG91 integrated number for a specific tenant.
+     * Throws an exception if no number is configured.
+     */
+    public function getIntegratedNumber(int $tenantId): string
+    {
+        $number = DB::table('tenant_numbers')
+            ->where('tenant_id', $tenantId)
+            ->value('integrated_number');
+
+        if (empty($number)) {
+            throw new \Exception("No integrated WhatsApp number found for Tenant ID {$tenantId}.");
+        }
+
+        return $number;
     }
 
     /**

@@ -76,12 +76,16 @@ export default function AppLayout({ children }) {
                 <div className="p-4 border-t border-gray-100">
                     <div className="flex items-center justify-between bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
                         <div className="flex items-center gap-2.5 overflow-hidden">
-                            <div className="w-8 h-8 rounded-full bg-emerald-100 text-[#00a884] font-bold text-xs flex items-center justify-center border border-emerald-200">
-                                {userName.substring(0, 2).toUpperCase()}
+                            <div className="w-8 h-8 rounded-full bg-emerald-100 text-[#00a884] font-bold text-xs flex items-center justify-center border border-emerald-200 shrink-0">
+                                {auth?.user?.tenant?.name ? auth.user.tenant.name.substring(0, 2).toUpperCase() : userName.substring(0, 2).toUpperCase()}
                             </div>
                             <div className="truncate">
-                                <div className="text-xs font-bold text-gray-900 truncate">{userName}</div>
-                                <div className="text-[10px] text-gray-400 truncate">{userEmail}</div>
+                                <div className="text-xs font-bold text-gray-900 truncate" title={auth?.user?.tenant?.name || userName}>
+                                    {auth?.user?.tenant?.name || userName}
+                                </div>
+                                <div className="text-[10px] text-gray-500 truncate font-medium" title={userName}>
+                                    {userName}
+                                </div>
                             </div>
                         </div>
                         <Link
@@ -166,6 +170,22 @@ export default function AppLayout({ children }) {
                         </div>
                     </div>
                 </header>
+
+                {usePage().props.impersonation?.is_impersonating && (
+                    <div className="bg-rose-50 border-b border-rose-200 px-6 py-2 flex items-center justify-between sticky top-16 z-30">
+                        <div className="flex items-center gap-2 text-rose-800">
+                            <span className="animate-pulse">🔴</span>
+                            <span className="font-bold text-sm">Super Admin Impersonation Active:</span>
+                            <span className="text-sm">Viewing as <strong>{usePage().props.impersonation.tenant_name}</strong> (Read-Only)</span>
+                        </div>
+                        <form method="POST" action="/admin/impersonate-stop">
+                            <input type="hidden" name="_token" value={document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')} />
+                            <button type="submit" className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-sm transition-colors">
+                                Exit Impersonation
+                            </button>
+                        </form>
+                    </div>
+                )}
 
                 <main className="flex-1 p-6 md:p-8">
                     {children}

@@ -15,7 +15,7 @@ class AnalyticsService
      * Fetch comprehensive operational metrics filtered by date range and client timezone
      * (Scoped by BelongsToTenant Eloquent Global Scope)
      */
-    public function getOverviewMetrics(?string $dateFrom = null, ?string $dateTo = null, ?string $timezone = 'UTC'): array
+    public function getOverviewMetrics(?string $dateFrom = null, ?string $dateTo = null, ?string $timezone = 'UTC', ?int $tenantId = null): array
     {
         // 1. Timezone Validation Guard
         $timezone = ($timezone && in_array($timezone, DateTimeZone::listIdentifiers())) ? $timezone : 'UTC';
@@ -33,16 +33,24 @@ class AnalyticsService
             ->setTimezone('UTC')
             ->toDateTimeString();
 
-        // Base Eloquent Query Builder for whatsapp_messages inside date range (Scoped by BelongsToTenant)
-        $messagesQuery = WhatsappMessage::query()
+        // Helper to apply tenant scoping manually if an explicit tenantId is provided, bypassing the session scope
+        $applyTenantScope = function ($query) use ($tenantId) {
+            if ($tenantId !== null) {
+                return $query->withoutGlobalScope('tenant_isolation')->where($query->getModel()->getTable() . '.tenant_id', $tenantId);
+            }
+            return $query;
+        };
+
+        // Base Eloquent Query Builder for whatsapp_messages inside date range
+        $messagesQuery = $applyTenantScope(WhatsappMessage::query())
             ->whereBetween('created_at', [$startUtc, $endUtc]);
 
-        $totalConversations = Conversation::query()
+        $totalConversations = $applyTenantScope(Conversation::query())
             ->whereBetween('created_at', [$startUtc, $endUtc])
             ->count();
 
-        // Active bot trigger rules count (Scoped by BelongsToTenant)
-        $activeTriggersCount = BotTrigger::query()->where('is_active', true)->count();
+        // Active bot trigger rules count
+        $activeTriggersCount = $applyTenantScope(BotTrigger::query())->where('is_active', true)->count();
 
         // Inbound vs Outbound counts
         $inboundMessages = (clone $messagesQuery)->where('direction', 'inbound')->count();
@@ -55,21 +63,33 @@ class AnalyticsService
             ->pluck('total', 'status')
             ->toArray();
 
+        $isSqlite = DB::connection()->getDriverName() === 'sqlite';
+
         // Type breakdown within range
+        $typeField = $isSqlite 
+            ? "COALESCE(json_extract(content, '$.type'), 'text')"
+            : "COALESCE(NULLIF((content::jsonb)->>'type', ''), 'text')";
+
         $typeCounts = (clone $messagesQuery)
-            ->select(DB::raw("COALESCE(NULLIF((content::jsonb)->>'type', ''), 'text') as msg_type"), DB::raw('count(*) as total'))
-            ->groupBy(DB::raw("COALESCE(NULLIF((content::jsonb)->>'type', ''), 'text')"))
+            ->select(DB::raw("$typeField as msg_type"), DB::raw('count(*) as total'))
+            ->groupBy(DB::raw($typeField))
             ->pluck('total', 'msg_type')
             ->toArray();
 
-        // 1. Messages per day trend line (Scoped by BelongsToTenant & timezone)
-        $messagesPerDay = WhatsappMessage::query()
+        // 1. Messages per day trend line
+        $dateSelect = $isSqlite 
+            ? "DATE(created_at) as date" 
+            : "DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE ?) as date";
+            
+        $bindingsDay = $isSqlite ? [] : [$timezone];
+
+        $messagesPerDay = $applyTenantScope(WhatsappMessage::query())
             ->selectRaw(
-                "DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE ?) as date, " .
+                "$dateSelect, " .
                 "COUNT(CASE WHEN direction = 'inbound' THEN 1 END) as inbound, " .
                 "COUNT(CASE WHEN direction = 'outbound' THEN 1 END) as outbound, " .
                 "COUNT(*) as total",
-                [$timezone]
+                $bindingsDay
             )
             ->whereBetween('created_at', [$startUtc, $endUtc])
             ->groupByRaw("1")
@@ -83,12 +103,15 @@ class AnalyticsService
             ])
             ->toArray();
 
-        // 2. Busiest hours distribution (Scoped by BelongsToTenant & timezone)
-        $busiestHoursRaw = WhatsappMessage::query()
-            ->selectRaw(
-                "EXTRACT(HOUR FROM (created_at AT TIME ZONE 'UTC' AT TIME ZONE ?)) as hour, COUNT(*) as count",
-                [$timezone]
-            )
+        // 2. Busiest hours distribution
+        $hourSelect = $isSqlite
+            ? "CAST(strftime('%H', created_at) AS INTEGER) as hour"
+            : "EXTRACT(HOUR FROM (created_at AT TIME ZONE 'UTC' AT TIME ZONE ?)) as hour";
+
+        $bindingsHour = $isSqlite ? [] : [$timezone];
+
+        $busiestHoursRaw = $applyTenantScope(WhatsappMessage::query())
+            ->selectRaw("$hourSelect, COUNT(*) as count", $bindingsHour)
             ->whereBetween('created_at', [$startUtc, $endUtc])
             ->groupByRaw("1")
             ->orderBy('hour', 'asc')
@@ -104,8 +127,13 @@ class AnalyticsService
             ];
         }
 
-        // 3. Average First Response Time (Minutes) within range (Scoped by Tenant ID)
-        $tenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
+        // 3. Average First Response Time (Minutes) within range
+        $targetTenantId = $tenantId ?? app(\App\Services\TenantResolverService::class)->getActiveTenantId();
+        
+        $avgMinutesSelect = $isSqlite 
+            ? "AVG((julianday(fo.first_outbound_at) - julianday(fi.first_inbound_at)) * 24 * 60) as avg_minutes"
+            : "AVG(EXTRACT(EPOCH FROM (fo.first_outbound_at - fi.first_inbound_at)) / 60) as avg_minutes";
+
         $avgResponse = DB::select("
             WITH first_inbound AS (
                 SELECT conversation_id, MIN(created_at) as first_inbound_at
@@ -120,17 +148,17 @@ class AnalyticsService
                 WHERE m.tenant_id = ? AND m.direction = 'outbound' AND m.created_at >= fi.first_inbound_at
                 GROUP BY m.conversation_id
             )
-            SELECT AVG(EXTRACT(EPOCH FROM (fo.first_outbound_at - fi.first_inbound_at)) / 60) as avg_minutes
+            SELECT $avgMinutesSelect
             FROM first_inbound fi
             JOIN first_outbound fo ON fi.conversation_id = fo.conversation_id
-        ", [$tenantId, $startUtc, $endUtc, $tenantId]);
+        ", [$targetTenantId, $startUtc, $endUtc, $targetTenantId]);
 
         $avgFirstResponseMinutes = isset($avgResponse[0]->avg_minutes) && !is_null($avgResponse[0]->avg_minutes)
             ? round((float)$avgResponse[0]->avg_minutes, 1)
             : null;
 
-        // 4. Recent Activity Stream (Scoped by BelongsToTenant)
-        $recentMessages = WhatsappMessage::with('conversation')
+        // 4. Recent Activity Stream
+        $recentMessages = $applyTenantScope(WhatsappMessage::with('conversation'))
             ->orderBy('created_at', 'desc')
             ->take(6)
             ->get()

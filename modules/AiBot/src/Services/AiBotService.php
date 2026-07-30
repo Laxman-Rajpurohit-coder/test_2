@@ -63,11 +63,23 @@ class AiBotService
                 $content = $data['choices'][0]['message']['content'] ?? '{}';
                 
                 $parsed = json_decode($content, true);
+                
+                if (json_last_error() !== JSON_ERROR_NONE || !is_array($parsed)) {
+                    Log::warning("AiBotService: OpenAI returned malformed JSON. Failing closed.", ['content' => $content]);
+                    return null;
+                }
+
                 $reply = $parsed['reply'] ?? '';
-                $confidence = (float) ($parsed['confidence'] ?? 1.0);
+                // If confidence is omitted, default to 0.0 (fail closed) instead of 1.0
+                $confidence = isset($parsed['confidence']) ? (float) $parsed['confidence'] : 0.0;
 
                 if ($confidence < $setting->ai_confidence_threshold) {
                     Log::info("AiBotService: OpenAI response confidence ({$confidence}) was below threshold ({$setting->ai_confidence_threshold}). Escalating.");
+                    return null;
+                }
+
+                if (empty(trim($reply))) {
+                    Log::info("AiBotService: OpenAI returned empty reply despite passing confidence. Escalating.");
                     return null;
                 }
 

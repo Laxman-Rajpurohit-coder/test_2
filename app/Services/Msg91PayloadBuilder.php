@@ -7,11 +7,11 @@ class Msg91PayloadBuilder
     /**
      * Build unified MSG91 WhatsApp Outbound API payload structure.
      */
-    public static function build(string $recipientNumber, string $contentType, array $data, ?string $integratedNumber = null): array
+    public static function build(string $recipientNumber, string $contentType, array $data, string $integratedNumber): array
     {
-        $integratedNumber = $integratedNumber
-            ?: config('services.msg91.integrated_number')
-            ?: '917425889008';
+        if (empty($integratedNumber)) {
+            throw new \InvalidArgumentException('Msg91PayloadBuilder: Integrated number is required and cannot be empty.');
+        }
 
         $payload = [
             'integrated_number' => $integratedNumber,

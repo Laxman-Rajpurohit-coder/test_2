@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function Sidebar({ conversations, activeConversation, onSelect, user }) {
+export default function Sidebar({ conversations, activeConversation, onSelect, user, tenantNumbers, selectedNumberId, onSelectNumber }) {
     const [searchQuery, setSearchQuery] = useState('');
 
     const filteredConversations = conversations.filter(conv => 
@@ -58,6 +58,24 @@ export default function Sidebar({ conversations, activeConversation, onSelect, u
                     </button>
                 </div>
             </header>
+
+            {/* Tenant Number Selector */}
+            {tenantNumbers && tenantNumbers.length > 0 && (
+                <div className="p-2 bg-[#111b21] border-r border-[#222d34] flex-shrink-0 border-b">
+                    <select
+                        value={selectedNumberId || ''}
+                        onChange={(e) => onSelectNumber(e.target.value ? Number(e.target.value) : null)}
+                        className="w-full bg-[#202c33] text-[#e9edef] border-none rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[#00a884]"
+                    >
+                        <option value="">All Numbers</option>
+                        {tenantNumbers.map(tn => (
+                            <option key={tn.id} value={tn.id}>
+                                +{tn.integrated_number}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            )}
 
             {/* Search Bar Container */}
             <div className="p-2 bg-[#111b21] border-r border-[#222d34] flex-shrink-0">

@@ -58,16 +58,30 @@ class AiBotResponder implements BotResponderInterface
         // 3. Generate Response via LLM Provider
         $aiReplyText = $this->aiBotService->generateResponse($messageText, $setting);
         
-        // 4. Handle Low Confidence (Fail-Closed return null) -> Escalate
+        // 4. Handle Low Confidence (Fail-Closed return null) -> 2-Strike Escalation
         if (empty($aiReplyText)) {
             if ($setting->ai_human_escalation_enabled) {
-                $this->escalateToHuman($conversation, $context, "I'm not completely sure about that. I am connecting you to a human support agent who can help.");
+                // Increment fallback counter
+                $conversation->increment('ai_fallback_count');
+                
+                // 2-Strike Circuit Breaker
+                if ($conversation->fresh()->ai_fallback_count >= 2) {
+                    $this->escalateToHuman($conversation, $context, "I'm still having trouble understanding. I am connecting you to a human support agent who can help.");
+                    return true;
+                }
+                
+                // First strike fallback response
+                $this->sendWhatsAppReply($context->conversationId, $context->tenantId, $context->customerNumber, "I'm not completely sure about that. Could you rephrase your question?");
                 return true;
             }
             return false; // Could not generate response and escalation is disabled
         }
 
-        // 5. Dispatch Outbound WhatsApp Reply
+        // 5. Successful AI Response -> Reset Circuit Breaker and Send
+        if ($conversation->ai_fallback_count > 0) {
+            $conversation->update(['ai_fallback_count' => 0]);
+        }
+
         $this->sendWhatsAppReply($context->conversationId, $context->tenantId, $context->customerNumber, $aiReplyText);
 
         return true;
@@ -80,7 +94,10 @@ class AiBotResponder implements BotResponderInterface
     {
         Log::info("AiBotResponder: Escalating conversation {$context->conversationId} to human agent.");
 
-        $conversation->update(['is_human_escalated' => true]);
+        $conversation->update([
+            'is_human_escalated' => true,
+            'ai_fallback_count'  => 0 // Reset on manual escalation
+        ]);
         
         try {
             broadcast(new ConversationEscalated($conversation))->toOthers();
@@ -112,44 +129,26 @@ class AiBotResponder implements BotResponderInterface
      */
     protected function sendWhatsAppReply(int $conversationId, int $tenantId, string $customerNumber, string $text): void
     {
-        DB::transaction(function () use ($conversationId, $tenantId, $customerNumber, $text) {
-            $outboundMessageId = Str::uuid()->toString();
+        $integratedNumber = app(\App\Services\TenantResolverService::class)->getIntegratedNumber($tenantId);
 
-            $contentStruct = [
-                'type' => 'text',
-                'text' => $text,
-            ];
+        $contentStruct = [
+            'type' => 'text',
+            'text' => $text,
+        ];
 
-            $msg91Payload = Msg91PayloadBuilder::build(
-                $customerNumber,
-                'text',
-                ['text' => $text]
-            );
+        $msg91Payload = \App\Services\Msg91PayloadBuilder::build(
+            $customerNumber,
+            'text',
+            ['text' => $text],
+            $integratedNumber
+        );
 
-            $outboundMessage = WhatsappMessage::create([
-                'id'               => $outboundMessageId,
-                'tenant_id'        => $tenantId,
-                'conversation_id'  => $conversationId,
-                'request_id'       => null,
-                'meta_uuid'        => null,
-                'direction'        => 'outbound',
-                'status'           => 'queued',
-                'content'          => json_encode($contentStruct),
-                'failure_reason'   => null,
-                'vendor_timestamp' => now(),
-            ]);
-
-            Conversation::where('id', $conversationId)
-                ->update(['last_message_at' => now(), 'updated_at' => now()]);
-
-            try {
-                broadcast(new MessageReceived($conversationId, $outboundMessage))->toOthers();
-            } catch (\Throwable $e) {
-                Log::warning('WebSocket Broadcast Failed in AiBotResponder: ' . $e->getMessage());
-            }
-
-            SendMsg91Message::dispatch($outboundMessageId, $msg91Payload, $conversationId)->afterCommit();
-        });
+        \App\Services\OutboundReplyService::send(
+            $conversationId,
+            $tenantId,
+            $contentStruct,
+            $msg91Payload
+        );
     }
 
     public function priority(): int
