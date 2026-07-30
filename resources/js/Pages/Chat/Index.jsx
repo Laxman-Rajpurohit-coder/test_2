@@ -4,6 +4,12 @@ import AppLayout from '@/Layouts/AppLayout';
 import Sidebar from './Sidebar';
 import Thread from './Thread';
 
+/**
+ * Render the WhatsApp-style inbox for browsing and viewing conversations.
+ * @param {Object} props - Component properties.
+ * @param {Object} props.auth - Authentication data used to identify the current user.
+ * @param {Array} props.tenantNumbers - Tenant numbers available for filtering conversations.
+ */
 export default function ChatIndex({ auth, tenantNumbers }) {
     const [conversations, setConversations] = useState([]);
     const [activeConversation, setActiveConversation] = useState(null);

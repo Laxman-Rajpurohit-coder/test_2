@@ -2,6 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { usePage } from '@inertiajs/react';
 import Composer from './Composer';
 
+/**
+ * Render a conversation thread with message history, real-time updates, media previews, and message composition.
+ * @param {Object} props - Component properties.
+ * @param {Object} props.conversation - Conversation whose messages are displayed.
+ * @returns {JSX.Element} The conversation thread interface.
+ */
 export default function Thread({ conversation }) {
     const [messages, setMessages] = useState([]);
     const [nextCursor, setNextCursor] = useState(null);

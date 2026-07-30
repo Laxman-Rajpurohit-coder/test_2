@@ -12,8 +12,14 @@ use Carbon\Carbon;
 class AnalyticsService
 {
     /**
-     * Fetch comprehensive operational metrics filtered by date range and client timezone
-     * (Scoped by BelongsToTenant Eloquent Global Scope)
+     * Aggregates operational metrics for a date range and optional tenant in the specified timezone.
+     *
+     * @param string|null $dateFrom The start date, defaulting to 30 days before the current date.
+     * @param string|null $dateTo The end date, defaulting to the current date.
+     * @param string|null $timezone The timezone used for date boundaries and time-based aggregations.
+     * @param int|null $tenantId The tenant to scope metrics to, or null for the active tenant scope.
+     * @return array Aggregated totals, trends, status and message-type breakdowns, busiest hours,
+     *               average first-response time, date-range information, and recent messages.
      */
     public function getOverviewMetrics(?string $dateFrom = null, ?string $dateTo = null, ?string $timezone = 'UTC', ?int $tenantId = null): array
     {

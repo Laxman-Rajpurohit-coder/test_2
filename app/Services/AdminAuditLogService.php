@@ -7,12 +7,12 @@ use App\Models\AdminAuditLog;
 class AdminAuditLogService
 {
     /**
-     * Log an admin action.
+     * Records an administrative action and its optional target.
      *
-     * @param string $action The action performed (e.g., 'impersonate_start', 'tenant_suspend')
-     * @param object|null $target The target model (e.g., Tenant model)
-     * @param array $metadata Additional metadata
-     * @return AdminAuditLog
+     * @param string $action The action performed.
+     * @param object|null $target The model or object associated with the action.
+     * @param array $metadata Additional metadata; values override the default request IP and user agent.
+     * @return AdminAuditLog The created audit log record.
      */
     public static function log(string $action, $target = null, array $metadata = [])
     {

@@ -2,6 +2,12 @@ import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
+/**
+ * Display statistics for a tenant over a specified date range.
+ * @param {Object} auth - Authentication data containing the current user.
+ * @param {Object} tenant - Tenant whose statistics are displayed.
+ * @param {Object} metrics - Tenant metrics, date range, delivery statuses, and message type breakdown.
+ */
 export default function TenantStats({ auth, tenant, metrics }) {
     return (
         <AuthenticatedLayout

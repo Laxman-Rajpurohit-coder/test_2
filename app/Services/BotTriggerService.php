@@ -54,7 +54,13 @@ class BotTriggerService
     }
 
     /**
-     * Evaluate incoming message text against active bot triggers.
+     * Matches an incoming message to an active bot trigger and builds its outbound response.
+     *
+     * @param string $messageText The incoming message text.
+     * @param string $customerNumber The customer's phone number.
+     * @param string $integratedNumber The integrated phone number used for the outbound message.
+     * @param string|null $customerName The customer's name for response substitutions.
+     * @return array|null The matched trigger details and outbound payload, or null when no valid response can be built.
      */
     public function matchAndBuildResponse(string $messageText, string $customerNumber, string $integratedNumber, ?string $customerName = null): ?array
     {

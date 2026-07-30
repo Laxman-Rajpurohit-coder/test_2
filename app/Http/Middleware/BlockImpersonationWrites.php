@@ -9,9 +9,12 @@ use Symfony\Component\HttpFoundation\Response;
 class BlockImpersonationWrites
 {
     /**
-     * Handle an incoming request.
+     * Enforces read-only access during tenant impersonation.
      *
-     * @param  Closure(Request): (Response)  $next
+     * Requests that modify data are blocked with a 403 JSON response or a redirect
+     * containing an error message, depending on the request's expected response.
+     *
+     * @return Response The next handler's response or a response blocking the request.
      */
     public function handle(Request $request, Closure $next): Response
     {
