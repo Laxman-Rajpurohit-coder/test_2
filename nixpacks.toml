@@ -1,2 +1,5 @@
 [phases.setup]
 nixPkgs = ['...', 'ffmpeg']
+
+[variables]
+NIXPACKS_NODE_VERSION = "20"
