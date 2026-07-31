@@ -25,6 +25,11 @@ class Conversation extends Model
         'ai_fallback_count' => 'integer',
     ];
 
+    /**
+     * Defines the messages associated with the conversation.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany Related WhatsApp messages.
+     */
     public function messages()
     {
         return $this->hasMany(WhatsappMessage::class);

@@ -1,6 +1,11 @@
 import React, { useEffect } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 
+/**
+ * Renders the admin portal login form.
+ * @param {string} [status] - Optional status message displayed above the form.
+ * @return {JSX.Element} The admin login page.
+ */
 export default function AdminLogin({ status }) {
     const { data, setData, post, processing, errors, reset } = useForm({
         email: '',

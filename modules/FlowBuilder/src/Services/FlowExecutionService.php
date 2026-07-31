@@ -252,7 +252,10 @@ class FlowExecutionService
     }
 
     /**
-     * Send Outbound WhatsApp Auto-Reply with Atomic DB::transaction, Unified Msg91PayloadBuilder, and ->afterCommit() dispatching.
+     * Sends a text reply to the session's customer through WhatsApp.
+     *
+     * @param FlowSession $session The flow session containing the recipient and tenant context.
+     * @param string $text The reply text.
      */
     protected function sendWhatsAppReply(FlowSession $session, string $text): void
     {

@@ -22,6 +22,10 @@ class ProcessMsg91Webhook implements ShouldQueue
         $this->payload = $payload;
     }
 
+    /**
+     * Processes the MSG91 webhook payload, synchronizing the conversation and message records
+     * and triggering inbound message handling when applicable.
+     */
     public function handle(): void
     {
         try {

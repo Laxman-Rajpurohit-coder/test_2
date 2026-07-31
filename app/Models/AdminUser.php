@@ -20,6 +20,11 @@ class AdminUser extends Authenticatable
         'remember_token',
     ];
 
+    /**
+     * Defines attribute casting for the admin user.
+     *
+     * @return array<string, string> The configured attribute casts.
+     */
     protected function casts(): array
     {
         return [

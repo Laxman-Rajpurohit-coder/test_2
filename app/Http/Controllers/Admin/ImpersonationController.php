@@ -9,6 +9,12 @@ use Illuminate\Http\Request;
 
 class ImpersonationController extends Controller
 {
+    /**
+     * Begins impersonation of the specified tenant.
+     *
+     * @param Tenant $tenant The tenant to impersonate.
+     * @return \Illuminate\Http\RedirectResponse A redirect response to the chat route.
+     */
     public function start(Tenant $tenant)
     {
         session()->put('impersonating_tenant_id', $tenant->id);
@@ -18,6 +24,11 @@ class ImpersonationController extends Controller
         return redirect()->route('chat');
     }
 
+    /**
+     * Stops tenant impersonation and redirects to the tenant administration page.
+     *
+     * @return \Illuminate\Http\RedirectResponse The redirect response to the tenant index.
+     */
     public function stop()
     {
         $tenantId = session('impersonating_tenant_id');
