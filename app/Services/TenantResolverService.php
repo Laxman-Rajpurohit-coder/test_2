@@ -19,7 +19,6 @@ class TenantResolverService
     }
 
     /**
-<<<<<<< HEAD
      * Get the active tenant ID for the current context.
      *
      * FAIL-CLOSED: previously this silently defaulted to Tenant 1 if no
@@ -34,11 +33,6 @@ class TenantResolverService
      * don't rely on this method guessing that for you.
      *
      * @throws \Exception if no tenant context can be resolved
-=======
-     * Resolves the active tenant for the current context.
-     *
-     * @return int The explicitly assigned tenant ID, the authenticated user's tenant ID, or `1` as the default.
->>>>>>> 3cba2099e7fff0b9dc60be0f31630862c83c0eb9
      */
     public function getActiveTenantId(): int
     {
@@ -52,7 +46,7 @@ class TenantResolverService
 
         throw new \Exception(
             "SECURITY ABORT: No active tenant context could be resolved — " .
-            "not authenticated and no tenant was explicitly bound via setActiveTenantId(). Failing closed."
+                "not authenticated and no tenant was explicitly bound via setActiveTenantId(). Failing closed."
         );
     }
 
