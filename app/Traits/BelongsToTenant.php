@@ -18,16 +18,14 @@ trait BelongsToTenant
         // 1. Eloquent Global Scope: Automatically inject WHERE tenant_id = X on ALL queries
         static::addGlobalScope('tenant_isolation', function (Builder $builder) {
             $tenantId = app(TenantResolverService::class)->getActiveTenantId();
-            if ($tenantId !== null) {
-                $builder->where($builder->getModel()->getTable() . '.tenant_id', $tenantId);
-            }
+            $builder->where($builder->getModel()->getTable() . '.tenant_id', $tenantId);
         });
 
         // 2. Auto-assignment on model creation
         static::creating(function (Model $model) {
             if (empty($model->tenant_id)) {
                 $tenantId = app(TenantResolverService::class)->getActiveTenantId();
-                $model->tenant_id = $tenantId ?? 1; // Fallback to Default Tenant 1
+                $model->tenant_id = $tenantId; // getActiveTenantId() throws before this line if unresolvable
             }
         });
     }

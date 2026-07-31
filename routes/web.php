@@ -12,8 +12,7 @@ use Inertia\Inertia;
 Route::get('/', function () {
     return Inertia::render('Welcome', [
         'canLogin'      => Route::has('login'),
-        'canRegister'   => Route::has('register'),
-        'laravelVersion'=> Application::VERSION,
+        'laravelVersion' => Application::VERSION,
         'phpVersion'    => PHP_VERSION,
     ]);
 });
@@ -42,7 +41,7 @@ Route::middleware(['auth:web,admin', \App\Http\Middleware\BlockImpersonationWrit
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-    
+
     // Coming Soon Route
     Route::get('/coming-soon', function () {
         return Inertia::render('ComingSoon');
@@ -77,4 +76,4 @@ Route::middleware(['auth:web,admin', \App\Http\Middleware\BlockImpersonationWrit
     Route::post('/settings/tenant/numbers', [TenantSettingsController::class, 'storeNumber'])->name('settings.tenant.numbers.store');
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';

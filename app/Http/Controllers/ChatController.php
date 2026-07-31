@@ -81,6 +81,9 @@ class ChatController extends Controller
         $request->validate([
             'content' => 'required|string',
             'type'    => 'required|string|in:text,template',
+            'template_name' => 'required_if:type,template|string',
+            'template_language' => 'nullable|string',
+            'template_components' => 'nullable|array',
         ]);
 
         $conversation = Conversation::find($id);
@@ -97,7 +100,16 @@ class ChatController extends Controller
         }
 
         $messageId = Str::uuid()->toString();
-        $payload = ['text' => $request->input('content')];
+        
+        $dbContent = ['text' => $request->input('content')];
+        if ($request->input('type') === 'template') {
+            $dbContent = [
+                'type' => 'template',
+                'template_name' => $request->input('template_name'),
+                'template_language' => $request->input('template_language', 'en'),
+                'text' => $request->input('content'),
+            ];
+        }
 
         // 1. Save to database as "queued" via Eloquent (Auto-injects tenant_id)
         $newMessage = WhatsappMessage::create([
@@ -105,7 +117,7 @@ class ChatController extends Controller
             'conversation_id'  => $id,
             'direction'        => 'outbound',
             'status'           => 'queued',
-            'content'          => json_encode($payload),
+            'content'          => json_encode($dbContent),
             'vendor_timestamp' => now(),
         ]);
 
@@ -119,19 +131,17 @@ class ChatController extends Controller
             ], 422);
         }
         
-        $msg91Payload = [
-            'integrated_number' => $integratedNumber,
-            'recipient_number'  => $conversation->customer_number,
-            'text'              => $payload['text'],
-            'content_type'      => 'text',
-            'payload'           => [
-                'to'   => $conversation->customer_number,
-                'type' => 'text',
-                'text' => [
-                    'body' => $payload['text']
-                ]
-            ]
-        ];
+        $msg91Data = $request->all();
+        if (!isset($msg91Data['text'])) {
+            $msg91Data['text'] = $request->input('content');
+        }
+
+        $msg91Payload = \App\Services\Msg91PayloadBuilder::build(
+            $conversation->customer_number,
+            $request->input('type'),
+            $msg91Data,
+            $integratedNumber
+        );
 
         \App\Jobs\SendMsg91Message::dispatch($messageId, $msg91Payload, (int)$id);
         

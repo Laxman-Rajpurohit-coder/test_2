@@ -19,7 +19,20 @@ class TenantResolverService
     }
 
     /**
-     * Get active tenant ID, falling back to authenticated user's tenant_id or Tenant 1.
+     * Get the active tenant ID for the current context.
+     *
+     * FAIL-CLOSED: previously this silently defaulted to Tenant 1 if no
+     * explicit tenant was set and no user was authenticated — the same
+     * dangerous pattern already found and fixed twice elsewhere in this
+     * service (getTenantIdByIntegratedNumber). Any code path that calls
+     * this without an authenticated user AND without first calling
+     * setActiveTenantId() explicitly was silently operating as Tenant 1.
+     *
+     * If you genuinely want to operate as Tenant 1 on purpose (e.g. a
+     * system/maintenance task), call setActiveTenantId(1) explicitly —
+     * don't rely on this method guessing that for you.
+     *
+     * @throws \Exception if no tenant context can be resolved
      */
     public function getActiveTenantId(): int
     {
@@ -31,7 +44,10 @@ class TenantResolverService
             return (int) auth()->user()->tenant_id;
         }
 
-        return 1; // Default Tenant 1
+        throw new \Exception(
+            "SECURITY ABORT: No active tenant context could be resolved — " .
+            "not authenticated and no tenant was explicitly bound via setActiveTenantId(). Failing closed."
+        );
     }
 
     /**
@@ -40,6 +56,7 @@ class TenantResolverService
     public function getTenantNumberRecord(string $integratedNumber): ?object
     {
         $cleanNumber = trim($integratedNumber);
+
         $record = DB::table('tenant_numbers')
             ->where('integrated_number', $cleanNumber)
             ->first();
@@ -61,7 +78,7 @@ class TenantResolverService
         if ($record) {
             return (int) $record->tenant_id;
         }
-        
+
         throw new \Exception("SECURITY ABORT: Unmapped integrated number {$integratedNumber} cannot be resolved to a tenant. Failing closed.");
     }
 
@@ -86,6 +103,11 @@ class TenantResolverService
      * Resolve MSG91 Auth Key for tenant.
      * Tenant 1: falls back to .env.
      * Tenant 2+: returns null if unconfigured (Feature Disabled Cost Guard).
+     *
+     * NOTE: this method's default parameter ($tenantId ?? $this->getActiveTenantId())
+     * now inherits the fail-closed behavior above — if no tenant is explicitly
+     * passed AND none can be resolved, this throws instead of silently
+     * returning Tenant 1's credentials.
      */
     public function getMsg91AuthKey(?int $tenantId = null): ?string
     {

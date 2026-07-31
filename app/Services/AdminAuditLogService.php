@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\AdminAuditLog;
+use Illuminate\Support\Facades\Log;
 
 class AdminAuditLogService
 {
@@ -10,7 +11,7 @@ class AdminAuditLogService
      * Log an admin action.
      *
      * @param string $action The action performed (e.g., 'impersonate_start', 'tenant_suspend')
-     * @param object|null $target The target model (e.g., Tenant model)
+     * @param object|null $target The target object. Non-Eloquent targets are logged with a null ID.
      * @param array $metadata Additional metadata
      * @return AdminAuditLog
      */
@@ -21,9 +22,22 @@ class AdminAuditLogService
         $targetType = null;
         $targetId = null;
 
-        if ($target) {
+        if ($target !== null) {
             $targetType = get_class($target);
-            $targetId = $target->getKey();
+
+            // Only call getKey() if the target actually supports it (Eloquent
+            // models do). Calling it on a plain object/array/string would
+            // crash — this was CodeRabbit's flagged risk. Log a warning
+            // instead of crashing, so a bad call site is visible but doesn't
+            // take down whatever admin action triggered it.
+            if (method_exists($target, 'getKey')) {
+                $targetId = $target->getKey();
+            } else {
+                Log::warning('AdminAuditLogService: target does not support getKey(), logging with null target_id', [
+                    'action' => $action,
+                    'target_type' => $targetType,
+                ]);
+            }
         }
 
         return AdminAuditLog::create([
