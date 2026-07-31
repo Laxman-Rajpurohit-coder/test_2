@@ -5,7 +5,12 @@ namespace App\Services;
 class Msg91PayloadBuilder
 {
     /**
-     * Build unified MSG91 WhatsApp Outbound API payload structure.
+     * Builds a unified payload for a MSG91 WhatsApp outbound request.
+     *
+     * @param string $contentType The message content type, such as `text`, `image`, or `document`.
+     * @param array $data Content-specific values used to populate the payload.
+     * @return array The completed MSG91 WhatsApp outbound payload.
+     * @throws \InvalidArgumentException If the integrated number is empty.
      */
     public static function build(string $recipientNumber, string $contentType, array $data, string $integratedNumber): array
     {

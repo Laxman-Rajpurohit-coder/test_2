@@ -25,6 +25,12 @@ class AiBotResponder implements BotResponderInterface
         $this->aiBotService = $aiBotService;
     }
 
+    /**
+     * Handles an inbound message using tenant-configured AI responses and human escalation rules.
+     *
+     * @param InboundMessageContext $context The inbound message and conversation context.
+     * @return bool `true` if the message is handled or escalated, `false` if processing is skipped or no response can be generated.
+     */
     public function attemptHandle(InboundMessageContext $context): bool
     {
         $messageText = trim($context->messageText);
@@ -88,7 +94,9 @@ class AiBotResponder implements BotResponderInterface
     }
 
     /**
-     * Escalate conversation to human agent (DB persistence + WebSocket broadcast)
+     * Escalates a conversation to a human agent and notifies the customer.
+     *
+     * @param string $replyText The message sent to the customer about the escalation.
      */
     protected function escalateToHuman(Conversation $conversation, InboundMessageContext $context, string $replyText): void
     {
@@ -125,7 +133,12 @@ class AiBotResponder implements BotResponderInterface
     }
 
     /**
-     * Send Outbound WhatsApp Message with Atomic DB::transaction and ->afterCommit() dispatching.
+     * Sends a text reply to a customer through the tenant's configured WhatsApp integration.
+     *
+     * @param int $conversationId The conversation receiving the reply.
+     * @param int $tenantId The tenant associated with the conversation.
+     * @param string $customerNumber The customer's WhatsApp number.
+     * @param string $text The reply text.
      */
     protected function sendWhatsAppReply(int $conversationId, int $tenantId, string $customerNumber, string $text): void
     {
@@ -151,6 +164,11 @@ class AiBotResponder implements BotResponderInterface
         );
     }
 
+    /**
+     * Provides the responder's priority in the processing pipeline.
+     *
+     * @return int The responder priority.
+     */
     public function priority(): int
     {
         return 90; // Lowest priority in pipeline

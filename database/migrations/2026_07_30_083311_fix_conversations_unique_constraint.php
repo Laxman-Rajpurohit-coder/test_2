@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Updates conversation uniqueness to be scoped by tenant.
      */
     public function up(): void
     {
@@ -20,6 +20,9 @@ return new class extends Migration
         });
     }
 
+    /**
+     * Restores global uniqueness for conversation customer numbers.
+     */
     public function down(): void
     {
         Schema::table('conversations', function (Blueprint $table) {

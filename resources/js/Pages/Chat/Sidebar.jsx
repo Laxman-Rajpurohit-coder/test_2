@@ -1,5 +1,17 @@
 import { useState } from 'react';
 
+/**
+ * Render a searchable conversation sidebar with optional tenant-number selection.
+ * @param {Object} props - Sidebar properties.
+ * @param {Array} props.conversations - Conversation threads to display.
+ * @param {Object} props.activeConversation - Currently selected conversation.
+ * @param {Function} props.onSelect - Called when a conversation is selected.
+ * @param {Object} props.user - User whose initials appear in the header.
+ * @param {Array} props.tenantNumbers - Tenant numbers available for selection.
+ * @param {number|string|null} props.selectedNumberId - Currently selected tenant number identifier.
+ * @param {Function} props.onSelectNumber - Called with the selected tenant number identifier or `null`.
+ * @returns {JSX.Element} The rendered conversation sidebar.
+ */
 export default function Sidebar({ conversations, activeConversation, onSelect, user, tenantNumbers, selectedNumberId, onSelectNumber }) {
     const [searchQuery, setSearchQuery] = useState('');
 

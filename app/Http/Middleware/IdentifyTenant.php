@@ -10,8 +10,11 @@ use Symfony\Component\HttpFoundation\Response;
 class IdentifyTenant
 {
     /**
-     * Handle an incoming web request.
-     * Binds current user's tenant_id to TenantResolverService.
+     * Sets the active tenant for the request and passes it to the next handler.
+     *
+     * Session-based tenant impersonation takes precedence over the authenticated user's tenant.
+     *
+     * @return Response The response produced by the next handler.
      */
     public function handle(Request $request, Closure $next): Response
     {

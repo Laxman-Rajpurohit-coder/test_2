@@ -13,7 +13,11 @@ use Inertia\Inertia;
 
 class ChatController extends Controller
 {
-    // Render the main React Chat Interface
+    /**
+     * Renders the chat interface with the active tenant's phone numbers.
+     *
+     * @return \Inertia\Response The rendered chat page.
+     */
     public function view()
     {
         $tenantNumbers = \Illuminate\Support\Facades\DB::table('tenant_numbers')
@@ -25,7 +29,12 @@ class ChatController extends Controller
         ]);
     }
 
-    // API: Fetch list of conversations (Scoped via BelongsToTenant)
+    /**
+     * Retrieves conversations ordered by the most recent message.
+     *
+     * @param Request $request Request data that may include a tenant number filter.
+     * @return \Illuminate\Http\JsonResponse The matching conversations as JSON.
+     */
     public function index(Request $request)
     {
         $query = Conversation::orderBy('last_message_at', 'desc');
@@ -75,7 +84,13 @@ class ChatController extends Controller
         ]);
     }
 
-    // API: Send an outbound message
+    /**
+     * Queues an outbound text or template message for a conversation.
+     *
+     * @param Request $request Validated message content and type.
+     * @param mixed $id The conversation identifier.
+     * @return \Illuminate\Http\JsonResponse The queued message or an error response.
+     */
     public function store(Request $request, $id)
     {
         $request->validate([
@@ -147,7 +162,13 @@ class ChatController extends Controller
         ]);
     }
 
-    // API: Upload & send outbound media (Photos/Images & Voice Notes/Audio)
+    /**
+     * Uploads and queues an outbound image or audio message for a conversation.
+     *
+     * @param Request $request The request containing the media file, media type, and optional caption.
+     * @param mixed $id The conversation identifier.
+     * @return \Illuminate\Http\JsonResponse The queued message or an error response.
+     */
     public function storeMedia(Request $request, $id)
     {
         $maxKB = $request->input('type') === 'image' ? 5120 : 16384;

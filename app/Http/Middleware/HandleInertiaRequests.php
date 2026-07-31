@@ -40,9 +40,9 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
-     * Define the props that are shared by default.
+     * Defines shared Inertia props for the authenticated user and tenant impersonation state.
      *
-     * @return array<string, mixed>
+     * @return array<string, mixed> The shared props, including authenticated user and impersonation details.
      */
     public function share(Request $request): array
     {

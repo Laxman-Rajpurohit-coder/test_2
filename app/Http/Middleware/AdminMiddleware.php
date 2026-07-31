@@ -9,9 +9,10 @@ use Symfony\Component\HttpFoundation\Response;
 class AdminMiddleware
 {
     /**
-     * Handle an incoming request.
+     * Restricts access to authenticated administrators.
      *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     * @param \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response) $next The next middleware or request handler.
+     * @return \Symfony\Component\HttpFoundation\Response The redirected login response or the response from the next request handler.
      */
     public function handle(Request $request, Closure $next): Response
     {
