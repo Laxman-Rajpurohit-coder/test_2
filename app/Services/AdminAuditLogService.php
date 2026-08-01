@@ -10,17 +10,10 @@ class AdminAuditLogService
     /**
      * Records an administrative action and its optional target.
      *
-<<<<<<< HEAD
-     * @param string $action The action performed (e.g., 'impersonate_start', 'tenant_suspend')
+     * @param string $action The action performed (e.g., 'impersonate_start', 'tenant_suspend').
      * @param object|null $target The target object. Non-Eloquent targets are logged with a null ID.
-     * @param array $metadata Additional metadata
-     * @return AdminAuditLog
-=======
-     * @param string $action The action performed.
-     * @param object|null $target The model or object associated with the action.
-     * @param array $metadata Additional metadata; values override the default request IP and user agent.
+     * @param array $metadata Additional metadata; values are merged with the default IP and user agent.
      * @return AdminAuditLog The created audit log record.
->>>>>>> 3cba2099e7fff0b9dc60be0f31630862c83c0eb9
      */
     public static function log(string $action, $target = null, array $metadata = [])
     {
