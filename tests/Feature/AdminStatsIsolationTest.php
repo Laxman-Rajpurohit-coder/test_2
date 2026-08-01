@@ -32,7 +32,7 @@ class AdminStatsIsolationTest extends TestCase
             'conversation_id' => $convA->id,
             'direction' => 'inbound',
             'status' => 'received',
-            'content' => 'Hello Tenant A',
+            'content' => json_encode(['type' => 'text', 'text' => 'Hello Tenant A']),
         ]);
 
         WhatsappMessage::create([
@@ -41,7 +41,7 @@ class AdminStatsIsolationTest extends TestCase
             'conversation_id' => $convA->id,
             'direction' => 'inbound',
             'status' => 'received',
-            'content' => 'Another message for A',
+            'content' => json_encode(['type' => 'text', 'text' => 'Another message for A']),
         ]);
 
         // 3. Create an admin user
