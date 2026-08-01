@@ -1,0 +1,93 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    environment:
+      # Copy all these variables to a .env file on your Droplet
+      - APP_NAME
+      - APP_ENV
+      - APP_KEY
+      - APP_DEBUG
+      - APP_URL
+      - DB_CONNECTION
+      - DB_HOST
+      - DB_PORT
+      - DB_DATABASE
+      - DB_USERNAME
+      - DB_PASSWORD
+      - REDIS_CLIENT
+      - REDIS_HOST
+      - REDIS_PORT
+      - REDIS_PASSWORD
+      - QUEUE_CONNECTION
+      - CACHE_STORE
+      - SESSION_DRIVER
+      - BROADCAST_CONNECTION
+      - REVERB_APP_ID
+      - REVERB_APP_KEY
+      - REVERB_APP_SECRET
+      - REVERB_HOST
+      - REVERB_PORT
+      - REVERB_SCHEME
+      - MSG91_AUTH_KEY
+      - MSG91_WEBHOOK_SECRET
+
+  queue-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: php artisan queue:work --tries=3 --backoff=5,15,30
+    restart: unless-stopped
+    environment:
+      # Variables will be inherited identically from .env if omitted here, but for clarity 
+      # we can simply declare env_file if desired, or let Docker Compose pick up .env
+      - APP_NAME
+      - APP_ENV
+      - APP_KEY
+      - DB_CONNECTION
+      - DB_HOST
+      - DB_PORT
+      - DB_DATABASE
+      - DB_USERNAME
+      - DB_PASSWORD
+      - REDIS_CLIENT
+      - REDIS_HOST
+      - REDIS_PORT
+      - REDIS_PASSWORD
+      - QUEUE_CONNECTION
+      - CACHE_STORE
+    # No port binding needed, this is a background worker
+
+  reverb:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - APP_NAME
+      - APP_ENV
+      - APP_KEY
+      - DB_CONNECTION
+      - DB_HOST
+      - DB_PORT
+      - DB_DATABASE
+      - DB_USERNAME
+      - DB_PASSWORD
+      - REDIS_CLIENT
+      - REDIS_HOST
+      - REDIS_PORT
+      - REDIS_PASSWORD
+      - BROADCAST_CONNECTION
+      - REVERB_APP_ID
+      - REVERB_APP_KEY
+      - REVERB_APP_SECRET
+      - REVERB_HOST
+      - REVERB_PORT
+      - REVERB_SCHEME
