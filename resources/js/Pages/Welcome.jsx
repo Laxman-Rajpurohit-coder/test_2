@@ -46,15 +46,9 @@ export default function Welcome({ auth }) {
                                 <>
                                     <Link
                                         href={route('login')}
-                                        className="text-sm font-medium text-slate-300 hover:text-white transition-colors"
-                                    >
-                                        Log in
-                                    </Link>
-                                    <Link
-                                        href={route('register')}
                                         className="px-5 py-2.5 rounded-full bg-indigo-600 hover:bg-indigo-500 transition-all font-medium text-sm text-white shadow-[0_0_20px_rgba(79,70,229,0.3)] hover:shadow-[0_0_25px_rgba(79,70,229,0.5)]"
                                     >
-                                        Get Started
+                                        Log In
                                     </Link>
                                 </>
                             )}
@@ -94,15 +88,15 @@ export default function Welcome({ auth }) {
                                     </svg>
                                 </Link>
                             ) : (
-                                <Link
-                                    href={route('register')}
+                                <a
+                                    href="mailto:sales@msg91.test"
                                     className="px-8 py-4 rounded-full bg-indigo-600 hover:bg-indigo-500 transition-all font-bold text-white shadow-[0_0_30px_rgba(79,70,229,0.4)] hover:shadow-[0_0_40px_rgba(79,70,229,0.6)] flex items-center gap-2"
                                 >
-                                    Start Free Trial
+                                    Contact Sales
                                     <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                     </svg>
-                                </Link>
+                                </a>
                             )}
                             
                             <a href="#features" className="px-8 py-4 rounded-full bg-slate-800/50 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 transition-all font-medium text-slate-300 backdrop-blur-sm">
