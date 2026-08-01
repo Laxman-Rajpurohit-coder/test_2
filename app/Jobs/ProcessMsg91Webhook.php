@@ -46,11 +46,19 @@ class ProcessMsg91Webhook implements ShouldQueue
             $customerName = $this->payload['customerName'] ?? null;
 
             // Resolve Tenant ID and Tenant Number ID by integratedNumber in webhook payload
-            $integratedNumber = $this->payload['integratedNumber'] ?? config('services.msg91.integrated_number') ?? '917425889008';
+            $integratedNumber = $this->payload['integratedNumber'] ?? null;
+            if (!$integratedNumber) {
+                \Illuminate\Support\Facades\Log::warning("ProcessMsg91Webhook: No integratedNumber in payload. Cannot resolve tenant.");
+                return;
+            }
             
             $tenantNumberRecord = app(TenantResolverService::class)->getTenantNumberRecord($integratedNumber);
-            $tenantId = $tenantNumberRecord ? (int) $tenantNumberRecord->tenant_id : 1;
-            $tenantNumberId = $tenantNumberRecord ? $tenantNumberRecord->id : null;
+            if (!$tenantNumberRecord) {
+                throw new \Exception("SECURITY ABORT: Webhook received for unmapped integrated number {$integratedNumber}. Failing closed.");
+            }
+            
+            $tenantId = (int) $tenantNumberRecord->tenant_id;
+            $tenantNumberId = $tenantNumberRecord->id;
             
             app(TenantResolverService::class)->setActiveTenantId($tenantId);
 

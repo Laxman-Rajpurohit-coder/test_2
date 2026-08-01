@@ -2,8 +2,8 @@ import React from 'react';
 import { Head, useForm } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 
-export default function TenantSettings({ settings, numbers }) {
-    const { data, setData, post, processing, errors, reset } = useForm({
+export default function TenantSettings({ settings, numbers, webhook }) {
+    const { data, setData, post, processing, errors, reset, recentlySuccessful } = useForm({
         msg91_auth_key: settings.msg91_auth_key || '',
         openai_api_key: settings.openai_api_key || '',
         flowise_endpoint: settings.flowise_endpoint || '',
@@ -21,7 +21,7 @@ export default function TenantSettings({ settings, numbers }) {
 
     const handleSaveKeys = (e) => {
         e.preventDefault();
-        post(route('settings.tenant.update'));
+        post(route('settings.tenant.update'), { preserveScroll: true });
     };
 
     const handleAddNumber = (e) => {
@@ -44,6 +44,30 @@ export default function TenantSettings({ settings, numbers }) {
                     <p className="text-xs text-gray-500 mt-1">
                         Configure custom MSG91, OpenAI, and Flowise credentials for your organization. Keys are encrypted at rest.
                     </p>
+                </div>
+
+                {/* Webhook Info */}
+                <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs space-y-4">
+                    <h2 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3">Webhook Configuration</h2>
+                    <p className="text-xs text-gray-500">Copy this URL and Secret into your MSG91 dashboard to receive inbound messages and delivery receipts.</p>
+                    <div className="space-y-3">
+                        <div>
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Webhook URL</label>
+                            <div className="flex items-center">
+                                <code className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700 font-mono break-all select-all">
+                                    {webhook?.url}
+                                </code>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Webhook Secret (Header: X-MSG91-Secret)</label>
+                            <div className="flex items-center">
+                                <code className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700 font-mono select-all">
+                                    {webhook?.secret || 'Not configured on server'}
+                                </code>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* API Keys Form */}
@@ -161,13 +185,16 @@ export default function TenantSettings({ settings, numbers }) {
                             </div>
                         </div>
 
-                        <div className="flex justify-end pt-3">
+                        <div className="flex justify-end pt-3 items-center gap-4">
+                            <span className={`text-sm font-semibold text-emerald-600 transition-opacity duration-300 ${recentlySuccessful ? 'opacity-100' : 'opacity-0'}`}>
+                                Saved successfully.
+                            </span>
                             <button
                                 type="submit"
                                 disabled={processing}
                                 className="px-5 py-2.5 bg-[#00a884] hover:bg-[#008f70] text-white rounded-xl text-xs font-semibold transition shadow-md shadow-emerald-500/20 disabled:opacity-50"
                             >
-                                Save API Credentials
+                                {processing ? 'Saving...' : 'Save API Credentials'}
                             </button>
                         </div>
                     </form>

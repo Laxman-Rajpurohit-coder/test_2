@@ -55,10 +55,9 @@ return new class extends Migration
         });
 
         // Seed Default Number for Tenant 1
-        $defaultNumber = config('services.msg91.integrated_number') ?? '917425889008';
         DB::table('tenant_numbers')->insert([
             'tenant_id'         => 1,
-            'integrated_number' => $defaultNumber,
+            'integrated_number' => '917425889008',
             'created_at'        => now(),
             'updated_at'        => now(),
         ]);

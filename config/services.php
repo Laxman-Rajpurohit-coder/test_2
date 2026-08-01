@@ -37,7 +37,6 @@ return [
 
     'msg91' => [
         'auth_key' => env('MSG91_AUTH_KEY'),
-        'integrated_number' => env('MSG91_INTEGRATED_NUMBER'),
         'webhook_secret' => env('MSG91_WEBHOOK_SECRET', 'secret_token_123'),
     ],
 

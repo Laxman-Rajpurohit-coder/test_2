@@ -30,6 +30,10 @@ class TenantSettingsController extends Controller
                 'ai_human_escalation_enabled' => $setting->ai_human_escalation_enabled ?? true,
                 'ai_confidence_threshold' => $setting->ai_confidence_threshold ?? 0.70,
             ],
+            'webhook' => [
+                'url' => config('app.url') . '/api/msg91/webhook',
+                'secret' => config('services.msg91.webhook_secret'),
+            ],
             'numbers' => $numbers,
         ]);
     }
