@@ -63,12 +63,7 @@ Route::middleware(['auth:web,admin', \App\Http\Middleware\BlockImpersonationWrit
         Route::delete('/bot-triggers/{id}', [BotTriggerController::class, 'destroy'])->name('bot-triggers.destroy');
     });
 
-    // Flow Builder Routes (requires flow_builder feature)
-    Route::middleware(['feature:flow_builder'])->group(function () {
-        Route::get('/flows', function () {
-            return Inertia::render('Flows/Index');
-        })->name('flows.index');
-    });
+    // Flow Builder Routes are registered by the FlowBuilder module directly.
 
     // Tenant Integration Settings Routes
     Route::get('/settings/tenant', [TenantSettingsController::class, 'edit'])->name('settings.tenant.edit');

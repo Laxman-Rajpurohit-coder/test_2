@@ -15,8 +15,8 @@ class FlowTenantIsolationTest extends TestCase
 
     public function test_tenant_b_cannot_access_tenant_a_flow()
     {
-        $tenantA = Tenant::create(['name' => 'Tenant A', 'slug' => 'tenant-a']);
-        $tenantB = Tenant::create(['name' => 'Tenant B', 'slug' => 'tenant-b']);
+        $tenantA = Tenant::create(['name' => 'Tenant A', 'slug' => 'tenant-a', 'features' => ['flow_builder' => true]]);
+        $tenantB = Tenant::create(['name' => 'Tenant B', 'slug' => 'tenant-b', 'features' => ['flow_builder' => true]]);
 
         $userA = User::factory()->create(['tenant_id' => $tenantA->id]);
         $userB = User::factory()->create(['tenant_id' => $tenantB->id]);
