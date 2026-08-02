@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 
 /**
@@ -7,11 +7,27 @@ import { Link, usePage } from '@inertiajs/react';
  * @returns {JSX.Element} The application layout.
  */
 export default function AppLayout({ children }) {
-    const { auth, tenant_features } = usePage().props;
+    const { auth, tenant_features, flash } = usePage().props;
     const userName = auth?.user?.name || 'MTech Systems';
     const userEmail = auth?.user?.email || 'admin@msg91.com';
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+    const [toast, setToast] = useState(null);
+
+    useEffect(() => {
+        if (flash?.success) {
+            setToast({ type: 'success', message: flash.success });
+        } else if (flash?.error) {
+            setToast({ type: 'error', message: flash.error });
+        }
+    }, [flash]);
+
+    useEffect(() => {
+        if (toast) {
+            const timer = setTimeout(() => setToast(null), 4000);
+            return () => clearTimeout(timer);
+        }
+    }, [toast]);
 
     const currentPath = window.location.pathname;
     const isChatPage = currentPath.startsWith('/chat');
@@ -26,10 +42,10 @@ export default function AppLayout({ children }) {
         features.bot_auto_responder && { name: 'Bot Auto-Responder', href: '/bot-triggers', icon: '🤖', active: isBotPage },
         features.flow_builder && { name: 'Flow Builder', href: '/flows', icon: '🔄', active: currentPath.startsWith('/flows') },
         { name: 'Tenant API Settings', href: '/settings/tenant', icon: '🔑', active: isTenantSettingsPage },
-        { name: 'Contacts', href: '/coming-soon', icon: '📇', hasSub: true, active: currentPath === '/coming-soon' },
+        { name: 'Contacts', href: '/contacts', icon: '📇', active: currentPath.startsWith('/contacts') || currentPath.startsWith('/campaigns') },
         { name: 'Team Management', href: '/coming-soon', icon: '👥', active: currentPath === '/coming-soon' },
         { name: 'Integrations', href: '/coming-soon', icon: '🔌', active: currentPath === '/coming-soon' },
-        { name: 'Message Logs', href: '/coming-soon', icon: '📜', active: currentPath === '/coming-soon' },
+        { name: 'Message Logs', href: '/logs', icon: '📜', active: currentPath.startsWith('/logs') },
     ].filter(Boolean);
 
     return (
@@ -194,10 +210,38 @@ export default function AppLayout({ children }) {
                     </div>
                 )}
 
-                <main className="flex-1 p-6 md:p-8">
+                <main className={`flex-1 flex flex-col ${isChatPage ? 'p-2 md:p-4' : 'p-6 md:p-8'}`}>
                     {children}
                 </main>
             </div>
+
+            {/* Global Toast Notification */}
+            {toast && (
+                <div className="fixed bottom-4 right-4 z-[100] animate-fade-in-up">
+                    <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-xl border ${
+                        toast.type === 'success' 
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                            : 'bg-rose-50 border-rose-200 text-rose-800'
+                    }`}>
+                        {toast.type === 'success' ? (
+                            <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        ) : (
+                            <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        )}
+                        <span className="text-sm font-semibold">{toast.message}</span>
+                        <button onClick={() => setToast(null)} className="ml-2 hover:opacity-70 transition-opacity">
+                            ✕
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
+
+// Add Tailwind custom animation to index.css or just rely on simple transition.
+// But we'll just add inline style for the animation if needed, or stick to standard Tailwind.

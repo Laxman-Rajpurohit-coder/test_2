@@ -76,15 +76,37 @@ class TenantSettingsController extends Controller
     public function storeNumber(Request $request, TenantResolverService $resolver)
     {
         $validated = $request->validate([
-            'integrated_number' => 'required|string|unique:tenant_numbers,integrated_number',
+            'country_code' => 'nullable|string',
+            'integrated_number' => 'required|string',
         ]);
+
+        $cleanNumber = preg_replace('/[^0-9]/', '', $validated['integrated_number']);
+        $countryCode = preg_replace('/[^0-9]/', '', $validated['country_code'] ?? '');
+
+        $finalNumber = $countryCode . $cleanNumber;
+
+        // Check if this concatenated number is already used globally
+        if (TenantNumber::where('integrated_number', $finalNumber)->exists()) {
+            return redirect()->back()->withErrors(['integrated_number' => 'This exact number configuration is already integrated.']);
+        }
 
         $tenantId = $resolver->getActiveTenantId();
         TenantNumber::create([
             'tenant_id'         => $tenantId,
-            'integrated_number' => trim($validated['integrated_number']),
+            'integrated_number' => $finalNumber,
         ]);
 
         return redirect()->back()->with('success', 'WhatsApp Integrated Number registered successfully.');
+    }
+
+    public function destroyNumber(Request $request, TenantResolverService $resolver, string $number)
+    {
+        $tenantId = $resolver->getActiveTenantId();
+        
+        TenantNumber::where('tenant_id', $tenantId)
+            ->where('integrated_number', $number)
+            ->delete();
+
+        return redirect()->back()->with('success', 'WhatsApp Integrated Number removed successfully.');
     }
 }

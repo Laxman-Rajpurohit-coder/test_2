@@ -12,11 +12,13 @@ class Conversation extends Model
 
     protected $fillable = [
         'tenant_id',
+        'tenant_number_id',
         'customer_number',
         'customer_name',
         'last_message_at',
         'is_human_escalated',
         'ai_fallback_count',
+        'unread_count',
     ];
 
     protected $casts = [

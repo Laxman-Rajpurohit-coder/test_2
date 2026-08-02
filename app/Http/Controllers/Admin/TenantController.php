@@ -86,6 +86,27 @@ class TenantController extends Controller
     }
 
     /**
+     * Updates a tenant's feature toggles.
+     *
+     * @param Request $request The request containing the features array.
+     * @param Tenant $tenant The tenant whose features are being updated.
+     * @return \Illuminate\Http\RedirectResponse The redirect response with a success message.
+     */
+    public function updateFeatures(Request $request, Tenant $tenant)
+    {
+        $validated = $request->validate([
+            'features' => 'nullable|array',
+            'features.*' => 'boolean',
+        ]);
+
+        $tenant->update([
+            'features' => $validated['features'] ?? [],
+        ]);
+
+        return back()->with('success', 'Tenant features updated.');
+    }
+
+    /**
      * Deletes a tenant and redirects back with a success message.
      *
      * @param Tenant $tenant The tenant to delete.

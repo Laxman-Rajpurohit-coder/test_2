@@ -55,10 +55,16 @@ class SendMsg91Message implements ShouldQueue
             return;
         }
 
+        $endpoint = 'https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/';
+        // MSG91 strictly requires the /bulk/ endpoint for template messages, but forbids it for standard text/media.
+        if (isset($this->msg91Payload['type']) && $this->msg91Payload['type'] === 'template') {
+            $endpoint = 'https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/';
+        }
+
         $response = Http::withHeaders([
             'authkey'      => $authKey,
             'Content-Type' => 'application/json'
-        ])->post('https://control.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/', $this->msg91Payload);
+        ])->post($endpoint, $this->msg91Payload);
 
         if ($response->serverError()) {
             // Transient 5xx server error: throw exception to trigger Queue retry ($tries = 3)

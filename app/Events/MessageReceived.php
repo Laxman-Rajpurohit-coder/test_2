@@ -26,6 +26,12 @@ class MessageReceived implements ShouldBroadcastNow
     {
         return [
             new Channel('conversations.' . $this->conversationId),
+            new PrivateChannel('tenant.' . $this->message->tenant_id),
         ];
+    }
+
+    public function broadcastAs(): string
+    {
+        return 'message.received';
     }
 }

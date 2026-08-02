@@ -18,15 +18,24 @@ class Msg91PayloadBuilder
             throw new \InvalidArgumentException('Msg91PayloadBuilder: Integrated number is required and cannot be empty.');
         }
 
+        // 1. Strip all non-numeric characters (removes dashes, spaces, and the + sign)
+        $cleanRecipientNumber = preg_replace('/[^0-9]/', '', $recipientNumber);
+
+        // 2. Perform a strict length-based check
+        if (strlen($cleanRecipientNumber) === 10) {
+            // If it's exactly 10 digits, we assume it's a local Indian number and prepend 91.
+            $cleanRecipientNumber = '91' . $cleanRecipientNumber;
+        }
+
         $base = [
             'integrated_number' => $integratedNumber,
-            'recipient_number'  => $recipientNumber,
+            'recipient_number'  => $cleanRecipientNumber,
             'content_type'      => $contentType,
         ];
 
         // The nested payload object MSG91 expects
         $payload = [
-            'to'   => $recipientNumber,
+            'to'   => $cleanRecipientNumber,
             'type' => $contentType,
         ];
 
@@ -73,6 +82,30 @@ class Msg91PayloadBuilder
                 if (isset($data['template_components']) && is_array($data['template_components'])) {
                     $payload['template']['components'] = $data['template_components'];
                 }
+                break;
+
+            case 'interactive':
+                $payload['interactive'] = [
+                    'type' => $data['interactive_type'] ?? 'button',
+                    'body' => ['text' => $data['text'] ?? '']
+                ];
+                if (!empty($data['header_text'])) {
+                    $payload['interactive']['header'] = ['type' => 'text', 'text' => $data['header_text']];
+                }
+                if (!empty($data['footer_text'])) {
+                    $payload['interactive']['footer'] = ['text' => $data['footer_text']];
+                }
+                if (($data['interactive_type'] ?? 'button') === 'button') {
+                    $payload['interactive']['action'] = [
+                        'buttons' => $data['buttons'] ?? []
+                    ];
+                } else {
+                    $payload['interactive']['action'] = [
+                        'button' => $data['list_button_text'] ?? 'Options',
+                        'sections' => $data['sections'] ?? []
+                    ];
+                }
+                $base['text'] = $data['text'] ?? '';
                 break;
 
             case 'text':

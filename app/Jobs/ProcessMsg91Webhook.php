@@ -62,10 +62,11 @@ class ProcessMsg91Webhook implements ShouldQueue
             
             app(TenantResolverService::class)->setActiveTenantId($tenantId);
 
-            // 1. PostgreSQL atomic upsert for conversations (with tenant_id and tenant_number_id)
+            // Identify if we need to increment unread count for inbound message
+            $incrementUnread = $direction === 0 ? 1 : 0;
             $convSql = "
-                INSERT INTO conversations (tenant_id, tenant_number_id, customer_number, last_message_at, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO conversations (tenant_id, tenant_number_id, customer_number, last_message_at, created_at, updated_at, unread_count)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (tenant_id, customer_number)
                 DO UPDATE SET 
                     tenant_number_id = EXCLUDED.tenant_number_id,
@@ -73,8 +74,13 @@ class ProcessMsg91Webhook implements ShouldQueue
                     updated_at = EXCLUDED.updated_at
                 RETURNING id
             ";
-            $convResult = DB::select($convSql, [$tenantId, $tenantNumberId, $customerNumber, now(), now(), now()]);
+            $convResult = DB::select($convSql, [$tenantId, $tenantNumberId, $customerNumber, now(), now(), now(), 0]);
             $conversationId = $convResult[0]->id;
+
+            // Explicitly increment unread count to avoid SQLite ON CONFLICT edge cases
+            if ($incrementUnread > 0) {
+                DB::table('conversations')->where('id', $conversationId)->increment('unread_count');
+            }
 
             // Direct parser for MSG91 Webhook Schema (URL, ContentType, Text, Caption, Button/List Payloads)
             $contentData = null;
@@ -281,6 +287,8 @@ class ProcessMsg91Webhook implements ShouldQueue
 
         } catch (\Exception $e) {
             Log::error('MSG91 Webhook Processing Failed: ' . $e->getMessage());
+            // Rethrow the exception so the queue worker marks the job as failed and sends it to the DLQ (failed_jobs)
+            throw $e;
         }
     }
 }

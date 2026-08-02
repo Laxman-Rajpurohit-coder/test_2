@@ -8,7 +8,103 @@ import Composer from './Composer';
  * @param {Object} props.conversation - Conversation whose messages are displayed.
  * @returns {JSX.Element} The conversation thread interface.
  */
-export default function Thread({ conversation }) {
+const CustomAudioPlayer = ({ src }) => {
+    const audioRef = useRef(null);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [duration, setDuration] = useState(0);
+
+    const togglePlay = () => {
+        if (!audioRef.current) return;
+        if (isPlaying) {
+            audioRef.current.pause();
+        } else {
+            audioRef.current.play().catch(console.error);
+        }
+        setIsPlaying(!isPlaying);
+    };
+
+    const handleTimeUpdate = () => {
+        if (!audioRef.current) return;
+        const current = audioRef.current.currentTime;
+        const dur = audioRef.current.duration;
+        if (dur && dur !== Infinity) {
+            setProgress((current / dur) * 100);
+            setDuration(dur);
+        }
+    };
+
+    const handleLoadedMetadata = () => {
+        if (!audioRef.current) return;
+        if (audioRef.current.duration === Infinity || isNaN(audioRef.current.duration)) {
+            audioRef.current.currentTime = 1e101;
+            audioRef.current.ontimeupdate = () => {
+                audioRef.current.ontimeupdate = null;
+                audioRef.current.currentTime = 0;
+                setDuration(audioRef.current.duration);
+            };
+        } else {
+            setDuration(audioRef.current.duration);
+        }
+    };
+
+    const handleSeek = (e) => {
+        if (!audioRef.current || !duration) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const percent = clickX / rect.width;
+        audioRef.current.currentTime = percent * duration;
+        setProgress(percent * 100);
+    };
+
+    const formatTime = (time) => {
+        if (!time || isNaN(time)) return '0:00';
+        const m = Math.floor(time / 60);
+        const s = Math.floor(time % 60);
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    };
+
+    return (
+        <div className="flex items-center gap-3 w-full bg-transparent">
+            <button onClick={togglePlay} className="w-8 h-8 flex-shrink-0 flex items-center justify-center text-[#8696a0] hover:text-[#e9edef] transition-colors focus:outline-none">
+                {isPlaying ? (
+                    <svg viewBox="0 0 24 24" className="w-6 h-6 fill-current">
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                    </svg>
+                ) : (
+                    <svg viewBox="0 0 24 24" className="w-6 h-6 fill-current">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                )}
+            </button>
+            <div className="flex-1 flex flex-col justify-center">
+                <div 
+                    className="h-1.5 bg-[#374248] rounded-full w-full cursor-pointer relative overflow-hidden"
+                    onClick={handleSeek}
+                >
+                    <div 
+                        className="h-full bg-[#00a884] rounded-full pointer-events-none transition-all duration-75" 
+                        style={{ width: `${progress}%` }}
+                    />
+                </div>
+                <div className="text-[11px] text-[#8696a0] mt-1 font-medium">
+                    {formatTime(audioRef.current?.currentTime || 0)} / {formatTime(duration)}
+                </div>
+            </div>
+            <audio 
+                ref={audioRef}
+                src={src}
+                onTimeUpdate={handleTimeUpdate}
+                onLoadedMetadata={handleLoadedMetadata}
+                onEnded={() => { setIsPlaying(false); setProgress(0); }}
+                className="hidden"
+                preload="metadata"
+            />
+        </div>
+    );
+};
+
+export default function Thread({ conversation, onBack }) {
     const [messages, setMessages] = useState([]);
     const [nextCursor, setNextCursor] = useState(null);
     const messagesEndRef = useRef(null);
@@ -53,8 +149,11 @@ export default function Thread({ conversation }) {
         fetchMessages();
 
         const channel = window.Echo.channel(`conversations.${conversation.id}`);
-        channel.listen('MessageReceived', (e) => {
+        channel.listen('.message.received', (e) => {
             if (e.message && typeof e.message === 'object') {
+                if (e.message.direction === 'inbound') {
+                    window.axios.post(`/api/conversations/${conversation.id}/read`).catch(console.error);
+                }
                 setMessages(prev => {
                     const exists = prev.some(m => m.id === e.message.id);
                     if (exists) {
@@ -68,7 +167,7 @@ export default function Thread({ conversation }) {
         });
 
         return () => {
-            channel.stopListening('MessageReceived');
+            channel.stopListening('.message.received');
         };
     }, [conversation?.id]);
 
@@ -114,6 +213,15 @@ export default function Thread({ conversation }) {
             {/* Active Chat Header */}
             <header className="flex h-[60px] items-center justify-between border-b border-[#222d34] bg-[#202c33] px-4 z-10 flex-shrink-0">
                 <div className="flex items-center gap-3">
+                    <button 
+                        onClick={onBack} 
+                        className="md:hidden text-[#8696a0] hover:text-[#e9edef] transition-colors p-1 -ml-2"
+                        title="Back to Conversations"
+                    >
+                        <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
+                            <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+                        </svg>
+                    </button>
                     <div className="h-10 w-10 rounded-full bg-[#374248] flex items-center justify-center text-[#e9edef] font-medium text-sm">
                         {conversation?.customer_number ? conversation.customer_number.substring(0, 2) : '??'}
                     </div>
@@ -162,7 +270,7 @@ export default function Thread({ conversation }) {
                     const formattedTime = formatTimestamp(msg.created_at);
                     const content = parseMessageContent(msg.content);
 
-                    const isMedia = content.type === 'image' || content.type === 'audio';
+                    const isMedia = ['image', 'audio', 'document', 'video'].includes(content.type);
 
                     if (isMedia) {
                         const displayUrl = resolveMediaUrl(content.url);
@@ -176,19 +284,27 @@ export default function Thread({ conversation }) {
                                             onClick={() => setModalImage(displayUrl)}
                                             className="rounded-xl object-cover max-h-[260px] w-full cursor-pointer hover:opacity-90 transition-opacity border border-[#222d34] shadow-md" 
                                         />
+                                    ) : content.type === 'video' ? (
+                                        <div className="bg-[#111b21] rounded-xl overflow-hidden border border-[#222d34] shadow-md w-full">
+                                            <video src={displayUrl} controls className="max-h-[260px] w-full" />
+                                        </div>
+                                    ) : content.type === 'document' ? (
+                                        <div className="bg-[#111b21] p-3 rounded-xl border border-[#222d34] shadow-md w-full flex items-center gap-3">
+                                            <div className="bg-[#202c33] p-2 rounded-lg shrink-0">
+                                                <svg className="w-8 h-8 text-[#8696a0]" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                                                </svg>
+                                            </div>
+                                            <a href={displayUrl} target="_blank" rel="noreferrer" className="flex-1 truncate text-sm text-[#e9edef] hover:underline font-medium" title={content.filename || 'Document'}>
+                                                {content.filename || 'Document'}
+                                            </a>
+                                            <a href={displayUrl} download className="shrink-0 p-1 text-[#8696a0] hover:text-[#00a884] transition-colors" title="Download">
+                                                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                                            </a>
+                                        </div>
                                     ) : (
-                                        <div className="bg-[#111b21] p-2 rounded-xl border border-[#222d34] shadow-md w-full">
-                                            <audio 
-                                                controls 
-                                                preload="auto"
-                                                src={displayUrl}
-                                                className="w-full h-10 rounded block" 
-                                            >
-                                                <source src={displayUrl} type="audio/ogg" />
-                                                <source src={displayUrl} type="audio/webm" />
-                                                <source src={displayUrl} type="audio/mp4" />
-                                                <source src={displayUrl} type="audio/mpeg" />
-                                            </audio>
+                                        <div className="bg-[#111b21] p-3 rounded-xl border border-[#222d34] shadow-md w-[260px] max-w-full">
+                                            <CustomAudioPlayer src={displayUrl} />
                                         </div>
                                     )}
 

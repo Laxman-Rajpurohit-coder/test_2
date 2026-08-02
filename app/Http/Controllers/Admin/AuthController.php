@@ -34,8 +34,8 @@ class AuthController extends Controller
         if (Auth::guard('admin')->attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
             
-            // If they were trying to go somewhere before being redirected to login
-            return redirect()->intended(route('admin.tenants.index'));
+            // Hard redirect to the admin dashboard, ignoring any leaked url.intended from the web guard
+            return redirect()->route('admin.tenants.index');
         }
 
         return back()->withErrors([

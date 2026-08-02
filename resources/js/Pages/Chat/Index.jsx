@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import AppLayout from '@/Layouts/AppLayout';
 import Sidebar from './Sidebar';
@@ -15,6 +15,14 @@ export default function ChatIndex({ auth, tenantNumbers }) {
     const [activeConversation, setActiveConversation] = useState(null);
     const [selectedNumberId, setSelectedNumberId] = useState(null);
 
+    // Keep global state in sync for the websocket closure
+    useEffect(() => {
+        window.activeConversationId = activeConversation?.id || null;
+    }, [activeConversation]);
+
+    const { impersonation } = usePage().props;
+    const resolvedTenantId = impersonation?.is_impersonating ? impersonation.tenant_id : auth?.user?.tenant_id;
+
     const fetchConversations = () => {
         let url = '/api/conversations';
         if (selectedNumberId) {
@@ -28,8 +36,66 @@ export default function ChatIndex({ auth, tenantNumbers }) {
     useEffect(() => {
         fetchConversations();
         const interval = setInterval(fetchConversations, 10000); // Polling fallback
-        return () => clearInterval(interval);
+
+        // Request Browser Notification Permission on Load
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+
+        // Real-time Sidebar Updates
+        let channel = null;
+        
+        if (resolvedTenantId) {
+            channel = window.Echo.private(`tenant.${resolvedTenantId}`);
+            channel.listen('.message.received', (e) => {
+                fetchConversations();
+                
+                // Show Desktop Notification if it's an inbound message and NOT the active chat
+                if (e.message && e.message.direction === 'inbound') {
+                    // Check if we are currently looking at this exact chat
+                    // Since activeConversation might be stale in this closure, we can just check if it matches
+                    // Alternatively, we just let it pop up. But it's better to avoid spamming if active.
+                    // To do this safely without stale closures, we can just always pop it unless document is hidden
+                    // Actually, if document is hidden, always notify. If not hidden, only notify if it's not the active chat.
+                    const isMuted = window.activeConversationId === e.message.conversation_id && document.visibilityState === 'visible';
+                    
+                    if (!isMuted && 'Notification' in window && Notification.permission === 'granted') {
+                        let textStr = 'New Message';
+                        try {
+                            const parsed = typeof e.message.content === 'string' ? JSON.parse(e.message.content) : e.message.content;
+                            if (parsed && typeof parsed === 'string') {
+                                textStr = JSON.parse(parsed).text || textStr;
+                            } else if (parsed && parsed.text) {
+                                textStr = parsed.text;
+                            } else if (parsed && parsed.type) {
+                                textStr = '📷 ' + parsed.type;
+                            }
+                        } catch(err) {}
+
+                        new Notification('New WhatsApp Message', {
+                            body: textStr,
+                            icon: '/favicon.ico' // Or MSG91 logo
+                        });
+                    }
+                }
+            });
+        }
+
+        return () => {
+            clearInterval(interval);
+            if (channel) {
+                window.Echo.leave(`tenant.${resolvedTenantId}`);
+            }
+        };
     }, [selectedNumberId]);
+
+    const handleSelectConversation = (conv) => {
+        setActiveConversation(conv);
+        if (conv.unread_count > 0) {
+            setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, unread_count: 0 } : c));
+            window.axios.post(`/api/conversations/${conv.id}/read`).catch(console.error);
+        }
+    };
 
     return (
         <AppLayout>
@@ -37,11 +103,11 @@ export default function ChatIndex({ auth, tenantNumbers }) {
 
             <div className="flex h-[calc(100vh-112px)] w-full overflow-hidden bg-[#0c1317] font-sans antialiased text-[#e9edef] rounded-2xl border border-gray-200/80 shadow-sm">
                 {/* LEFT COLUMN: Thread List Sidebar */}
-                <aside className="flex flex-col w-full max-w-[340px] lg:max-w-[380px] border-r border-[#222d34] bg-[#111b21] h-full flex-shrink-0">
+                <aside className={`flex flex-col w-full md:w-[340px] lg:w-[380px] border-r border-[#222d34] bg-[#111b21] h-full flex-shrink-0 ${activeConversation ? 'hidden md:flex' : 'flex'}`}>
                     <Sidebar 
                         conversations={conversations} 
                         activeConversation={activeConversation} 
-                        onSelect={setActiveConversation} 
+                        onSelect={handleSelectConversation} 
                         user={auth?.user}
                         tenantNumbers={tenantNumbers}
                         selectedNumberId={selectedNumberId}
@@ -50,9 +116,9 @@ export default function ChatIndex({ auth, tenantNumbers }) {
                 </aside>
                 
                 {/* RIGHT COLUMN: Active Chat Canvas */}
-                <main className="flex flex-1 flex-col bg-[#0b141a] relative h-full">
+                <main className={`flex flex-1 flex-col bg-[#0b141a] relative h-full min-w-0 ${!activeConversation ? 'hidden md:flex' : 'flex'}`}>
                     {activeConversation ? (
-                        <Thread conversation={activeConversation} />
+                        <Thread conversation={activeConversation} onBack={() => setActiveConversation(null)} />
                     ) : (
                         <div className="flex h-full items-center justify-center flex-col space-y-4 bg-[#222e35] text-center p-8">
                             <div className="w-24 h-24 rounded-full bg-[#202c33] flex items-center justify-center shadow-lg border border-[#222d34]">

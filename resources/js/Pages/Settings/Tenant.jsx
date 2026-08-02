@@ -1,5 +1,5 @@
 import React from 'react';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 
 export default function TenantSettings({ settings, numbers, webhook }) {
@@ -16,6 +16,7 @@ export default function TenantSettings({ settings, numbers, webhook }) {
     });
 
     const numberForm = useForm({
+        country_code: '91',
         integrated_number: '',
     });
 
@@ -82,8 +83,13 @@ export default function TenantSettings({ settings, numbers, webhook }) {
                                 value={data.msg91_auth_key}
                                 onChange={(e) => setData('msg91_auth_key', e.target.value)}
                                 placeholder="Enter custom MSG91 Auth Key"
-                                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
+                                className={`w-full px-3 py-2 border rounded-xl text-xs outline-none transition-colors ${
+                                    errors.msg91_auth_key 
+                                        ? 'border-rose-500 focus:ring-rose-200' 
+                                        : 'border-gray-200 focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884]'
+                                }`}
                             />
+                            {errors.msg91_auth_key && <p className="text-[10px] text-rose-500 mt-1 font-semibold">{errors.msg91_auth_key}</p>}
                         </div>
 
                         <div>
@@ -93,8 +99,13 @@ export default function TenantSettings({ settings, numbers, webhook }) {
                                 value={data.openai_api_key}
                                 onChange={(e) => setData('openai_api_key', e.target.value)}
                                 placeholder="sk-proj-..."
-                                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
+                                className={`w-full px-3 py-2 border rounded-xl text-xs outline-none transition-colors ${
+                                    errors.openai_api_key 
+                                        ? 'border-rose-500 focus:ring-rose-200' 
+                                        : 'border-gray-200 focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884]'
+                                }`}
                             />
+                            {errors.openai_api_key && <p className="text-[10px] text-rose-500 mt-1 font-semibold">{errors.openai_api_key}</p>}
                         </div>
 
                         <div>
@@ -104,8 +115,13 @@ export default function TenantSettings({ settings, numbers, webhook }) {
                                 value={data.flowise_endpoint}
                                 onChange={(e) => setData('flowise_endpoint', e.target.value)}
                                 placeholder="https://flowise.yourdomain.com/api/v1/prediction/..."
-                                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
+                                className={`w-full px-3 py-2 border rounded-xl text-xs outline-none transition-colors ${
+                                    errors.flowise_endpoint 
+                                        ? 'border-rose-500 focus:ring-rose-200' 
+                                        : 'border-gray-200 focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884]'
+                                }`}
                             />
+                            {errors.flowise_endpoint && <p className="text-[10px] text-rose-500 mt-1 font-semibold">{errors.flowise_endpoint}</p>}
                         </div>
 
                         <div className="pt-4 mt-4 border-t border-gray-100">
@@ -157,8 +173,13 @@ export default function TenantSettings({ settings, numbers, webhook }) {
                                     max="1"
                                     value={data.ai_confidence_threshold}
                                     onChange={(e) => setData('ai_confidence_threshold', e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
+                                    className={`w-full px-3 py-2 border rounded-xl text-xs outline-none transition-colors ${
+                                        errors.ai_confidence_threshold 
+                                            ? 'border-rose-500 focus:ring-rose-200' 
+                                            : 'border-gray-200 focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884]'
+                                    }`}
                                 />
+                                {errors.ai_confidence_threshold && <p className="text-[10px] text-rose-500 mt-1 font-semibold">{errors.ai_confidence_threshold}</p>}
                                 <p className="text-[10px] text-gray-400 mt-1">If the model scores below this confidence level, it will not answer.</p>
                             </div>
 
@@ -186,14 +207,17 @@ export default function TenantSettings({ settings, numbers, webhook }) {
                         </div>
 
                         <div className="flex justify-end pt-3 items-center gap-4">
-                            <span className={`text-sm font-semibold text-emerald-600 transition-opacity duration-300 ${recentlySuccessful ? 'opacity-100' : 'opacity-0'}`}>
-                                Saved successfully.
-                            </span>
                             <button
                                 type="submit"
                                 disabled={processing}
-                                className="px-5 py-2.5 bg-[#00a884] hover:bg-[#008f70] text-white rounded-xl text-xs font-semibold transition shadow-md shadow-emerald-500/20 disabled:opacity-50"
+                                className="flex items-center gap-2 px-5 py-2.5 bg-[#00a884] hover:bg-[#008f70] text-white rounded-xl text-xs font-semibold transition shadow-md shadow-emerald-500/20 disabled:opacity-50"
                             >
+                                {processing && (
+                                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                    </svg>
+                                )}
                                 {processing ? 'Saving...' : 'Save API Credentials'}
                             </button>
                         </div>
@@ -204,20 +228,48 @@ export default function TenantSettings({ settings, numbers, webhook }) {
                 <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs space-y-5">
                     <h2 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3">Registered WhatsApp Integrated Numbers</h2>
 
-                    <form onSubmit={handleAddNumber} className="flex gap-3">
-                        <input
-                            type="text"
-                            value={numberForm.data.integrated_number}
-                            onChange={(e) => numberForm.setData('integrated_number', e.target.value)}
-                            placeholder="e.g. 917425889008"
-                            className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
-                            required
-                        />
+                    <form onSubmit={handleAddNumber} className="flex gap-3 items-start">
+                        <div className="flex-none w-36">
+                            <select
+                                value={numberForm.data.country_code}
+                                onChange={(e) => numberForm.setData('country_code', e.target.value)}
+                                className={`w-full px-3 py-2 border rounded-xl text-xs outline-none transition-colors border-gray-200 focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] bg-white`}
+                            >
+                                <option value="91">+91 (India)</option>
+                                <option value="1">+1 (US/Canada)</option>
+                                <option value="44">+44 (UK)</option>
+                                <option value="61">+61 (Australia)</option>
+                                <option value="">None (Raw)</option>
+                            </select>
+                        </div>
+                        <div className="flex-1">
+                            <input
+                                type="text"
+                                value={numberForm.data.integrated_number}
+                                onChange={(e) => numberForm.setData('integrated_number', e.target.value)}
+                                placeholder="e.g. 917425889008"
+                                className={`w-full px-3 py-2 border rounded-xl text-xs outline-none transition-colors ${
+                                    numberForm.errors.integrated_number 
+                                        ? 'border-rose-500 focus:ring-rose-200' 
+                                        : 'border-gray-200 focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884]'
+                                }`}
+                                required
+                            />
+                            {numberForm.errors.integrated_number && (
+                                <p className="text-[10px] text-rose-500 mt-1 font-semibold">{numberForm.errors.integrated_number}</p>
+                            )}
+                        </div>
                         <button
                             type="submit"
                             disabled={numberForm.processing}
-                            className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-xs font-semibold transition"
+                            className="flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-xs font-semibold transition disabled:opacity-50"
                         >
+                            {numberForm.processing && (
+                                <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                </svg>
+                            )}
                             + Add Number
                         </button>
                     </form>
@@ -228,8 +280,21 @@ export default function TenantSettings({ settings, numbers, webhook }) {
                         ) : (
                             numbers.map((num) => (
                                 <div key={num.id} className="p-3.5 flex items-center justify-between text-xs font-semibold text-gray-800 bg-gray-50/50">
-                                    <span className="font-mono">📱 +{num.integrated_number}</span>
-                                    <span className="px-2 py-0.5 bg-emerald-50 text-[#00a884] rounded-md text-[10px] font-bold">Active</span>
+                                    <div className="flex items-center gap-3">
+                                        <span className="font-mono">📱 +{num.integrated_number}</span>
+                                        <span className="px-2 py-0.5 bg-emerald-50 text-[#00a884] rounded-md text-[10px] font-bold">Active</span>
+                                    </div>
+                                    <button 
+                                        type="button"
+                                        onClick={() => {
+                                            if(confirm('Are you sure you want to remove this number?')) {
+                                                router.delete(route('settings.tenant.numbers.destroy', num.integrated_number));
+                                            }
+                                        }}
+                                        className="px-2 py-1 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-md text-[10px] font-bold transition-colors"
+                                    >
+                                        Remove
+                                    </button>
                                 </div>
                             ))
                         )}

@@ -176,58 +176,62 @@ export default function Workspace({ flows, active_flow }) {
     };
 
     return (
-        <AuthenticatedLayout
-            header={
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
-                            Flow Builder
-                            {active_flow && (
-                                <>
-                                    <span className="text-gray-300">/</span>
-                                    <span className="text-indigo-600">{active_flow.name}</span>
-                                    <span className={`w-2 h-2 rounded-full ${active_flow.is_active ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`} />
-                                </>
-                            )}
-                        </h2>
-                    </div>
-                    
-                    <div className="flex gap-3">
-                        <button
-                            onClick={() => setIsCreateOpen(true)}
-                            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white bg-slate-800 rounded-lg shadow-sm hover:bg-slate-700 transition-all"
-                        >
-                            + Create Flow
-                        </button>
-
-                        {active_flow && (
-                            <button
-                                onClick={handleSave}
-                                disabled={isSaving}
-                                className="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg shadow-sm transition-all"
-                            >
-                                {isSaving ? 'Saving...' : 'Save Flow'}
-                            </button>
-                        )}
-                    </div>
-                </div>
-            }
-        >
+        <AuthenticatedLayout>
             <Head title={active_flow ? `Editing - ${active_flow.name}` : "Flow Builder"} />
+
+            {/* Header Bar */}
+            <div className="h-16 bg-white border-b border-gray-200 px-6 flex items-center justify-between shrink-0">
+                <div className="flex items-center">
+                    <Link href={route('dashboard')} className="mr-4 p-2 -ml-2 rounded-lg text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors" title="Back to Dashboard">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                    </Link>
+                    <h2 className="text-xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
+                        Flow Builder
+                        {active_flow && (
+                            <>
+                                <span className="text-gray-300">/</span>
+                                <span className="text-indigo-600">{active_flow.name}</span>
+                                <span className={`w-2 h-2 rounded-full ${active_flow.is_active ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`} />
+                            </>
+                        )}
+                    </h2>
+                </div>
+                
+                <div className="flex gap-3">
+                    <button
+                        onClick={() => setIsCreateOpen(true)}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white bg-slate-800 rounded-lg shadow-sm hover:bg-slate-700 transition-all"
+                    >
+                        + Create Flow
+                    </button>
+
+                    {active_flow && (
+                        <button
+                            onClick={handleSave}
+                            disabled={isSaving}
+                            className="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg shadow-sm transition-all"
+                        >
+                            {isSaving ? 'Saving...' : 'Save Flow'}
+                        </button>
+                    )}
+                </div>
+            </div>
 
             {/* Error & Success Banners */}
             {errors?.graph && (
-                <div className="bg-rose-500/10 border-b border-rose-500/30 px-6 py-2 flex items-center gap-2 text-rose-600 text-xs font-bold">
+                <div className="bg-rose-500/10 border-b border-rose-500/30 px-6 py-2 flex items-center gap-2 text-rose-600 text-xs font-bold shrink-0">
                     <span>Validation Error: {errors.graph}</span>
                 </div>
             )}
             {successMessage && (
-                <div className="bg-emerald-500/10 border-b border-emerald-500/30 px-6 py-2 flex items-center gap-2 text-emerald-600 text-xs font-bold">
+                <div className="bg-emerald-500/10 border-b border-emerald-500/30 px-6 py-2 flex items-center gap-2 text-emerald-600 text-xs font-bold shrink-0">
                     <span>✓ {successMessage}</span>
                 </div>
             )}
 
-            <div className="h-[calc(100vh-8.5rem)] flex overflow-hidden">
+            <div className="h-[calc(100vh-4rem)] flex overflow-hidden">
                 
                 {/* ⬅️ Left Sidebar: Flow Master List */}
                 <div className="w-80 bg-white border-r border-gray-200 flex flex-col overflow-hidden">

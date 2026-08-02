@@ -1,53 +1,67 @@
-# Stage 1: Build Node.js assets
-FROM node:20-alpine AS frontend
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
+# Use PHP 8.2 FPM Alpine or Debian. Debian is easier for FFmpeg and Supervisor.
+FROM php:8.2-fpm
 
-# Stage 2: PHP Base Image
-FROM php:8.2-fpm-alpine
-
-# Install system dependencies, Nginx, and Supervisor
-RUN apk add --no-cache \
-    nginx \
-    supervisor \
-    postgresql-dev \
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
     libzip-dev \
     zip \
     unzip \
-    curl \
-    git \
-    $PHPIZE_DEPS
+    nginx \
+    supervisor \
+    ffmpeg \
+    libpq-dev \
+    nodejs \
+    npm
 
-# Install PHP extensions required for Postgres and Redis
-RUN docker-php-ext-install pdo pdo_pgsql pcntl bcmath zip
+# Clear cache
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install PHP extensions
+RUN docker-php-ext-install pdo_pgsql mbstring exif pcntl bcmath gd zip pcntl sockets
+
+# Install Redis extension
 RUN pecl install redis && docker-php-ext-enable redis
 
-# Clear out default nginx config and set up ours
-RUN rm /etc/nginx/http.d/default.conf
-COPY ./docker/prod/nginx.conf /etc/nginx/http.d/default.conf
-
-# Configure Supervisor
-COPY ./docker/prod/supervisord.conf /etc/supervisord.conf
-
-# Install Composer
+# Get latest Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
+# Set working directory
 WORKDIR /var/www/html
-# Copy application code
+
+# Copy application files
 COPY . .
 
-# Copy compiled frontend assets from Stage 1
-COPY --from=frontend /app/public/build ./public/build
+# Copy custom configurations
+COPY docker/nginx.conf /etc/nginx/sites-enabled/default
+COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Install PHP dependencies without dev tools
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+# Rename .env.railway to .env so the build can proceed with default variables
+RUN cp .env.railway .env
 
-# Set correct permissions for Laravel
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/public
+# Install Composer dependencies
+RUN composer install --no-dev --optimize-autoloader
 
+# Install Node dependencies and build assets
+RUN npm ci && npm run build
+
+# Generate APP_KEY
+RUN php artisan key:generate --force
+
+# Set permissions
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 775 /var/www/html/storage \
+    && chmod -R 775 /var/www/html/bootstrap/cache
+
+# Create storage symlink
+RUN php artisan storage:link
+
+# Expose HTTP port (Railway automatically routes traffic to this port)
 EXPOSE 80
 
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
+# Start Supervisor to manage Nginx, PHP-FPM, Reverb, and Queue Worker
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

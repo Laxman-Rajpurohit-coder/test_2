@@ -37,7 +37,10 @@ class ChatController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Conversation::orderBy('last_message_at', 'desc');
+        $query = Conversation::orderBy('last_message_at', 'desc')
+            ->with(['messages' => function ($q) {
+                $q->orderBy('vendor_timestamp', 'desc')->limit(1);
+            }]);
 
         if ($request->filled('tenant_number_id')) {
             $query->where('tenant_number_id', $request->input('tenant_number_id'));
@@ -46,6 +49,19 @@ class ChatController extends Controller
         $conversations = $query->get();
             
         return response()->json($conversations);
+    }
+
+    /**
+     * Marks a conversation as read by resetting the unread_count to 0.
+     */
+    public function markAsRead($id)
+    {
+        $conversation = Conversation::find($id);
+        if ($conversation && $conversation->unread_count > 0) {
+            $conversation->unread_count = 0;
+            $conversation->save();
+        }
+        return response()->json(['status' => 'success']);
     }
 
     // API: Fetch messages for a conversation (Cursor Pagination, Scoped via BelongsToTenant)
@@ -95,10 +111,16 @@ class ChatController extends Controller
     {
         $request->validate([
             'content' => 'required|string',
-            'type'    => 'required|string|in:text,template',
+            'type'    => 'required|string|in:text,template,interactive',
             'template_name' => 'required_if:type,template|string',
             'template_language' => 'nullable|string',
             'template_components' => 'nullable|array',
+            'interactive_type' => 'required_if:type,interactive|in:button,list',
+            'buttons' => 'required_if:interactive_type,button|array|max:3',
+            'sections' => 'required_if:interactive_type,list|array|max:10',
+            'list_button_text' => 'required_if:interactive_type,list|string',
+            'header_text' => 'nullable|string',
+            'footer_text' => 'nullable|string',
         ]);
 
         $conversation = Conversation::find($id);
@@ -124,6 +146,20 @@ class ChatController extends Controller
                 'template_language' => $request->input('template_language', 'en'),
                 'text' => $request->input('content'),
             ];
+        } elseif ($request->input('type') === 'interactive') {
+            $dbContent = [
+                'type' => 'interactive',
+                'interactive_type' => $request->input('interactive_type'),
+                'text' => $request->input('content'),
+                'header_text' => $request->input('header_text'),
+                'footer_text' => $request->input('footer_text'),
+            ];
+            if ($request->input('interactive_type') === 'button') {
+                $dbContent['buttons'] = $request->input('buttons');
+            } else {
+                $dbContent['list_button_text'] = $request->input('list_button_text');
+                $dbContent['sections'] = $request->input('sections');
+            }
         }
 
         // 1. Save to database as "queued" via Eloquent (Auto-injects tenant_id)
@@ -181,14 +217,22 @@ class ChatController extends Controller
      */
     public function storeMedia(Request $request, $id)
     {
-        $maxKB = $request->input('type') === 'image' ? 5120 : 16384;
-        $mimes = $request->input('type') === 'image' 
-            ? 'jpeg,jpg,png,gif,webp' 
-            : 'mp3,wav,ogg,m4a,webm';
+        $maxKB = 16384; // Default max 16MB
+        if ($request->input('type') === 'image') $maxKB = 5120; // 5MB limit for images
+        if ($request->input('type') === 'video') $maxKB = 16384; // 16MB limit for videos
+
+        $mimes = 'jpeg,jpg,png,gif,webp';
+        if ($request->input('type') === 'audio') {
+            $mimes = 'mp3,wav,ogg,m4a,webm';
+        } elseif ($request->input('type') === 'document') {
+            $mimes = 'pdf,doc,docx,txt,csv,xls,xlsx';
+        } elseif ($request->input('type') === 'video') {
+            $mimes = 'mp4,mov,avi';
+        }
 
         $request->validate([
             'file'    => "required|file|mimes:{$mimes}|max:{$maxKB}",
-            'type'    => 'required|string|in:image,audio',
+            'type'    => 'required|string|in:image,audio,document,video',
             'caption' => 'nullable|string',
         ]);
 
@@ -245,6 +289,10 @@ class ChatController extends Controller
             'url'     => $mediaUrl,
             'caption' => $request->input('caption', ''),
         ];
+
+        if ($mediaType === 'document' || $mediaType === 'video') {
+            $contentPayload['filename'] = $file->getClientOriginalName();
+        }
 
         $newMessage = WhatsappMessage::create([
             'id'               => $messageId,

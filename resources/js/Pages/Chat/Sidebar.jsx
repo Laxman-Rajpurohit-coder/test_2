@@ -34,30 +34,15 @@ export default function Sidebar({ conversations, activeConversation, onSelect, u
     };
 
     return (
-        <div className="flex h-full flex-col bg-[#111b21]">
+        <div className="flex h-full flex-col bg-[#111b21] overflow-hidden">
             {/* Sidebar Top Header Bar */}
             <header className="flex h-[60px] items-center justify-between bg-[#202c33] px-4 py-2 border-r border-[#222d34] flex-shrink-0">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 shrink-0">
                     <div className="h-10 w-10 rounded-full bg-[#6b7c85] flex items-center justify-center text-white font-bold text-sm shadow">
                         {user?.name ? user.name.substring(0, 2).toUpperCase() : 'ME'}
                     </div>
                 </div>
-                <div className="flex items-center gap-4 text-[#8696a0]">
-                    <button title="Communities" className="hover:text-[#e9edef] transition-colors">
-                        <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
-                            <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/>
-                        </svg>
-                    </button>
-                    <button title="Status" className="hover:text-[#e9edef] transition-colors">
-                        <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
-                            <path d="M12 4a8 8 0 1 0 8 8 8 8 0 0 0-8-8zm0 14a6 6 0 1 1 6-6 6 6 0 0 1-6 6z"/>
-                        </svg>
-                    </button>
-                    <button title="Channels" className="hover:text-[#e9edef] transition-colors">
-                        <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
-                            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
-                        </svg>
-                    </button>
+                <div className="flex items-center gap-4 text-[#8696a0] shrink-0">
                     <button title="New Chat" className="hover:text-[#e9edef] transition-colors">
                         <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
                             <path d="M19 11h-6V5h-2v6H5v2h6v6h2v-6h6z"/>
@@ -71,28 +56,12 @@ export default function Sidebar({ conversations, activeConversation, onSelect, u
                 </div>
             </header>
 
-            {/* Tenant Number Selector */}
-            {tenantNumbers && tenantNumbers.length > 0 && (
-                <div className="p-2 bg-[#111b21] border-r border-[#222d34] flex-shrink-0 border-b">
-                    <select
-                        value={selectedNumberId || ''}
-                        onChange={(e) => onSelectNumber(e.target.value ? Number(e.target.value) : null)}
-                        className="w-full bg-[#202c33] text-[#e9edef] border-none rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[#00a884]"
-                    >
-                        <option value="">All Numbers</option>
-                        {tenantNumbers.map(tn => (
-                            <option key={tn.id} value={tn.id}>
-                                +{tn.integrated_number}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-            )}
+
 
             {/* Search Bar Container */}
-            <div className="p-2 bg-[#111b21] border-r border-[#222d34] flex-shrink-0">
-                <div className="flex items-center gap-3 rounded-lg bg-[#202c33] px-3 py-1.5 text-sm">
-                    <span className="text-[#8696a0]">🔍</span>
+            <div className="px-4 py-2 bg-[#111b21] border-r border-[#222d34] flex-shrink-0 pb-3">
+                <div className="flex items-center gap-3 rounded-lg bg-[#202c33] px-3 py-2 text-sm w-full border border-[#222d34]/60">
+                    <span className="text-[#8696a0] shrink-0">🔍</span>
                     <input 
                         type="text" 
                         id="chat-search"
@@ -142,11 +111,31 @@ export default function Sidebar({ conversations, activeConversation, onSelect, u
                                     </div>
                                     <div className="flex justify-between items-center mt-1">
                                         <p className="text-xs text-[#8696a0] truncate max-w-[200px]">
-                                            Active thread
+                                            {(() => {
+                                                if (conv.messages && conv.messages.length > 0) {
+                                                    const lastMsg = conv.messages[0];
+                                                    let textStr = '📷 Media';
+                                                    try {
+                                                        const parsed = typeof lastMsg.content === 'string' ? JSON.parse(lastMsg.content) : lastMsg.content;
+                                                        if (parsed && typeof parsed === 'string') {
+                                                            const doubleParsed = JSON.parse(parsed);
+                                                            textStr = doubleParsed.text || textStr;
+                                                        } else if (parsed && parsed.text) {
+                                                            textStr = parsed.text;
+                                                        }
+                                                    } catch(e) {}
+                                                    
+                                                    const prefix = lastMsg.direction === 'outbound' ? 'You: ' : '';
+                                                    return prefix + textStr;
+                                                }
+                                                return 'Active thread';
+                                            })()}
                                         </p>
-                                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#00a884] text-[11px] font-bold text-[#111b21]">
-                                            1
-                                        </span>
+                                        {conv.unread_count > 0 && !isActive && (
+                                            <span className="flex min-w-[20px] h-5 px-1 items-center justify-center rounded-full bg-[#00a884] text-[11px] font-bold text-[#111b21]">
+                                                {conv.unread_count}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             </div>

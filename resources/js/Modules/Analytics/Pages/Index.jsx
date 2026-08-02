@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import {
     ResponsiveContainer,
@@ -24,17 +24,22 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
     const [activePreset, setActivePreset] = useState('30D');
     const [recentMessages, setRecentMessages] = useState(initialRecent);
 
+    const { auth, impersonation } = usePage().props;
+    const activeTenantId = impersonation?.is_impersonating 
+        ? impersonation.tenant_id 
+        : auth?.user?.tenant_id;
+
     useEffect(() => {
         setRecentMessages(initialRecent);
     }, [initialRecent]);
 
     // Real-time WebSocket Live Stream Listener (Reusing MessageReceived channel pattern)
     useEffect(() => {
-        if (typeof window !== 'undefined' && window.Echo) {
-            const channel = window.Echo.channel('conversations');
+        if (typeof window !== 'undefined' && window.Echo && activeTenantId) {
+            const channel = window.Echo.private(`tenant.${activeTenantId}`);
             channel.listen('.message.received', (e) => {
                 if (e && e.message) {
-                    const content = is_string(e.message.content) 
+                    const content = typeof e.message.content === 'string' 
                         ? JSON.parse(e.message.content) 
                         : (e.message.content || {});
                     
@@ -52,10 +57,10 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
             });
 
             return () => {
-                window.Echo.leaveChannel('conversations');
+                window.Echo.leaveChannel(`private-tenant.${activeTenantId}`);
             };
         }
-    }, []);
+    }, [activeTenantId]);
 
     const totals = metrics?.totals || { conversations: 0, inbound_messages: 0, outbound_messages: 0, total_messages: 0, active_triggers: 0 };
     const messagesPerDay = metrics?.messages_per_day || [];
