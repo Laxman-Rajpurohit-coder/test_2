@@ -43,6 +43,9 @@ COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 # Rename .env.railway to .env so the build can proceed with default variables
 RUN cp .env.railway .env
 
+# Provide dummy ENV variables for the build phase to prevent package:discover crashes
+ENV RAILWAY_STATIC_URL="localhost"
+
 # Install Composer dependencies
 RUN composer install --no-dev --optimize-autoloader
 
