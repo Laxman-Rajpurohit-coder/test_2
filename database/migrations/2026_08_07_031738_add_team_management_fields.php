@@ -12,11 +12,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('role')->default('owner')->after('tenant_id');
+            if (!Schema::hasColumn('users', 'role')) {
+                $table->string('role')->default('owner')->after('tenant_id');
+            }
         });
 
         Schema::table('contacts', function (Blueprint $table) {
-            $table->foreignId('assigned_user_id')->nullable()->after('tenant_id')->constrained('users')->nullOnDelete();
+            if (!Schema::hasColumn('contacts', 'assigned_user_id')) {
+                $table->foreignId('assigned_user_id')->nullable()->after('tenant_id')->constrained('users')->nullOnDelete();
+            }
         });
 
         Schema::dropIfExists('tenant_invites');

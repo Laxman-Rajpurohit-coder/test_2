@@ -62,6 +62,15 @@ class ProcessMsg91Webhook implements ShouldQueue
             
             app(TenantResolverService::class)->setActiveTenantId($tenantId);
 
+            // Auto-create contact if it doesn't exist
+            if ($direction === 0) {
+                DB::statement("
+                    INSERT INTO contacts (tenant_id, phone_number, first_name, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT (tenant_id, phone_number) DO NOTHING
+                ", [$tenantId, $customerNumber, $customerName ?: 'Unknown', now(), now()]);
+            }
+
             // Identify if we need to increment unread count for inbound message
             $incrementUnread = $direction === 0 ? 1 : 0;
             $convSql = "

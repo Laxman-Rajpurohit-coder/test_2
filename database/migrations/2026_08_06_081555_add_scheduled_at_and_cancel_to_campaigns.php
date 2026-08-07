@@ -12,7 +12,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('campaigns', function (Blueprint $table) {
-            $table->timestamp('scheduled_at')->nullable()->after('target_id');
+            if (!Schema::hasColumn('campaigns', 'scheduled_at')) {
+                $table->timestamp('scheduled_at')->nullable()->after('target_id');
+            }
         });
 
         if (\Illuminate\Support\Facades\DB::getDriverName() === 'pgsql') {
