@@ -39,7 +39,7 @@ class SendCampaignJob implements ShouldQueue
     {
         $campaign = Campaign::find($this->campaignId);
 
-        if (!$campaign || $campaign->status === 'completed' || $campaign->status === 'failed') {
+        if (!$campaign || $campaign->status === 'completed' || $campaign->status === 'failed' || $campaign->status === 'cancelled') {
             return;
         }
 
@@ -83,8 +83,10 @@ class SendCampaignJob implements ShouldQueue
             if ($campaign->message_type === 'text') {
                 if (!$has24hSession) {
                     // Skip text message outside 24h window (Compliance constraint)
-                    $recipient->update(['status' => 'skipped_24h', 'failure_reason' => 'Outside 24h window']);
-                    $campaign->increment('failed_count');
+                    \Illuminate\Support\Facades\DB::transaction(function () use ($recipient, $campaign) {
+                        $recipient->update(['status' => 'skipped_24h', 'failure_reason' => 'Outside 24h window']);
+                        $campaign->increment('failed_count');
+                    });
                 } else {
                     // Send free text within 24h window
                     try {
@@ -99,65 +101,117 @@ class SendCampaignJob implements ShouldQueue
                         // Route through standard OutboundReplyService (handles queueing and db storage)
                         \App\Services\OutboundReplyService::send($conversation->id, $campaign->tenant_id, $contentStruct, $msg91Payload);
 
-                        $recipient->update(['status' => 'sent']);
-                        $campaign->increment('sent_count');
+                        \Illuminate\Support\Facades\DB::transaction(function () use ($recipient, $campaign) {
+                            $recipient->update(['status' => 'sent']);
+                            $campaign->increment('sent_count');
+                        });
                     } catch (\Exception $e) {
-                        $recipient->update(['status' => 'failed', 'failure_reason' => $e->getMessage()]);
-                        $campaign->increment('failed_count');
+                        \Illuminate\Support\Facades\DB::transaction(function () use ($recipient, $campaign, $e) {
+                            $recipient->update(['status' => 'failed', 'failure_reason' => $e->getMessage()]);
+                            $campaign->increment('failed_count');
+                        });
                     }
                 }
             } elseif ($campaign->message_type === 'template') {
-                // Send template message (always allowed regardless of 24h window)
+                // Template messages bypass the 24h window — always send.
                 try {
                     $templateComponents = [];
-                    if (!empty($campaign->text_content)) {
-                        // Find all {{variable_name}} placeholders
-                        preg_match_all('/\{\{([a-zA-Z0-9_]+)\}\}/', $campaign->text_content, $matches);
-                        if (!empty($matches[1])) {
-                            $parameters = [];
-                            foreach ($matches[1] as $varName) {
-                                // Map to contact property or custom field
-                                $value = $contact->$varName ?? $contact->custom_fields[$varName] ?? '';
+                    $variableMap = $campaign->template_variable_map ?? [];
+
+                    if (!empty($variableMap)) {
+                        // variableMap is an ordered array of contact field names.
+                        // Index 0 → {{1}}, index 1 → {{2}}, etc. — matching MSG91/Meta's
+                        // positional convention exactly.
+                        $parameters = [];
+                        $missingFields = [];
+
+                        foreach ($variableMap as $position => $fieldName) {
+                            // Resolve: model property first, then custom_fields JSON bag
+                            $value = null;
+
+                            if (isset($contact->$fieldName) && $contact->$fieldName !== null && $contact->$fieldName !== '') {
+                                $value = (string) $contact->$fieldName;
+                            } elseif (
+                                is_array($contact->custom_fields) &&
+                                isset($contact->custom_fields[$fieldName]) &&
+                                $contact->custom_fields[$fieldName] !== null &&
+                                $contact->custom_fields[$fieldName] !== ''
+                            ) {
+                                $value = (string) $contact->custom_fields[$fieldName];
+                            }
+
+                            if ($value === null) {
+                                // Hard fail: we know this send would produce a broken
+                                // message (empty {{N}}). Record it and skip — do NOT send.
+                                $missingFields[] = '{{' . ($position + 1) . '}} (' . $fieldName . ')';
+                            } else {
                                 $parameters[] = [
                                     'type' => 'text',
-                                    'text' => (string) $value
+                                    'text' => $value,
                                 ];
                             }
-                            // MSG91 format requires grouping parameters under the 'body' component
+                        }
+
+                        // If ANY positional variable could not be resolved, refuse to send.
+                        // A partial send (some variables resolved, some empty) would produce
+                        // a visibly malformed message with no indication of failure.
+                        if (!empty($missingFields)) {
+                            $reason = 'Missing required template variable(s): ' . implode(', ', $missingFields);
+                            \Illuminate\Support\Facades\DB::transaction(function () use ($recipient, $campaign, $reason) {
+                                $recipient->update([
+                                    'status'         => 'failed',
+                                    'failure_reason' => $reason,
+                                ]);
+                                $campaign->increment('failed_count');
+                            });
+                            Log::warning("Campaign {$campaign->id}: skipped recipient {$recipient->id} — {$reason}");
+                            continue; // Move to next recipient
+                        }
+
+                        if (!empty($parameters)) {
                             $templateComponents[] = [
-                                'type' => 'body',
-                                'parameters' => $parameters
+                                'type'       => 'body',
+                                'parameters' => $parameters,
                             ];
                         }
                     }
 
                     $contentStruct = [
-                        'body' => "Template: " . $campaign->template_name,
-                        'template_name' => $campaign->template_name
+                        'body'          => 'Template: ' . $campaign->template_name,
+                        'template_name' => $campaign->template_name,
                     ];
 
                     $msg91Payload = \App\Services\Msg91PayloadBuilder::build(
                         $phone,
                         'template',
                         [
-                            'template_name' => $campaign->template_name,
-                            'template_language' => $campaign->template_language ?? 'en',
-                            'template_components' => $templateComponents
+                            'template_name'       => $campaign->template_name,
+                            'template_language'   => $campaign->template_language ?? 'en',
+                            'template_components' => $templateComponents,
                         ],
                         $outboundNumber
                     );
 
-                    // Route through standard OutboundReplyService
-                    \App\Services\OutboundReplyService::send($conversation->id, $campaign->tenant_id, $contentStruct, $msg91Payload);
+                    \App\Services\OutboundReplyService::send(
+                        $conversation->id,
+                        $campaign->tenant_id,
+                        $contentStruct,
+                        $msg91Payload
+                    );
 
-                    $recipient->update(['status' => 'sent']);
-                    $campaign->increment('sent_count');
+                    \Illuminate\Support\Facades\DB::transaction(function () use ($recipient, $campaign) {
+                        $recipient->update(['status' => 'sent']);
+                        $campaign->increment('sent_count');
+                    });
 
                 } catch (\Exception $e) {
-                    $recipient->update(['status' => 'failed', 'failure_reason' => $e->getMessage()]);
-                    $campaign->increment('failed_count');
+                    \Illuminate\Support\Facades\DB::transaction(function () use ($recipient, $campaign, $e) {
+                        $recipient->update(['status' => 'failed', 'failure_reason' => $e->getMessage()]);
+                        $campaign->increment('failed_count');
+                    });
                 }
             }
+
 
             // Enforce 1 msg/sec rate limit per tenant
             sleep(1);

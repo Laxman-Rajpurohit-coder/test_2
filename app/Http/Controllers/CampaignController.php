@@ -7,6 +7,7 @@ use App\Models\Campaign;
 use App\Models\Contact;
 use App\Models\ContactGroup;
 use App\Models\ContactTag;
+use App\Models\WhatsappTemplate;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
@@ -16,19 +17,48 @@ class CampaignController extends Controller
     public function index()
     {
         $campaigns = Campaign::withCount('recipients')->orderBy('created_at', 'desc')->paginate(20);
-        return Inertia::render('Campaigns/Index', ['campaigns' => $campaigns]);
+        $approvedTemplates = WhatsappTemplate::where('status', 'approved')
+            ->select('id', 'name', 'language', 'category')
+            ->get();
+            
+        return Inertia::render('Campaigns/Index', [
+            'campaigns' => $campaigns,
+            'approvedTemplates' => $approvedTemplates,
+        ]);
+    }
+
+    public function create()
+    {
+        $tenantId = auth()->user()->tenant_id;
+        $approvedTemplates = WhatsappTemplate::where('tenant_id', $tenantId)
+            ->where('status', 'approved')
+            ->get();
+        
+        $groups = ContactGroup::where('tenant_id', $tenantId)->get();
+        $tags = ContactTag::where('tenant_id', $tenantId)->get();
+
+        return Inertia::render('Campaigns/Create', [
+            'approvedTemplates' => $approvedTemplates,
+            'groups' => $groups,
+            'tags' => $tags,
+        ]);
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'message_type' => 'required|in:text,template',
-            'template_name' => 'nullable|required_if:message_type,template|string',
-            'template_language' => 'nullable|required_if:message_type,template|string',
-            'text_content' => 'nullable|required_if:message_type,text|string',
-            'target_type' => 'required|in:all,group,tag',
-            'target_id' => 'nullable|uuid',
+            'name'                  => 'required|string|max:255',
+            'message_type'          => 'required|in:text,template',
+            'template_name'         => 'nullable|required_if:message_type,template|string',
+            'template_language'     => 'nullable|required_if:message_type,template|string',
+            // Ordered array: index 0 → {{1}}, index 1 → {{2}}, etc.
+            // Each value is a contact field name (e.g. "first_name", "city").
+            'template_variable_map'   => 'nullable|array',
+            'template_variable_map.*' => 'string|max:64',
+            'text_content'          => 'nullable|required_if:message_type,text|string',
+            'target_type'           => 'required|in:all,group,tag',
+            'target_id'             => 'nullable|uuid',
+            'scheduled_at'          => 'nullable|date',
         ]);
 
         $tenantId = auth()->user()->tenant_id;
@@ -41,16 +71,21 @@ class CampaignController extends Controller
         }
 
         DB::transaction(function () use ($validated, $tenantId) {
+            $isScheduled = !empty($validated['scheduled_at']);
+            $status = $isScheduled ? 'scheduled' : 'queued';
+
             $campaign = Campaign::create([
-                'tenant_id' => $tenantId,
-                'name' => $validated['name'],
-                'message_type' => $validated['message_type'],
-                'template_name' => $validated['template_name'] ?? null,
-                'template_language' => $validated['template_language'] ?? null,
-                'text_content' => $validated['text_content'] ?? null,
-                'target_type' => $validated['target_type'],
-                'target_id' => $validated['target_id'] ?? null,
-                'status' => 'queued',
+                'tenant_id'             => $tenantId,
+                'name'                  => $validated['name'],
+                'message_type'          => $validated['message_type'],
+                'template_name'         => $validated['template_name'] ?? null,
+                'template_language'     => $validated['template_language'] ?? null,
+                'template_variable_map' => $validated['template_variable_map'] ?? null,
+                'text_content'          => $validated['text_content'] ?? null,
+                'target_type'           => $validated['target_type'],
+                'target_id'             => $validated['target_id'] ?? null,
+                'scheduled_at'          => $isScheduled ? \Carbon\Carbon::parse($validated['scheduled_at'])->setTimezone(config('app.timezone')) : null,
+                'status'                => $status,
             ]);
 
             // Query contacts based on target type
@@ -86,10 +121,14 @@ class CampaignController extends Controller
             });
 
             // Dispatch job
-            SendCampaignJob::dispatch($campaign->id);
+            if ($isScheduled) {
+                SendCampaignJob::dispatch($campaign->id)->delay($campaign->scheduled_at);
+            } else {
+                SendCampaignJob::dispatch($campaign->id);
+            }
         });
 
-        return back()->with('success', 'Campaign queued successfully.');
+        return back()->with('success', 'Campaign created successfully.');
     }
 
     public function show($id)
@@ -100,5 +139,19 @@ class CampaignController extends Controller
         return Inertia::render('Campaigns/Show', [
             'campaign' => $campaign
         ]);
+    }
+
+    public function cancel($id)
+    {
+        $tenantId = auth()->user()->tenant_id;
+        $campaign = Campaign::where('tenant_id', $tenantId)->findOrFail($id);
+
+        if (!in_array($campaign->status, ['scheduled', 'queued', 'sending'])) {
+            return back()->with('error', 'Only active or scheduled campaigns can be cancelled.');
+        }
+
+        $campaign->update(['status' => 'cancelled']);
+
+        return back()->with('success', 'Campaign cancelled successfully.');
     }
 }

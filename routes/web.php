@@ -30,7 +30,7 @@ Route::get('/', function () {
 
 // Master SAAS Dashboard Route (Points to Modules\Analytics\Http\Controllers\AnalyticsController)
 Route::get('/dashboard', [\Modules\Analytics\Http\Controllers\AnalyticsController::class, 'index'])
-    ->middleware(['auth', 'verified'])->name('dashboard');
+    ->middleware(['auth:web,admin', 'verified'])->name('dashboard');
 
 // Admin Auth Routes
 Route::get('/admin/login', [\App\Http\Controllers\Admin\AuthController::class, 'create'])->name('admin.login');
@@ -70,7 +70,7 @@ Route::middleware(['auth:web,admin', \App\Http\Middleware\BlockImpersonationWrit
     Route::post('/api/conversations/{id}/media', [ChatController::class, 'storeMedia']);
 
     // Automated Bot Trigger Routes (requires bot_auto_responder feature)
-    Route::middleware(['feature:bot_auto_responder'])->group(function () {
+    Route::middleware(['feature:bot_auto_responder', 'role:owner,admin'])->group(function () {
         Route::get('/bot-triggers', [BotTriggerController::class, 'index'])->name('bot-triggers.index');
         Route::post('/bot-triggers', [BotTriggerController::class, 'store'])->name('bot-triggers.store');
         Route::put('/bot-triggers/{id}', [BotTriggerController::class, 'update'])->name('bot-triggers.update');
@@ -80,6 +80,14 @@ Route::middleware(['auth:web,admin', \App\Http\Middleware\BlockImpersonationWrit
 
     // Contacts & Bulk Messaging Routes (requires contacts_bulk_messaging feature)
     Route::middleware(['feature:contacts_bulk_messaging'])->group(function () {
+        Route::post('/contacts/bulk-assign', [\App\Http\Controllers\ContactController::class, 'bulkAssign'])
+            ->middleware('role:owner')
+            ->name('contacts.bulk-assign');
+            
+        Route::post('/contacts/bulk-assign-all', [\App\Http\Controllers\ContactController::class, 'bulkAssignAll'])
+            ->middleware('role:owner')
+            ->name('contacts.bulk-assign-all');
+            
         Route::get('/contacts', [\App\Http\Controllers\ContactController::class, 'index'])->name('contacts.index');
         Route::post('/contacts/import', [\App\Http\Controllers\ContactController::class, 'import'])->name('contacts.import');
         Route::get('/contacts/{id}', [\App\Http\Controllers\ContactController::class, 'show'])->name('contacts.show');
@@ -87,7 +95,9 @@ Route::middleware(['auth:web,admin', \App\Http\Middleware\BlockImpersonationWrit
         Route::delete('/contacts/{id}', [\App\Http\Controllers\ContactController::class, 'destroy'])->name('contacts.destroy');
         
         Route::get('/campaigns', [\App\Http\Controllers\CampaignController::class, 'index'])->name('campaigns.index');
+        Route::get('/campaigns/create', [\App\Http\Controllers\CampaignController::class, 'create'])->name('campaigns.create');
         Route::post('/campaigns', [\App\Http\Controllers\CampaignController::class, 'store'])->name('campaigns.store');
+        Route::post('/campaigns/{id}/cancel', [\App\Http\Controllers\CampaignController::class, 'cancel'])->name('campaigns.cancel');
         Route::get('/campaigns/{id}', [\App\Http\Controllers\CampaignController::class, 'show'])->name('campaigns.show');
     });
 
@@ -97,10 +107,22 @@ Route::middleware(['auth:web,admin', \App\Http\Middleware\BlockImpersonationWrit
     // Flow Builder Routes are registered by the FlowBuilder module directly.
 
     // Tenant Integration Settings Routes
-    Route::get('/settings/tenant', [TenantSettingsController::class, 'edit'])->name('settings.tenant.edit');
-    Route::post('/settings/tenant', [TenantSettingsController::class, 'update'])->name('settings.tenant.update');
-    Route::post('/settings/tenant/numbers', [TenantSettingsController::class, 'storeNumber'])->name('settings.tenant.numbers.store');
-    Route::delete('/settings/tenant/numbers/{number}', [TenantSettingsController::class, 'destroyNumber'])->name('settings.tenant.numbers.destroy');
+    Route::middleware(['role:owner,admin'])->group(function () {
+        Route::get('/settings/tenant', [TenantSettingsController::class, 'edit'])->name('settings.tenant.edit');
+        Route::post('/settings/tenant', [TenantSettingsController::class, 'update'])->name('settings.tenant.update');
+        Route::post('/settings/tenant/numbers', [TenantSettingsController::class, 'storeNumber'])->name('settings.tenant.numbers.store');
+        Route::delete('/settings/tenant/numbers/{number}', [TenantSettingsController::class, 'destroyNumber'])->name('settings.tenant.numbers.destroy');
+    });
+    
+    // Team Management Routes
+    Route::middleware(['role:owner,admin'])->group(function () {
+        Route::get('/team', [\App\Http\Controllers\TeamController::class, 'index'])->name('team.index');
+    });
+    Route::middleware(['role:owner'])->group(function () {
+        Route::post('/team', [\App\Http\Controllers\TeamController::class, 'store'])->name('team.store');
+        Route::put('/team/{user}/role', [\App\Http\Controllers\TeamController::class, 'updateRole'])->name('team.role.update');
+        Route::delete('/team/{user}', [\App\Http\Controllers\TeamController::class, 'removeUser'])->name('team.remove');
+    });
 });
 
 require __DIR__ . '/auth.php';

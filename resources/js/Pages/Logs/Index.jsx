@@ -48,20 +48,20 @@ export default function Index({ logs, filters }) {
         <AppLayout>
             <Head title="Message Logs" />
 
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Message Logs</h1>
                     <p className="text-sm text-gray-500 mt-1">Audit trail for all inbound and outbound WhatsApp messages.</p>
                 </div>
-                <div className="flex gap-3">
-                    <div className="relative">
+                <div className="flex gap-3 w-full md:w-auto">
+                    <div className="relative w-full">
                         <input
                             type="text"
                             name="search"
                             defaultValue={filters.search}
                             onKeyDown={handleSearch}
                             placeholder="Search numbers or UUIDs..."
-                            className="w-64 pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                            className="w-full md:w-64 pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500"
                         />
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -73,12 +73,12 @@ export default function Index({ logs, filters }) {
             </div>
 
             <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col h-[calc(100vh-14rem)]">
-                <div className="p-4 border-b border-gray-200 bg-gray-50 flex gap-4 shrink-0">
+                <div className="p-4 border-b border-gray-200 bg-gray-50 flex flex-col sm:flex-row gap-4 shrink-0">
                     <select
                         name="status"
                         value={filters.status || ''}
                         onChange={handleFilterChange}
-                        className="border-gray-200 rounded-lg text-sm focus:ring-indigo-500"
+                        className="border-gray-200 rounded-lg text-sm focus:ring-indigo-500 w-full sm:w-auto"
                     >
                         <option value="">All Statuses</option>
                         <option value="queued">Queued</option>
@@ -93,7 +93,7 @@ export default function Index({ logs, filters }) {
                         name="direction"
                         value={filters.direction || ''}
                         onChange={handleFilterChange}
-                        className="border-gray-200 rounded-lg text-sm focus:ring-indigo-500"
+                        className="border-gray-200 rounded-lg text-sm focus:ring-indigo-500 w-full sm:w-auto"
                     >
                         <option value="">All Directions</option>
                         <option value="inbound">Inbound</option>
@@ -101,8 +101,8 @@ export default function Index({ logs, filters }) {
                     </select>
                 </div>
 
-                <div className="flex-1 overflow-auto">
-                    <table className="w-full text-left text-sm whitespace-nowrap">
+                <div className="flex-1 overflow-x-auto">
+                    <table className="w-full min-w-[800px] text-left text-sm whitespace-nowrap">
                         <thead className="bg-gray-50 sticky top-0 z-10 border-b border-gray-200 shadow-sm">
                             <tr>
                                 <th className="px-6 py-3 font-semibold text-gray-900">Timestamp</th>

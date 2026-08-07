@@ -3,13 +3,14 @@ import { Head, Link } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 
 export default function CampaignsShow({ campaign }) {
-    // Determine overall status classes
     const statusClasses = {
         'draft': 'bg-gray-100 text-gray-700',
+        'scheduled': 'bg-indigo-50 text-indigo-700',
         'queued': 'bg-blue-50 text-blue-700',
         'sending': 'bg-amber-50 text-amber-700 animate-pulse',
         'completed': 'bg-emerald-50 text-[#00a884]',
         'failed': 'bg-rose-50 text-rose-700',
+        'cancelled': 'bg-gray-200 text-gray-500 line-through',
     };
 
     return (
@@ -28,6 +29,16 @@ export default function CampaignsShow({ campaign }) {
                         </span>
                     </h1>
                 </div>
+                {(campaign.status === 'scheduled' || campaign.status === 'queued' || campaign.status === 'sending') && (
+                    <Link
+                        href={route('campaigns.cancel', campaign.id)}
+                        method="post"
+                        as="button"
+                        className="px-4 py-2 bg-rose-500 text-white rounded-lg font-bold hover:bg-rose-600 shadow-sm transition"
+                    >
+                        Cancel Campaign
+                    </Link>
+                )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">

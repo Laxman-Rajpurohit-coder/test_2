@@ -18,6 +18,12 @@ class RegisteredUserController extends Controller
      */
     public function create(Request $request, $token)
     {
+        if (Auth::check()) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        }
+
         $invite = TenantInvite::where('token', $token)->firstOrFail();
 
         if ($invite->accepted_at) {
@@ -40,6 +46,12 @@ class RegisteredUserController extends Controller
      */
     public function store(Request $request)
     {
+        if (Auth::check()) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'password' => ['required', 'confirmed', Rules\Password::defaults()],

@@ -27,10 +27,11 @@ class BotTriggerController extends Controller
         $validated = $request->validate([
             'keyword'                => 'required|string|max:255',
             'match_type'             => 'required|in:exact,contains,starts_with',
-            'response_type'          => 'required|in:text,image,document',
+            'response_type'          => 'required|in:text,image,document,interactive',
             'response_payload'       => 'required|array',
-            'response_payload.text'  => 'required_if:response_type,text|nullable|string',
+            'response_payload.text'  => 'required_if:response_type,text,interactive|nullable|string',
             'response_payload.url'   => 'required_if:response_type,image,document|nullable|url',
+            'response_payload.buttons'=> 'array|max:3',
             'priority'               => 'integer|min:0|max:999',
             'is_active'              => 'boolean',
         ]);
@@ -53,10 +54,11 @@ class BotTriggerController extends Controller
         $validated = $request->validate([
             'keyword'                => 'required|string|max:255',
             'match_type'             => 'required|in:exact,contains,starts_with',
-            'response_type'          => 'required|in:text,image,document',
+            'response_type'          => 'required|in:text,image,document,interactive',
             'response_payload'       => 'required|array',
-            'response_payload.text'  => 'required_if:response_type,text|nullable|string',
+            'response_payload.text'  => 'required_if:response_type,text,interactive|nullable|string',
             'response_payload.url'   => 'required_if:response_type,image,document|nullable|url',
+            'response_payload.buttons'=> 'array|max:3',
             'priority'               => 'integer|min:0|max:999',
             'is_active'              => 'boolean',
         ]);

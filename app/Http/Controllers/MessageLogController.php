@@ -18,6 +18,17 @@ class MessageLogController extends Controller
             ->where('conversations.tenant_id', $tenantId)
             ->select('whatsapp_messages.*', 'conversations.customer_number');
 
+        // RBAC: Members only see logs for conversations with contacts assigned to them
+        if (auth()->user() && method_exists(auth()->user(), 'isMember') && auth()->user()->isMember()) {
+            $query->whereExists(function ($q) use ($tenantId) {
+                $q->select(DB::raw(1))
+                  ->from('contacts')
+                  ->whereColumn('contacts.phone_number', 'conversations.customer_number')
+                  ->where('contacts.tenant_id', $tenantId)
+                  ->where('contacts.assigned_user_id', auth()->id());
+            });
+        }
+
         if ($request->filled('status')) {
             $query->where('whatsapp_messages.status', $request->status);
         }

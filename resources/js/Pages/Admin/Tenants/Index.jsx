@@ -326,6 +326,17 @@ export default function TenantIndex({ auth, tenants }) {
                             <span className="ml-2 text-sm text-gray-900 font-medium">Contacts & Bulk Messaging</span>
                         </label>
                         <p className="ml-6 text-xs text-gray-500 -mt-3">Allows uploading CSV contacts and sending bulk broadcast campaigns.</p>
+
+                        <label className="flex items-center">
+                            <input
+                                type="checkbox"
+                                checked={featureData.features?.template_management || false}
+                                onChange={(e) => setFeatureData('features', { ...featureData.features, template_management: e.target.checked })}
+                                className="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                            />
+                            <span className="ml-2 text-sm text-gray-900 font-medium">WhatsApp Templates</span>
+                        </label>
+                        <p className="ml-6 text-xs text-gray-500 -mt-3">Manage and sync pre-approved WhatsApp templates.</p>
                     </div>
 
                     <div className="mt-8 flex justify-end">

@@ -13,9 +13,10 @@ class ContactImportService
      *
      * @param UploadedFile $file
      * @param string $tenantId
+     * @param string|null $assignedUserId
      * @return array{imported: int, updated: int, errors: array}
      */
-    public function import(UploadedFile $file, string $tenantId): array
+    public function import(UploadedFile $file, string $tenantId, ?string $assignedUserId = null): array
     {
         $imported = 0;
         $updated = 0;
@@ -63,16 +64,22 @@ class ContactImportService
                 }
 
                 try {
+                    $contactData = [
+                        'name' => $name,
+                        'email' => $email,
+                        'custom_fields' => $customFields,
+                    ];
+                    
+                    if ($assignedUserId !== null) {
+                        $contactData['assigned_user_id'] = $assignedUserId;
+                    }
+
                     $contact = Contact::updateOrCreate(
                         [
                             'tenant_id' => $tenantId,
                             'phone_number' => $normalizedPhone,
                         ],
-                        [
-                            'name' => $name,
-                            'email' => $email,
-                            'custom_fields' => $customFields,
-                        ]
+                        $contactData
                     );
 
                     if ($contact->wasRecentlyCreated) {

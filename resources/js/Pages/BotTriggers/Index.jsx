@@ -10,7 +10,7 @@ export default function BotTriggersIndex({ triggers }) {
         keyword: '',
         match_type: 'contains',
         response_type: 'text',
-        response_payload: { text: '', url: '', caption: '', filename: '' },
+        response_payload: { text: '', url: '', caption: '', filename: '', buttons: [] },
         priority: 0,
         is_active: true,
     });
@@ -33,6 +33,7 @@ export default function BotTriggersIndex({ triggers }) {
                 url: payload.url || payload.link || '',
                 caption: payload.caption || '',
                 filename: payload.filename || 'document.pdf',
+                buttons: payload.buttons || [],
             },
             priority: trigger.priority,
             is_active: Boolean(trigger.is_active),
@@ -134,6 +135,7 @@ export default function BotTriggersIndex({ triggers }) {
                                             </td>
                                             <td className="px-6 py-4 capitalize font-semibold text-gray-700">
                                                 {trigger.response_type === 'text' && '💬 Text'}
+                                                {trigger.response_type === 'interactive' && '👆 Interactive'}
                                                 {trigger.response_type === 'image' && '🖼️ Image'}
                                                 {trigger.response_type === 'document' && '📄 Document'}
                                             </td>
@@ -243,27 +245,86 @@ export default function BotTriggersIndex({ triggers }) {
                                         className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
                                     >
                                         <option value="text">Text Response</option>
+                                        <option value="interactive">Interactive (Buttons)</option>
                                         <option value="image">Image Response</option>
                                         <option value="document">Document PDF Response</option>
                                     </select>
                                 </div>
 
-                                {data.response_type === 'text' && (
-                                    <div>
-                                        <label htmlFor="response_text" className="block text-xs font-bold text-gray-700 mb-1">
-                                            Reply Message (Supports {'{customer_name}'}, {'{phone_number}'})
-                                        </label>
-                                        <textarea
-                                            id="response_text"
-                                            name="response_text"
-                                            rows="3"
-                                            value={data.response_payload.text}
-                                            onChange={(e) => setData('response_payload', { ...data.response_payload, text: e.target.value })}
-                                            placeholder="Hello {customer_name}! Welcome to our support..."
-                                            className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
-                                            required
-                                        ></textarea>
-                                        {errors['response_payload.text'] && <p className="text-rose-500 text-[10px] mt-1">{errors['response_payload.text']}</p>}
+                                {['text', 'interactive'].includes(data.response_type) && (
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label htmlFor="response_text" className="block text-xs font-bold text-gray-700 mb-1">
+                                                Reply Message (Supports {'{customer_name}'}, {'{phone_number}'})
+                                            </label>
+                                            <textarea
+                                                id="response_text"
+                                                name="response_text"
+                                                rows="3"
+                                                value={data.response_payload.text}
+                                                onChange={(e) => setData('response_payload', { ...data.response_payload, text: e.target.value })}
+                                                placeholder="Hello {customer_name}! Welcome to our support..."
+                                                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
+                                                required
+                                            ></textarea>
+                                            {errors['response_payload.text'] && <p className="text-rose-500 text-[10px] mt-1">{errors['response_payload.text']}</p>}
+                                        </div>
+                                        
+                                        {data.response_type === 'interactive' && (
+                                            <div>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <label className="block text-xs font-bold text-gray-700">Quick Reply Buttons (Max 3)</label>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const currentButtons = data.response_payload.buttons || [];
+                                                            if (currentButtons.length < 3) {
+                                                                setData('response_payload', {
+                                                                    ...data.response_payload,
+                                                                    buttons: [...currentButtons, { type: 'reply', reply: { id: `btn_${Date.now()}`, title: '' } }]
+                                                                });
+                                                            }
+                                                        }}
+                                                        disabled={(data.response_payload.buttons || []).length >= 3}
+                                                        className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-2 py-1 rounded hover:bg-emerald-100 disabled:opacity-50"
+                                                    >
+                                                        + Add Button
+                                                    </button>
+                                                </div>
+                                                
+                                                <div className="space-y-2">
+                                                    {(data.response_payload.buttons || []).map((btn, index) => (
+                                                        <div key={btn.reply.id || index} className="flex items-center gap-2">
+                                                            <input
+                                                                type="text"
+                                                                value={btn.reply.title}
+                                                                onChange={(e) => {
+                                                                    const newBtns = [...data.response_payload.buttons];
+                                                                    newBtns[index].reply.title = e.target.value.substring(0, 20); // max 20 chars
+                                                                    setData('response_payload', { ...data.response_payload, buttons: newBtns });
+                                                                }}
+                                                                placeholder="Button Text"
+                                                                className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:ring-[#00a884] focus:border-[#00a884]"
+                                                                required
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const newBtns = data.response_payload.buttons.filter((_, i) => i !== index);
+                                                                    setData('response_payload', { ...data.response_payload, buttons: newBtns });
+                                                                }}
+                                                                className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"
+                                                            >
+                                                                ✕
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    {(data.response_payload.buttons || []).length === 0 && (
+                                                        <p className="text-xs text-gray-400 italic">No buttons added yet. Add at least one.</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 

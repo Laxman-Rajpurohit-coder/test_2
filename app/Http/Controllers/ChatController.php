@@ -46,6 +46,16 @@ class ChatController extends Controller
             $query->where('tenant_number_id', $request->input('tenant_number_id'));
         }
 
+        if (auth()->check() && auth()->user()->isMember()) {
+            $query->whereExists(function ($q) {
+                $q->select(\Illuminate\Support\Facades\DB::raw(1))
+                  ->from('contacts')
+                  ->whereColumn('contacts.phone_number', 'conversations.customer_number')
+                  ->whereColumn('contacts.tenant_id', 'conversations.tenant_id')
+                  ->where('contacts.assigned_user_id', auth()->id());
+            });
+        }
+
         $conversations = $query->get();
             
         return response()->json($conversations);
@@ -127,6 +137,17 @@ class ChatController extends Controller
         
         if (!$conversation) {
             return response()->json(['error' => 'Conversation not found'], 404);
+        }
+
+        if (auth()->user()->isMember()) {
+            $hasAccess = \App\Models\Contact::where('tenant_id', $conversation->tenant_id)
+                ->where('phone_number', $conversation->customer_number)
+                ->where('assigned_user_id', auth()->id())
+                ->exists();
+                
+            if (!$hasAccess) {
+                abort(403, 'You are not assigned to this contact.');
+            }
         }
 
         // Enforce 24-Hour Session Guard Rail for free-text messages
@@ -239,6 +260,17 @@ class ChatController extends Controller
         $conversation = Conversation::find($id);
         if (!$conversation) {
             return response()->json(['error' => 'Conversation not found'], 404);
+        }
+
+        if (auth()->user()->isMember()) {
+            $hasAccess = \App\Models\Contact::where('tenant_id', $conversation->tenant_id)
+                ->where('phone_number', $conversation->customer_number)
+                ->where('assigned_user_id', auth()->id())
+                ->exists();
+                
+            if (!$hasAccess) {
+                abort(403, 'You are not assigned to this contact.');
+            }
         }
 
         // Enforce 24-Hour Session Guard Rail

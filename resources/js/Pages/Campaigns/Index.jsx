@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Head, useForm, Link } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 
-export default function CampaignsIndex({ campaigns }) {
+export default function CampaignsIndex({ campaigns, approvedTemplates }) {
     const [createModalOpen, setCreateModalOpen] = useState(false);
 
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -10,10 +10,27 @@ export default function CampaignsIndex({ campaigns }) {
         message_type: 'text',
         template_name: '',
         template_language: 'en',
+        template_variable_map: [],
         text_content: '',
         target_type: 'all',
         target_id: '',
     });
+
+    const addVariableMap = () => {
+        setData('template_variable_map', [...data.template_variable_map, '']);
+    };
+
+    const updateVariableMap = (index, value) => {
+        const newMap = [...data.template_variable_map];
+        newMap[index] = value;
+        setData('template_variable_map', newMap);
+    };
+
+    const removeVariableMap = (index) => {
+        const newMap = [...data.template_variable_map];
+        newMap.splice(index, 1);
+        setData('template_variable_map', newMap);
+    };
 
     const handleCreate = (e) => {
         e.preventDefault();
@@ -34,12 +51,12 @@ export default function CampaignsIndex({ campaigns }) {
                     <h1 className="text-2xl font-bold text-gray-900">Campaigns</h1>
                     <p className="text-sm text-gray-500 mt-1">Send bulk WhatsApp messages to your contacts.</p>
                 </div>
-                <button 
-                    onClick={() => setCreateModalOpen(true)}
+                <Link 
+                    href={route('campaigns.create')}
                     className="px-4 py-2 bg-[#00a884] text-white rounded-lg font-bold hover:bg-[#009071] shadow-sm transition"
                 >
                     New Campaign
-                </button>
+                </Link>
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200/60 overflow-hidden">
@@ -91,7 +108,17 @@ export default function CampaignsIndex({ campaigns }) {
                                         </div>
                                     </div>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-right flex justify-end gap-3 items-center">
+                                    {(campaign.status === 'scheduled' || campaign.status === 'queued' || campaign.status === 'sending') && (
+                                        <Link
+                                            href={route('campaigns.cancel', campaign.id)}
+                                            method="post"
+                                            as="button"
+                                            className="text-rose-500 font-bold hover:text-rose-700 transition"
+                                        >
+                                            Cancel
+                                        </Link>
+                                    )}
                                     <Link 
                                         href={route('campaigns.show', campaign.id)}
                                         className="text-[#00a884] font-bold hover:text-[#009071] transition"
@@ -105,125 +132,6 @@ export default function CampaignsIndex({ campaigns }) {
                 </table>
             </div>
 
-            {/* Create Campaign Modal */}
-            {createModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm" onClick={() => setCreateModalOpen(false)}></div>
-                    <div className="relative bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl border border-gray-100 overflow-y-auto max-h-[90vh]">
-                        <h2 className="text-xl font-bold text-gray-900 mb-6">New Campaign</h2>
-                        
-                        <form onSubmit={handleCreate} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Campaign Name</label>
-                                <input 
-                                    type="text" 
-                                    value={data.name}
-                                    onChange={e => setData('name', e.target.value)}
-                                    className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-[#00a884] focus:border-[#00a884]"
-                                    placeholder="e.g. Summer Promo"
-                                />
-                                {errors.name && <div className="text-rose-600 text-xs mt-1 font-semibold">{errors.name}</div>}
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Message Type</label>
-                                    <select 
-                                        value={data.message_type}
-                                        onChange={e => setData('message_type', e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-[#00a884] focus:border-[#00a884]"
-                                    >
-                                        <option value="text">Free Text (24h window only)</option>
-                                        <option value="template">WhatsApp Template</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Target Audience</label>
-                                    <select 
-                                        value={data.target_type}
-                                        onChange={e => setData('target_type', e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-[#00a884] focus:border-[#00a884]"
-                                    >
-                                        <option value="all">All Contacts</option>
-                                        <option value="group">Specific Group</option>
-                                        <option value="tag">Specific Tag</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            {data.target_type !== 'all' && (
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Target ID</label>
-                                    <input 
-                                        type="text" 
-                                        value={data.target_id}
-                                        onChange={e => setData('target_id', e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-[#00a884] focus:border-[#00a884]"
-                                        placeholder={`UUID of the ${data.target_type}`}
-                                    />
-                                    {errors.target_id && <div className="text-rose-600 text-xs mt-1 font-semibold">{errors.target_id}</div>}
-                                </div>
-                            )}
-
-                            {data.message_type === 'text' ? (
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Message Content</label>
-                                    <textarea 
-                                        value={data.text_content}
-                                        onChange={e => setData('text_content', e.target.value)}
-                                        rows="4"
-                                        className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-[#00a884] focus:border-[#00a884]"
-                                        placeholder="Type your message here..."
-                                    ></textarea>
-                                    {errors.text_content && <div className="text-rose-600 text-xs mt-1 font-semibold">{errors.text_content}</div>}
-                                    <p className="text-xs text-amber-600 mt-1 font-semibold">Note: This will only be sent to contacts who have messaged you in the last 24 hours.</p>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1">Template Name</label>
-                                        <input 
-                                            type="text" 
-                                            value={data.template_name}
-                                            onChange={e => setData('template_name', e.target.value)}
-                                            className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-[#00a884] focus:border-[#00a884]"
-                                        />
-                                        {errors.template_name && <div className="text-rose-600 text-xs mt-1 font-semibold">{errors.template_name}</div>}
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1">Language</label>
-                                        <input 
-                                            type="text" 
-                                            value={data.template_language}
-                                            onChange={e => setData('template_language', e.target.value)}
-                                            className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-[#00a884] focus:border-[#00a884]"
-                                            placeholder="e.g. en"
-                                        />
-                                        {errors.template_language && <div className="text-rose-600 text-xs mt-1 font-semibold">{errors.template_language}</div>}
-                                    </div>
-                                </div>
-                            )}
-                            
-                            <div className="flex justify-end gap-2 mt-6">
-                                <button
-                                    type="button"
-                                    onClick={() => setCreateModalOpen(false)}
-                                    className="px-4 py-2 text-sm font-bold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={processing}
-                                    className="px-4 py-2 text-sm font-bold text-white bg-[#00a884] rounded-lg hover:bg-[#009071] transition disabled:opacity-50"
-                                >
-                                    {processing ? 'Queuing...' : 'Create & Send Campaign'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
         </AppLayout>
     );
 }

@@ -101,6 +101,10 @@ class BotTriggerService
         if (!empty($rawPayload['filename'])) {
             $data['filename'] = $rawPayload['filename'];
         }
+        if ($matchedTrigger->response_type === 'interactive' && !empty($rawPayload['buttons'])) {
+            $data['interactive_type'] = 'button';
+            $data['buttons'] = $rawPayload['buttons'];
+        }
 
         // Build MSG91 Outbound Payload using canonical Msg91PayloadBuilder
         $msg91Payload = Msg91PayloadBuilder::build(

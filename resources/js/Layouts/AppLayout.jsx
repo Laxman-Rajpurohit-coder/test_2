@@ -35,15 +35,18 @@ export default function AppLayout({ children }) {
     const isTenantSettingsPage = currentPath.startsWith('/settings/tenant');
 
     const features = tenant_features || {};
+    const userRole = auth?.user?.role || 'owner';
+    const isMember = userRole === 'member';
 
     const navigation = [
         { name: 'Dashboard', href: '/dashboard', icon: '🎛️', active: currentPath === '/dashboard' || currentPath.startsWith('/analytics') },
         { name: 'Inbox', href: '/chat', icon: '💬', badge: 'Live', active: isChatPage },
-        features.bot_auto_responder && { name: 'Bot Auto-Responder', href: '/bot-triggers', icon: '🤖', active: isBotPage },
-        features.flow_builder && { name: 'Flow Builder', href: '/flows', icon: '🔄', active: currentPath.startsWith('/flows') },
-        { name: 'Tenant API Settings', href: '/settings/tenant', icon: '🔑', active: isTenantSettingsPage },
-        { name: 'Contacts', href: '/contacts', icon: '📇', active: currentPath.startsWith('/contacts') || currentPath.startsWith('/campaigns') },
-        { name: 'Team Management', href: '/coming-soon', icon: '👥', active: currentPath === '/coming-soon' },
+        features.bot_auto_responder && !isMember && { name: 'Bot Auto-Responder', href: '/bot-triggers', icon: '🤖', active: isBotPage },
+        features.flow_builder && !isMember && { name: 'Flow Builder', href: '/flows', icon: '🔄', active: currentPath.startsWith('/flows') },
+        !isMember && { name: 'Tenant API Settings', href: '/settings/tenant', icon: '🔑', active: isTenantSettingsPage },
+        { name: 'Contacts & Campaigns', href: '/contacts', icon: '📇', active: currentPath.startsWith('/contacts') || currentPath.startsWith('/campaigns') },
+        features.template_management && !isMember && { name: 'Templates', href: '/templates', icon: '📑', active: currentPath.startsWith('/templates') },
+        !isMember && { name: 'Team Management', href: '/team', icon: '👥', active: currentPath.startsWith('/team') },
         { name: 'Integrations', href: '/coming-soon', icon: '🔌', active: currentPath === '/coming-soon' },
         { name: 'Message Logs', href: '/logs', icon: '📜', active: currentPath.startsWith('/logs') },
     ].filter(Boolean);
@@ -129,6 +132,13 @@ export default function AppLayout({ children }) {
             {/* Mobile Header Top Navigation */}
             <div className="md:hidden fixed top-0 inset-x-0 h-16 bg-white border-b border-gray-200/80 flex items-center justify-between px-4 z-40">
                 <div className="flex items-center gap-2">
+                    {currentPath !== '/dashboard' && (
+                        <Link href="/dashboard" className="p-1 -ml-1 text-gray-600 hover:bg-gray-100 rounded-lg" title="Back to Main Menu">
+                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                            </svg>
+                        </Link>
+                    )}
                     <div className="w-8 h-8 rounded-lg bg-[#00a884] flex items-center justify-center text-white font-extrabold text-base">
                         W
                     </div>
@@ -154,27 +164,59 @@ export default function AppLayout({ children }) {
                             <span className="font-bold text-lg text-gray-900">Navigation</span>
                             <button onClick={() => setMobileMenuOpen(false)} className="text-gray-500 hover:text-gray-900">✕</button>
                         </div>
-                        {navigation.map((item) => (
-                            <Link
-                                key={item.name}
-                                href={item.href}
-                                onClick={() => setMobileMenuOpen(false)}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold ${
-                                    item.active ? 'bg-[#00a884] text-white' : 'text-gray-700 hover:bg-gray-100'
-                                }`}
-                            >
-                                <span>{item.icon}</span>
-                                <span>{item.name}</span>
-                            </Link>
-                        ))}
+                        <div className="flex-1 overflow-y-auto space-y-1">
+                            {navigation.map((item) => (
+                                <Link
+                                    key={item.name}
+                                    href={item.href}
+                                    onClick={() => setMobileMenuOpen(false)}
+                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold ${
+                                        item.active ? 'bg-[#00a884] text-white' : 'text-gray-700 hover:bg-gray-100'
+                                    }`}
+                                >
+                                    <span>{item.icon}</span>
+                                    <span>{item.name}</span>
+                                </Link>
+                            ))}
+                        </div>
+
+                        {/* Mobile User Profile & Logout */}
+                        <div className="mt-auto pt-4 border-t border-gray-100">
+                            <div className="flex items-center justify-between bg-gray-50/80 p-3 rounded-xl border border-gray-100">
+                                <div className="flex items-center gap-3 overflow-hidden">
+                                    <div className="w-9 h-9 rounded-full bg-emerald-100 text-[#00a884] font-bold text-sm flex items-center justify-center border border-emerald-200 shrink-0">
+                                        {auth?.user?.tenant?.name ? auth.user.tenant.name.substring(0, 2).toUpperCase() : userName.substring(0, 2).toUpperCase()}
+                                    </div>
+                                    <div className="truncate">
+                                        <div className="text-sm font-bold text-gray-900 truncate" title={auth?.user?.tenant?.name || userName}>
+                                            {auth?.user?.tenant?.name || userName}
+                                        </div>
+                                        <div className="text-xs text-gray-500 truncate font-medium" title={userEmail}>
+                                            {userEmail}
+                                        </div>
+                                    </div>
+                                </div>
+                                <Link
+                                    href={route('logout')}
+                                    method="post"
+                                    as="button"
+                                    className="p-2 text-gray-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition shrink-0"
+                                    title="Log Out"
+                                >
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1m0-10V5" />
+                                    </svg>
+                                </Link>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
 
             {/* Main Content Area */}
-            <div className="flex-1 md:ml-64 flex flex-col min-w-0 min-h-screen">
+            <div className="flex-1 md:ml-64 flex flex-col min-w-0 min-h-screen pt-16 md:pt-0">
                 {/* Top Desktop Header Bar */}
-                <header className="h-16 bg-white border-b border-gray-200/80 flex items-center justify-between px-6 md:px-8 sticky top-0 z-40 shadow-xs">
+                <header className="hidden md:flex h-16 bg-white border-b border-gray-200/80 items-center justify-between px-6 md:px-8 sticky top-0 z-40 shadow-xs">
                     <div className="flex items-center gap-4 flex-1 max-w-md">
                         <div className="relative w-full">
                             <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">🔍</span>

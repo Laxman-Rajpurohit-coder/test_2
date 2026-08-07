@@ -339,6 +339,17 @@ export default function Thread({ conversation, onBack }) {
                             <div key={msg.id} className="flex justify-start mb-1">
                                 <div className="relative max-w-[85%] sm:max-w-[75%] lg:max-w-[65%] rounded-lg rounded-tl-none bg-[#202c33] px-3 py-1.5 text-sm text-[#e9edef] shadow-sm">
                                     <span className="mr-16 leading-relaxed break-words block">{displayText || 'Media'}</span>
+                                    
+                                    {content.type === 'interactive' && content.interactive?.action?.buttons && (
+                                        <div className="mt-2 flex flex-col gap-1 w-full">
+                                            {content.interactive.action.buttons.map((btn, i) => (
+                                                <div key={i} className="text-center py-1.5 px-3 bg-[#2a3942] rounded text-[#00a884] font-medium text-xs border border-[#374248]">
+                                                    {btn.reply?.title || 'Button'}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
                                     <span className="absolute bottom-1 right-2 text-[11px] text-[#8696a0] font-medium">{formattedTime}</span>
                                 </div>
                             </div>
@@ -349,6 +360,16 @@ export default function Thread({ conversation, onBack }) {
                         <div key={msg.id} className="flex justify-end mb-1">
                             <div className="relative max-w-[85%] sm:max-w-[75%] lg:max-w-[65%] rounded-lg rounded-tr-none bg-[#005c4b] px-3 py-1.5 text-sm text-[#e9edef] shadow-sm">
                                 <span className="mr-16 leading-relaxed break-words block">{displayText || 'Media'}</span>
+                                
+                                {content.type === 'interactive' && content.interactive?.action?.buttons && (
+                                    <div className="mt-2 flex flex-col gap-1 w-full pb-4">
+                                        {content.interactive.action.buttons.map((btn, i) => (
+                                            <div key={i} className="text-center py-1.5 px-3 bg-[#01705b] rounded text-[#e9edef] font-medium text-xs border border-[#02856c]">
+                                                {btn.reply?.title || 'Button'}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                                 
                                 <div className="absolute bottom-1 right-2 flex items-center gap-1 text-[11px] text-[#8696a0]">
                                     <span>{formattedTime}</span>

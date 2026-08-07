@@ -31,6 +31,7 @@
             "Modules\\Analytics\\": "modules/Analytics/src/",
             "Modules\\FlowBuilder\\": "modules/FlowBuilder/src/",
             "Modules\\AiBot\\": "modules/AiBot/src/",
+            "Modules\\Templates\\": "modules/Templates/src/",
             "Modules\\": "modules/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"

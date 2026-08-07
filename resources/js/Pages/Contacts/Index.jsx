@@ -1,14 +1,21 @@
 import React, { useState } from 'react';
-import { Head, useForm, usePage, Link } from '@inertiajs/react';
+import { Head, useForm, usePage, Link, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import Pagination from '@/Components/Pagination';
 
-export default function ContactsIndex({ contacts }) {
-    const { tenant_features } = usePage().props;
+export default function ContactsIndex({ contacts, teamMembers = [] }) {
+    const { tenant_features, auth } = usePage().props;
+    const isOwner = auth?.user?.role === 'owner';
     const [importModalOpen, setImportModalOpen] = useState(false);
+    const [globalAssignModalOpen, setGlobalAssignModalOpen] = useState(false);
+    
+    // Bulk Assignment State
+    const [selectedContacts, setSelectedContacts] = useState([]);
+    const [assignDropdownOpen, setAssignDropdownOpen] = useState(false);
     
     const { data, setData, post, processing, errors, reset } = useForm({
         file: null,
+        assigned_user_id: '',
     });
 
     const handleImport = (e) => {
@@ -21,11 +28,49 @@ export default function ContactsIndex({ contacts }) {
         });
     };
 
+    const toggleAll = (e) => {
+        if (e.target.checked) {
+            setSelectedContacts(contacts.data.map(c => c.id));
+        } else {
+            setSelectedContacts([]);
+        }
+    };
+
+    const toggleContact = (id) => {
+        setSelectedContacts(prev => 
+            prev.includes(id) ? prev.filter(cId => cId !== id) : [...prev, id]
+        );
+    };
+
+    const handleAssign = (userId) => {
+        if (selectedContacts.length === 0) return;
+        
+        router.post(route('contacts.bulk-assign'), {
+            contact_ids: selectedContacts,
+            assigned_user_id: userId
+        }, {
+            onSuccess: () => {
+                setSelectedContacts([]);
+                setAssignDropdownOpen(false);
+            }
+        });
+    };
+
+    const handleGlobalAssign = (userId) => {
+        router.post(route('contacts.bulk-assign-all'), {
+            assigned_user_id: userId
+        }, {
+            onSuccess: () => {
+                setGlobalAssignModalOpen(false);
+            }
+        });
+    };
+
     return (
         <AppLayout>
             <Head title="Contacts" />
             
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                 <div className="flex items-center">
                     <Link href={route('dashboard')} className="mr-4 p-2 -ml-2 rounded-lg text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors" title="Back to Dashboard">
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -37,7 +82,47 @@ export default function ContactsIndex({ contacts }) {
                         <p className="text-sm text-gray-500 mt-1">Manage your contacts and custom fields.</p>
                     </div>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3 items-center">
+                    {isOwner && selectedContacts.length > 0 && (
+                        <div className="relative">
+                            <button
+                                onClick={() => setAssignDropdownOpen(!assignDropdownOpen)}
+                                className="px-4 py-2 bg-white text-gray-700 rounded-lg font-bold shadow-sm transition border border-gray-200 hover:bg-gray-50 flex items-center gap-2"
+                            >
+                                Assign to...
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                            </button>
+                            
+                            {assignDropdownOpen && (
+                                <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 z-10 py-1">
+                                    <button 
+                                        onClick={() => handleAssign(null)}
+                                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition"
+                                    >
+                                        <em>Unassign</em>
+                                    </button>
+                                    <div className="border-t border-gray-100 my-1"></div>
+                                    {teamMembers.map(member => (
+                                        <button 
+                                            key={member.id}
+                                            onClick={() => handleAssign(member.id)}
+                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition font-medium"
+                                        >
+                                            {member.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    {isOwner && (
+                        <button
+                            onClick={() => setGlobalAssignModalOpen(true)}
+                            className="px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg font-bold hover:bg-indigo-100 transition border border-indigo-200"
+                        >
+                            Assign All DB Contacts
+                        </button>
+                    )}
                     <button 
                         onClick={() => setImportModalOpen(true)}
                         className="px-4 py-2 bg-emerald-50 text-[#00a884] rounded-lg font-bold hover:bg-emerald-100 transition border border-emerald-200"
@@ -53,10 +138,20 @@ export default function ContactsIndex({ contacts }) {
                 </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200/60 overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200/60 overflow-x-auto">
+                <table className="w-full min-w-[800px] divide-y divide-gray-200">
                     <thead className="bg-gray-50/50">
                         <tr>
+                            <th className="px-6 py-4 w-10">
+                                {isOwner && (
+                                    <input 
+                                        type="checkbox" 
+                                        onChange={toggleAll}
+                                        checked={contacts?.data?.length > 0 && selectedContacts.length === contacts.data.length}
+                                        className="rounded border-gray-300 text-[#00a884] focus:ring-[#00a884]"
+                                    />
+                                )}
+                            </th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Phone Number</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Email</th>
@@ -68,6 +163,16 @@ export default function ContactsIndex({ contacts }) {
                         {contacts && contacts.data && contacts.data.length > 0 ? (
                             contacts.data.map((contact) => (
                                 <tr key={contact.id} className="hover:bg-gray-50 transition">
+                                    <td className="px-6 py-4">
+                                        {isOwner && (
+                                            <input 
+                                                type="checkbox"
+                                                checked={selectedContacts.includes(contact.id)}
+                                                onChange={() => toggleContact(contact.id)}
+                                                className="rounded border-gray-300 text-[#00a884] focus:ring-[#00a884]"
+                                            />
+                                        )}
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                                         {contact.phone_number}
                                     </td>
@@ -93,7 +198,7 @@ export default function ContactsIndex({ contacts }) {
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="5" className="px-6 py-12 text-center">
+                                <td colSpan="6" className="px-6 py-12 text-center">
                                     <div className="flex flex-col items-center justify-center space-y-3">
                                         <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center border border-gray-100">
                                             <span className="text-2xl">📇</span>
@@ -147,6 +252,25 @@ export default function ContactsIndex({ contacts }) {
                                 />
                                 {errors.file && <div className="text-rose-600 text-xs mt-1 font-semibold">{errors.file}</div>}
                             </div>
+
+                            {isOwner && (
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Assign Imported Contacts To (Optional)</label>
+                                    <select
+                                        value={data.assigned_user_id}
+                                        onChange={e => setData('assigned_user_id', e.target.value)}
+                                        className="w-full rounded-lg border-gray-300 shadow-sm focus:border-[#00a884] focus:ring-[#00a884] text-sm"
+                                    >
+                                        <option value="">-- No Assignment (Unassigned) --</option>
+                                        {teamMembers.map(member => (
+                                            <option key={member.id} value={member.id}>
+                                                {member.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {errors.assigned_user_id && <div className="text-rose-600 text-xs mt-1 font-semibold">{errors.assigned_user_id}</div>}
+                                </div>
+                            )}
                             
                             <div className="flex justify-end gap-2 mt-6">
                                 <button
@@ -165,6 +289,45 @@ export default function ContactsIndex({ contacts }) {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Global Assign Modal */}
+            {globalAssignModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm" onClick={() => setGlobalAssignModalOpen(false)}></div>
+                    <div className="relative bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-gray-100">
+                        <h2 className="text-xl font-bold text-gray-900 mb-4">Assign Entire Database</h2>
+                        <p className="text-sm text-gray-600 mb-4">
+                            This will re-assign <strong>ALL</strong> contacts currently stored in your organization's database.
+                        </p>
+                        <div className="space-y-2">
+                            <button 
+                                onClick={() => handleGlobalAssign(null)}
+                                className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition font-medium text-gray-700"
+                            >
+                                Unassign Everyone
+                            </button>
+                            {teamMembers.map(member => (
+                                <button 
+                                    key={member.id}
+                                    onClick={() => handleGlobalAssign(member.id)}
+                                    className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:bg-indigo-50 transition font-bold text-indigo-700"
+                                >
+                                    Assign all to {member.name}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex justify-end mt-4">
+                            <button
+                                type="button"
+                                onClick={() => setGlobalAssignModalOpen(false)}
+                                className="px-4 py-2 text-sm font-bold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+                            >
+                                Cancel
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

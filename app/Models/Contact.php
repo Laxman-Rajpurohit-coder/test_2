@@ -26,4 +26,9 @@ class Contact extends Model
     {
         return $this->belongsToMany(ContactTag::class);
     }
+
+    public function assignedUser()
+    {
+        return $this->belongsTo(User::class, 'assigned_user_id');
+    }
 }
