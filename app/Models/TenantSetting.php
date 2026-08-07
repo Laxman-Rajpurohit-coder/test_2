@@ -26,12 +26,38 @@ class TenantSetting extends Model
      * Native Encrypted Casts: Secret API keys are encrypted at rest using APP_KEY.
      */
     protected $casts = [
-        'msg91_auth_key' => 'encrypted',
-        'openai_api_key' => 'encrypted',
         'ai_is_active' => 'boolean',
         'ai_human_escalation_enabled' => 'boolean',
         'ai_confidence_threshold' => 'float',
     ];
+
+    public function getMsg91AuthKeyAttribute($value)
+    {
+        try {
+            return $value ? decrypt($value) : null;
+        } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+            return null;
+        }
+    }
+
+    public function setMsg91AuthKeyAttribute($value)
+    {
+        $this->attributes['msg91_auth_key'] = $value ? encrypt($value) : null;
+    }
+
+    public function getOpenaiApiKeyAttribute($value)
+    {
+        try {
+            return $value ? decrypt($value) : null;
+        } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+            return null;
+        }
+    }
+
+    public function setOpenaiApiKeyAttribute($value)
+    {
+        $this->attributes['openai_api_key'] = $value ? encrypt($value) : null;
+    }
 
     public function tenant()
     {
