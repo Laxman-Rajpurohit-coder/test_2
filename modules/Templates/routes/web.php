@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\Templates\Http\Controllers\TemplateController;
 
-Route::middleware(['web', 'auth', 'verified', 'feature:template_management', 'role:owner,admin'])
+Route::middleware(['web', 'auth:web,admin', 'verified', 'feature:template_management', 'role:owner,admin'])
     ->group(function () {
         Route::get('/templates', [TemplateController::class, 'index'])->name('templates.index');
         Route::get('/templates/create', [TemplateController::class, 'create'])->name('templates.create');

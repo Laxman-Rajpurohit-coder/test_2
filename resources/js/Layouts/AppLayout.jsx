@@ -243,12 +243,9 @@ export default function AppLayout({ children }) {
                             <span className="font-bold text-sm">Super Admin Impersonation Active:</span>
                             <span className="text-sm">Viewing as <strong>{usePage().props.impersonation.tenant_name}</strong> (Read-Only)</span>
                         </div>
-                        <form method="POST" action="/admin/impersonate-stop">
-                            <input type="hidden" name="_token" value={document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')} />
-                            <button type="submit" className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-sm transition-colors">
-                                Exit Impersonation
-                            </button>
-                        </form>
+                        <Link href="/admin/impersonate-stop" method="post" as="button" type="button" className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-sm transition-colors">
+                            Exit Impersonation
+                        </Link>
                     </div>
                 )}
 

@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\FlowBuilder\Http\Controllers\FlowController;
 
-Route::middleware(['web', 'auth', 'verified', 'feature:flow_builder', 'role:owner,admin'])->group(function () {
+Route::middleware(['web', 'auth:web,admin', 'verified', 'feature:flow_builder', 'role:owner,admin'])->group(function () {
     Route::get('/flows', [FlowController::class, 'index'])->name('flows.index');
     Route::post('/flows', [FlowController::class, 'store'])->name('flows.store');
     Route::get('/flows/{id}', [FlowController::class, 'show'])->name('flows.show');
