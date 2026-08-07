@@ -13,11 +13,16 @@ return new class extends Migration
     {
         Schema::table('campaigns', function (Blueprint $table) {
             $table->timestamp('scheduled_at')->nullable()->after('target_id');
-            // Laravel 11 handles SQLite enum changes automatically by rebuilding the table
-            $table->enum('status', ['draft', 'scheduled', 'queued', 'sending', 'completed', 'failed', 'cancelled'])
-                  ->default('draft')
-                  ->change();
         });
+
+        if (\Illuminate\Support\Facades\DB::getDriverName() === 'pgsql') {
+            \Illuminate\Support\Facades\DB::statement("ALTER TABLE campaigns DROP CONSTRAINT IF EXISTS campaigns_status_check");
+            \Illuminate\Support\Facades\DB::statement("ALTER TABLE campaigns ADD CONSTRAINT campaigns_status_check CHECK (status IN ('draft', 'scheduled', 'queued', 'sending', 'completed', 'failed', 'cancelled'))");
+        } else {
+            Schema::table('campaigns', function (Blueprint $table) {
+                $table->string('status')->default('draft')->change();
+            });
+        }
     }
 
     /**
