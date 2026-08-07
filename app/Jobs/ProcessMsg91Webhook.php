@@ -64,11 +64,14 @@ class ProcessMsg91Webhook implements ShouldQueue
 
             // Auto-create contact if it doesn't exist
             if ($direction === 0) {
-                DB::statement("
-                    INSERT INTO contacts (tenant_id, phone_number, first_name, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?)
-                    ON CONFLICT (tenant_id, phone_number) DO NOTHING
-                ", [$tenantId, $customerNumber, $customerName ?: 'Unknown', now(), now()]);
+                try {
+                    \App\Models\Contact::firstOrCreate(
+                        ['tenant_id' => $tenantId, 'phone_number' => $customerNumber],
+                        ['name' => $customerName ?: 'Unknown']
+                    );
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::warning("ProcessMsg91Webhook: Failed to auto-create contact: " . $e->getMessage());
+                }
             }
 
             // Identify if we need to increment unread count for inbound message
