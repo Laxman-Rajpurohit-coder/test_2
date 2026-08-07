@@ -30,7 +30,7 @@ Route::get('/', function () {
 
 // Master SAAS Dashboard Route (Points to Modules\Analytics\Http\Controllers\AnalyticsController)
 Route::get('/dashboard', [\Modules\Analytics\Http\Controllers\AnalyticsController::class, 'index'])
-    ->middleware(['auth:admin,web', 'verified'])->name('dashboard');
+    ->middleware(['auth:web,admin', 'verified'])->name('dashboard');
 
 // Admin Auth Routes
 Route::get('/admin/login', [\App\Http\Controllers\Admin\AuthController::class, 'create'])->name('admin.login');
@@ -51,7 +51,7 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::post('/impersonate-stop', [\App\Http\Controllers\Admin\ImpersonationController::class, 'stop'])->name('impersonate.stop');
 });
 
-Route::middleware(['auth:admin,web', \App\Http\Middleware\BlockImpersonationWrites::class])->group(function () {
+Route::middleware(['auth:web,admin', \App\Http\Middleware\BlockImpersonationWrites::class])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

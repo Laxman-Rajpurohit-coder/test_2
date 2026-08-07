@@ -46,7 +46,7 @@ class ChatController extends Controller
             $query->where('tenant_number_id', $request->input('tenant_number_id'));
         }
 
-        if (auth()->check() && auth()->user()->isMember()) {
+        if (auth()->check() && method_exists(auth()->user(), 'isMember') && auth()->user()->isMember()) {
             $query->whereExists(function ($q) {
                 $q->select(\Illuminate\Support\Facades\DB::raw(1))
                   ->from('contacts')
@@ -139,7 +139,7 @@ class ChatController extends Controller
             return response()->json(['error' => 'Conversation not found'], 404);
         }
 
-        if (auth()->user()->isMember()) {
+        if (method_exists(auth()->user(), 'isMember') && auth()->user()->isMember()) {
             $hasAccess = \App\Models\Contact::where('tenant_id', $conversation->tenant_id)
                 ->where('phone_number', $conversation->customer_number)
                 ->where('assigned_user_id', auth()->id())
@@ -262,7 +262,7 @@ class ChatController extends Controller
             return response()->json(['error' => 'Conversation not found'], 404);
         }
 
-        if (auth()->user()->isMember()) {
+        if (method_exists(auth()->user(), 'isMember') && auth()->user()->isMember()) {
             $hasAccess = \App\Models\Contact::where('tenant_id', $conversation->tenant_id)
                 ->where('phone_number', $conversation->customer_number)
                 ->where('assigned_user_id', auth()->id())

@@ -18,6 +18,14 @@ class IdentifyTenant
      */
     public function handle(Request $request, Closure $next): Response
     {
+        // Globally force the admin guard if impersonation is active, ignoring any stale web sessions.
+        if (session()->has('impersonating_tenant_id') && auth('admin')->check()) {
+            auth()->shouldUse('admin');
+            $request->setUserResolver(function () {
+                return auth('admin')->user();
+            });
+        }
+
         if (session()->has('impersonating_tenant_id')) {
             app(TenantResolverService::class)->setActiveTenantId((int) session('impersonating_tenant_id'));
         } elseif (auth()->check() && !empty(auth()->user()->tenant_id)) {

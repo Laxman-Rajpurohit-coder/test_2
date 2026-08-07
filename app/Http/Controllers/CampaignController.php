@@ -29,7 +29,7 @@ class CampaignController extends Controller
 
     public function create()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
         $approvedTemplates = WhatsappTemplate::where('tenant_id', $tenantId)
             ->where('status', 'approved')
             ->get();
@@ -61,7 +61,7 @@ class CampaignController extends Controller
             'scheduled_at'          => 'nullable|date',
         ]);
 
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
 
         // Verify target isolation
         if ($validated['target_type'] === 'group') {
@@ -133,7 +133,7 @@ class CampaignController extends Controller
 
     public function show($id)
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
         $campaign = Campaign::where('tenant_id', $tenantId)->withCount('recipients')->findOrFail($id);
         
         return Inertia::render('Campaigns/Show', [
@@ -143,7 +143,7 @@ class CampaignController extends Controller
 
     public function cancel($id)
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
         $campaign = Campaign::where('tenant_id', $tenantId)->findOrFail($id);
 
         if (!in_array($campaign->status, ['scheduled', 'queued', 'sending'])) {
