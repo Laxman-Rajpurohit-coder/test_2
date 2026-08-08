@@ -31,6 +31,7 @@ class Msg91PayloadBuilder
             'integrated_number' => $integratedNumber,
             'recipient_number'  => $cleanRecipientNumber,
             'content_type'      => $contentType,
+            'messaging_product' => 'whatsapp',
         ];
 
         // The nested payload object MSG91 expects
