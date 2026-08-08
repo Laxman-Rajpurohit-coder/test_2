@@ -43,6 +43,38 @@ class ContactController extends Controller
         ]);
     }
     
+    public function store(Request $request, ContactImportService $importService)
+    {
+        $validated = $request->validate([
+            'name' => 'nullable|string|max:255',
+            'phone_number' => 'required|string|max:50',
+            'assigned_user_id' => 'nullable|exists:users,id',
+        ]);
+
+        $tenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
+
+        // Normalize phone number (strips characters, prepends 91 to 10-digit numbers)
+        $normalizedPhone = $importService->normalizePhoneNumber($validated['phone_number']);
+
+        if (empty($normalizedPhone)) {
+            return back()->with('error', 'Invalid phone number provided.');
+        }
+
+        Contact::updateOrCreate(
+            [
+                'tenant_id' => $tenantId,
+                'phone_number' => $normalizedPhone,
+            ],
+            [
+                'name' => $validated['name'] ?? null,
+                'assigned_user_id' => $validated['assigned_user_id'] ?? null,
+                'custom_fields' => [], // Ensure valid JSON structure
+            ]
+        );
+
+        return back()->with('success', 'Contact added successfully.');
+    }
+
     public function import(Request $request, ContactImportService $importService)
     {
         $request->validate([

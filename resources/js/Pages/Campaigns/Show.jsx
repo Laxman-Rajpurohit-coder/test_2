@@ -1,8 +1,9 @@
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
+import Pagination from '@/Components/Pagination';
 
-export default function CampaignsShow({ campaign }) {
+export default function CampaignsShow({ campaign, recipients }) {
     const statusClasses = {
         'draft': 'bg-gray-100 text-gray-700',
         'scheduled': 'bg-indigo-50 text-indigo-700',
@@ -64,10 +65,62 @@ export default function CampaignsShow({ campaign }) {
                 <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                     <h3 className="font-bold text-gray-900">Delivery Status</h3>
                 </div>
-                <div className="p-8 text-center text-gray-500">
-                    <p>Recipient tracking table will be implemented in a future update.</p>
-                    <p className="text-sm mt-2">Currently, <strong>{campaign.failed_count}</strong> messages failed or were <span className="font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded">skipped_24h</span> (outside the active 24h WhatsApp session window).</p>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50/50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Failure Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {(recipients?.data || []).map((recipient) => (
+                                <tr key={recipient.id} className="hover:bg-gray-50 transition">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="text-sm font-medium text-gray-900">
+                                            {recipient.contact?.name || 'Unknown'}
+                                        </div>
+                                        <div className="text-sm text-gray-500">
+                                            +{recipient.contact?.phone_number}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                            recipient.status === 'sent' ? 'bg-green-100 text-green-800' : 
+                                            recipient.status === 'failed' ? 'bg-red-100 text-red-800' :
+                                            recipient.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                            'bg-gray-100 text-gray-800'
+                                        }`}>
+                                            {recipient.status}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-500">
+                                        {recipient.failure_reason ? (
+                                            <span className="text-rose-600 font-medium">
+                                                {recipient.failure_reason}
+                                            </span>
+                                        ) : (
+                                            <span className="text-gray-400">-</span>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                            {(recipients?.data?.length === 0) && (
+                                <tr>
+                                    <td colSpan="3" className="px-6 py-8 text-center text-gray-500">
+                                        No recipients found for this campaign.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
                 </div>
+                {recipients?.links && recipients.data.length > 0 && (
+                    <div className="p-4 border-t border-gray-100">
+                        <Pagination links={recipients.links} />
+                    </div>
+                )}
             </div>
         </AppLayout>
     );

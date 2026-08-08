@@ -7,6 +7,7 @@ export default function ContactsIndex({ contacts, teamMembers = [] }) {
     const { tenant_features, auth } = usePage().props;
     const isOwner = auth?.user?.role === 'owner';
     const [importModalOpen, setImportModalOpen] = useState(false);
+    const [addContactModalOpen, setAddContactModalOpen] = useState(false);
     const [globalAssignModalOpen, setGlobalAssignModalOpen] = useState(false);
     
     // Bulk Assignment State
@@ -17,6 +18,22 @@ export default function ContactsIndex({ contacts, teamMembers = [] }) {
         file: null,
         assigned_user_id: '',
     });
+
+    const addContactForm = useForm({
+        name: '',
+        phone_number: '',
+        assigned_user_id: '',
+    });
+
+    const handleAddContact = (e) => {
+        e.preventDefault();
+        addContactForm.post(route('contacts.store'), {
+            onSuccess: () => {
+                setAddContactModalOpen(false);
+                addContactForm.reset();
+            },
+        });
+    };
 
     const handleImport = (e) => {
         e.preventDefault();
@@ -124,8 +141,14 @@ export default function ContactsIndex({ contacts, teamMembers = [] }) {
                         </button>
                     )}
                     <button 
-                        onClick={() => setImportModalOpen(true)}
+                        onClick={() => setAddContactModalOpen(true)}
                         className="px-4 py-2 bg-emerald-50 text-[#00a884] rounded-lg font-bold hover:bg-emerald-100 transition border border-emerald-200"
+                    >
+                        + Add Contact
+                    </button>
+                    <button 
+                        onClick={() => setImportModalOpen(true)}
+                        className="px-4 py-2 bg-white text-gray-700 rounded-lg font-bold shadow-sm transition border border-gray-200 hover:bg-gray-50"
                     >
                         Import CSV
                     </button>
@@ -328,6 +351,82 @@ export default function ContactsIndex({ contacts, teamMembers = [] }) {
                                 Cancel
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Add Contact Modal */}
+            {addContactModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm" onClick={() => setAddContactModalOpen(false)}></div>
+                    <div className="relative bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-gray-100">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-bold text-gray-900">Add New Contact</h2>
+                            <button onClick={() => setAddContactModalOpen(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+                        </div>
+                        <p className="text-sm text-gray-500 mb-4">
+                            Enter the contact details below. Phone numbers will be automatically formatted to standard rules.
+                        </p>
+                        
+                        <form onSubmit={handleAddContact} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Name (Optional)</label>
+                                <input
+                                    type="text"
+                                    value={addContactForm.data.name}
+                                    onChange={e => addContactForm.setData('name', e.target.value)}
+                                    placeholder="e.g. John Doe"
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#00a884] focus:border-transparent outline-none transition"
+                                />
+                                {addContactForm.errors.name && <p className="text-sm text-red-600 mt-1">{addContactForm.errors.name}</p>}
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Phone Number <span className="text-red-500">*</span></label>
+                                <input
+                                    type="text"
+                                    value={addContactForm.data.phone_number}
+                                    onChange={e => addContactForm.setData('phone_number', e.target.value)}
+                                    placeholder="e.g. 9876543210"
+                                    required
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#00a884] focus:border-transparent outline-none transition"
+                                />
+                                {addContactForm.errors.phone_number && <p className="text-sm text-red-600 mt-1">{addContactForm.errors.phone_number}</p>}
+                            </div>
+
+                            {isOwner && teamMembers.length > 0 && (
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Assign To (Optional)</label>
+                                    <select
+                                        value={addContactForm.data.assigned_user_id}
+                                        onChange={e => addContactForm.setData('assigned_user_id', e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#00a884] focus:border-transparent outline-none transition bg-white"
+                                    >
+                                        <option value="">-- Unassigned --</option>
+                                        {teamMembers.map(member => (
+                                            <option key={member.id} value={member.id}>{member.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            <div className="flex justify-end gap-3 pt-4 mt-2 border-t border-gray-100">
+                                <button
+                                    type="button"
+                                    onClick={() => setAddContactModalOpen(false)}
+                                    className="px-4 py-2 text-sm font-bold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={addContactForm.processing}
+                                    className="px-4 py-2 text-sm font-bold text-white bg-[#00a884] rounded-lg hover:bg-[#009071] transition disabled:opacity-50"
+                                >
+                                    {addContactForm.processing ? 'Saving...' : 'Save Contact'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

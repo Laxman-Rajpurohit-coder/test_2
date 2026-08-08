@@ -89,6 +89,7 @@ Route::middleware(['auth:web,admin', \App\Http\Middleware\BlockImpersonationWrit
             ->name('contacts.bulk-assign-all');
             
         Route::get('/contacts', [\App\Http\Controllers\ContactController::class, 'index'])->name('contacts.index');
+        Route::post('/contacts', [\App\Http\Controllers\ContactController::class, 'store'])->name('contacts.store');
         Route::post('/contacts/import', [\App\Http\Controllers\ContactController::class, 'import'])->name('contacts.import');
         Route::get('/contacts/{id}', [\App\Http\Controllers\ContactController::class, 'show'])->name('contacts.show');
         Route::put('/contacts/{id}', [\App\Http\Controllers\ContactController::class, 'update'])->name('contacts.update');

@@ -131,13 +131,18 @@ class CampaignController extends Controller
         return back()->with('success', 'Campaign created successfully.');
     }
 
-    public function show($id)
+    public function show(Request $request, $id)
     {
         $tenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
-        $campaign = Campaign::where('tenant_id', $tenantId)->withCount('recipients')->findOrFail($id);
+        $campaign = Campaign::where('tenant_id', $tenantId)->findOrFail($id);
         
+        $recipients = \App\Models\CampaignRecipient::with('contact')
+            ->where('campaign_id', $campaign->id)
+            ->paginate(50);
+            
         return Inertia::render('Campaigns/Show', [
-            'campaign' => $campaign
+            'campaign' => $campaign,
+            'recipients' => $recipients,
         ]);
     }
 
