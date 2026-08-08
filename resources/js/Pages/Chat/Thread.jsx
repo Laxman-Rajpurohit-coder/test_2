@@ -332,7 +332,7 @@ export default function Thread({ conversation, onBack }) {
                                                     {msg.status === 'delivered' && <span className="text-[#8696a0] font-bold">✓✓</span>}
                                                     {msg.status === 'read' && <span className="text-[#53bdeb] font-bold">✓✓</span>}
                                                     {msg.status === 'queued' && <span className="text-[#8696a0] animate-pulse">🕒</span>}
-                                                    {msg.status === 'failed' && <span className="text-red-400 font-bold">!</span>}
+                                                    {msg.status === 'failed' && <span className="text-red-400 font-bold" title={msg.failure_reason || 'Send failed'}>!</span>}
                                                 </>
                                             )}
                                         </div>

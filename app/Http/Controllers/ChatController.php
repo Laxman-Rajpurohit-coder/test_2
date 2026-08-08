@@ -196,7 +196,15 @@ class ChatController extends Controller
         // 2. Dispatch Background Job to MSG91 using real tenant number
         try {
             $integratedNumber = app(\App\Services\TenantResolverService::class)->getIntegratedNumber($conversation->tenant_id);
+            if (empty(app(\App\Services\TenantResolverService::class)->getMsg91AuthKey($conversation->tenant_id))) {
+                $newMessage->update(['status' => 'failed', 'failure_reason' => 'MSG91 Auth Key not configured for tenant']);
+                return response()->json([
+                    'error' => 'Configuration Error',
+                    'message' => 'WhatsApp API key not configured — set it in Tenant API Settings before sending messages'
+                ], 422);
+            }
         } catch (\Exception $e) {
+            $newMessage->update(['status' => 'failed', 'failure_reason' => 'No integrated WhatsApp number found for this tenant.']);
             return response()->json([
                 'error' => 'Configuration Error',
                 'message' => 'No integrated WhatsApp number found for this tenant. Cannot send messages.'
@@ -337,7 +345,16 @@ class ChatController extends Controller
 
         try {
             $integratedNumber = app(\App\Services\TenantResolverService::class)->getIntegratedNumber($conversation->tenant_id);
+            if (empty(app(\App\Services\TenantResolverService::class)->getMsg91AuthKey($conversation->tenant_id))) {
+                // We created the message above, but we must fail it immediately.
+                $newMessage->update(['status' => 'failed', 'failure_reason' => 'MSG91 Auth Key not configured for tenant']);
+                return response()->json([
+                    'error' => 'Configuration Error',
+                    'message' => 'WhatsApp API key not configured — set it in Tenant API Settings before sending messages'
+                ], 422);
+            }
         } catch (\Exception $e) {
+            $newMessage->update(['status' => 'failed', 'failure_reason' => 'No integrated WhatsApp number found for this tenant.']);
             return response()->json([
                 'error' => 'Configuration Error',
                 'message' => 'No integrated WhatsApp number found for this tenant. Cannot send messages.'

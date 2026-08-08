@@ -62,8 +62,18 @@ class SendCampaignJob implements ShouldQueue
         
         try {
             $outboundNumber = $tenantResolver->getIntegratedNumber($campaign->tenant_id);
+            if (empty($tenantResolver->getMsg91AuthKey($campaign->tenant_id))) {
+                throw new \Exception('MSG91 Auth Key not configured for tenant');
+            }
         } catch (\Exception $e) {
-            Log::error("Campaign {$campaign->id} failed to resolve outbound number: " . $e->getMessage());
+            Log::error("Campaign {$campaign->id} failed to resolve configuration: " . $e->getMessage());
+            foreach ($recipients as $recipient) {
+                $recipient->update([
+                    'status' => 'failed',
+                    'failure_reason' => $e->getMessage()
+                ]);
+                $campaign->increment('failed_count');
+            }
             $campaign->update(['status' => 'failed']);
             return;
         }

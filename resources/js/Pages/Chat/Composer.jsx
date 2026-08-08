@@ -66,7 +66,7 @@ export default function Composer({ conversation, onSent }) {
             setShowButtonsPanel(false);
             onSent(res.data?.message);
         }).catch((err) => {
-            const msg = err.response?.data?.error || 'Failed to send message.';
+            const msg = err.response?.data?.message || err.response?.data?.error || 'Failed to send message.';
             alert(msg);
         }).finally(() => {
             setSending(false);
@@ -89,7 +89,7 @@ export default function Composer({ conversation, onSent }) {
             setAudioBlob(null);
             onSent(res.data?.message);
         }).catch((err) => {
-            const msg = err.response?.data?.error || 'Failed to send media file.';
+            const msg = err.response?.data?.message || err.response?.data?.error || 'Failed to send media file.';
             alert(msg);
         }).finally(() => {
             setSending(false);
