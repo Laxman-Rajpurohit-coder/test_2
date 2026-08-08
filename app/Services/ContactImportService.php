@@ -127,20 +127,21 @@ class ContactImportService
 
     /**
      * Normalizes a phone number for deduplication.
-     * Strips spaces, dashes, parentheses, and leading zeros.
+     * Strips spaces, dashes, parentheses, plus signs, and leading zeros.
+     * Automatically prepends '91' to 10-digit local numbers.
      */
     public function normalizePhoneNumber(string $phone): string
     {
-        // Remove everything except digits and plus sign
-        $phone = preg_replace('/[^0-9+]/', '', $phone);
+        // Remove everything except digits
+        $phone = preg_replace('/[^0-9]/', '', $phone);
         
-        // Remove leading plus sign if present
-        if (strpos($phone, '+') === 0) {
-            $phone = substr($phone, 1);
-        }
-
         // Remove leading zeros
         $phone = ltrim($phone, '0');
+
+        // If the number is exactly 10 digits, assume it's an Indian local number and prepend 91
+        if (strlen($phone) === 10) {
+            $phone = '91' . $phone;
+        }
 
         return $phone;
     }
