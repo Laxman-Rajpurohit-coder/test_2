@@ -407,8 +407,9 @@ export default function Composer({ conversation, onSent, approvedTemplates }) {
 
                 {/* Left actions: Attach, Template, Emoji */}
                 <div className="flex items-center gap-1">
-                    <button type="button" onClick={() => setShowTemplateModal(true)} className="p-2 rounded-full text-[#8696a0] hover:bg-[#2a3942] hover:text-[#e9edef] transition-colors" title="Send Template">
-                        <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                    <button type="button" onClick={() => setShowTemplateModal(true)} className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#2a3942] text-[#8696a0] hover:bg-[#3b4a54] hover:text-[#e9edef] transition-colors" title="Send Template">
+                        <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                        <span className="text-xs font-medium uppercase tracking-wider">Template</span>
                     </button>
                     <button type="button" onClick={() => setShowButtonsPanel(!showButtonsPanel)} className={`p-2 rounded-full transition-colors ${showButtonsPanel || interactiveButtons.some(b => b.trim() !== '') ? 'text-[#00a884] bg-[#2a3942]' : 'text-[#8696a0] hover:bg-[#2a3942] hover:text-[#e9edef]'}`} title="Interactive Buttons">
                         <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M4 6h16v4H4zm0 8h16v4H4z"/></svg>
