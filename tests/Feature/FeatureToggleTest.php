@@ -27,6 +27,7 @@ class FeatureToggleTest extends TestCase
             'name'     => 'Test User',
             'email'    => 'test@example.com',
             'password' => bcrypt('password'),
+            'role'     => 'owner',
         ]);
         $user->tenant_id = $tenant->id;
         $user->save();

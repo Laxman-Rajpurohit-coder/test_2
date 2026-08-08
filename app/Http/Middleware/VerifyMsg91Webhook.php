@@ -17,8 +17,8 @@ class VerifyMsg91Webhook
             abort(500, 'Webhook secret is not configured on the server.');
         }
 
-        // Fail-closed: Enforce X-MSG91-Secret header strictly (no query string or fallback checks)
-        $incomingSecret = $request->header('X-MSG91-Secret');
+        // Enforce secret matching via X-MSG91-Secret header or 'secret' query parameter
+        $incomingSecret = $request->header('X-MSG91-Secret') ?? $request->query('secret');
 
         // Strict constant-time hash comparison
         if (!hash_equals($expectedSecret, (string) $incomingSecret)) {

@@ -23,7 +23,7 @@ return new class extends Migration
             }
         });
 
-        Schema::dropIfExists('tenant_invites');
+
     }
 
     /**
@@ -31,15 +31,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::create('tenant_invites', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
-            $table->string('email');
-            $table->string('token')->unique();
-            $table->timestamp('accepted_at')->nullable();
-            $table->timestamp('expires_at');
-            $table->timestamps();
-        });
+
 
         Schema::table('contacts', function (Blueprint $table) {
             $table->dropForeign(['assigned_user_id']);

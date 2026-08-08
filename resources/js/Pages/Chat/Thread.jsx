@@ -343,15 +343,19 @@ export default function Thread({ conversation, onBack, approvedTemplates }) {
                     }
 
                     // Safe string handling to prevent runtime .trim() crash
-                    const rawText = content.text !== undefined ? content.text : (typeof content === 'string' ? content : '');
+                    const rawText = content.text !== undefined ? content.text : (content.body !== undefined ? content.body : (typeof content === 'string' ? content : ''));
                     const textStr = String(rawText || '');
-                    const displayText = textStr.trim() !== '' ? textStr : (content.caption || '');
+                    let displayText = textStr.trim() !== '' ? textStr : (content.caption || '');
+
+                    if (!displayText && content.type === 'template') {
+                        displayText = `📋 Template: ${content.template_name || 'WhatsApp Template'}`;
+                    }
 
                     if (!isOutbound) {
                         return (
                             <div key={msg.id} className="flex justify-start mb-1">
                                 <div className="relative max-w-[85%] sm:max-w-[75%] lg:max-w-[65%] rounded-lg rounded-tl-none bg-[#202c33] px-3 py-1.5 text-sm text-[#e9edef] shadow-sm">
-                                    <span className="mr-16 leading-relaxed break-words block">{displayText || 'Media'}</span>
+                                    <span className="mr-16 leading-relaxed break-words block">{displayText || 'Message'}</span>
                                     
                                     {content.type === 'interactive' && content.interactive?.action?.buttons && (
                                         <div className="mt-2 flex flex-col gap-1 w-full">
@@ -372,7 +376,7 @@ export default function Thread({ conversation, onBack, approvedTemplates }) {
                     return (
                         <div key={msg.id} className="flex justify-end mb-1">
                             <div className="relative max-w-[85%] sm:max-w-[75%] lg:max-w-[65%] rounded-lg rounded-tr-none bg-[#005c4b] px-3 py-1.5 text-sm text-[#e9edef] shadow-sm">
-                                <span className="mr-16 leading-relaxed break-words block">{displayText || 'Media'}</span>
+                                <span className="mr-16 leading-relaxed break-words block">{displayText || 'Message'}</span>
                                 
                                 {content.type === 'interactive' && content.interactive?.action?.buttons && (
                                     <div className="mt-2 flex flex-col gap-1 w-full pb-4">

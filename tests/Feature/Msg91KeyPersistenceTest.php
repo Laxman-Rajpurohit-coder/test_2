@@ -16,7 +16,7 @@ class Msg91KeyPersistenceTest extends TestCase
     public function test_msg91_key_masking_does_not_overwrite_real_key_on_save()
     {
         $tenant = Tenant::create(['name' => 'Test', 'slug' => 'test', 'status' => 'active']);
-        $user = \App\Models\User::create(['name' => 'User', 'email' => 'user@example.com', 'password' => Hash::make('password'), 'tenant_id' => $tenant->id]);
+        $user = \App\Models\User::create(['name' => 'User', 'email' => 'user@example.com', 'password' => Hash::make('password'), 'tenant_id' => $tenant->id, 'role' => 'owner']);
         $this->actingAs($user);
 
         // 1. Save a real key for the first time

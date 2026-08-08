@@ -30,6 +30,7 @@ class CampaignSendTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        TenantSetting::create(['tenant_id' => $tenant->id, 'msg91_auth_key' => 'mock_key']);
 
         $campaign = Campaign::create([
             'tenant_id' => $tenant->id,
@@ -100,6 +101,7 @@ class CampaignSendTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        TenantSetting::create(['tenant_id' => $tenant->id, 'msg91_auth_key' => 'mock_key']);
 
         $campaign = Campaign::create([
             'tenant_id' => $tenant->id,
@@ -158,6 +160,7 @@ class CampaignSendTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        TenantSetting::create(['tenant_id' => $tenant->id, 'msg91_auth_key' => 'mock_key']);
 
         $campaign = Campaign::create([
             'tenant_id' => $tenant->id,

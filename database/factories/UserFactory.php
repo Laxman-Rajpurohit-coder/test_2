@@ -32,6 +32,7 @@ class UserFactory extends Factory
             'remember_token'    => Str::random(10),
             // Auto-create a tenant so tests using User::factory() don't fail the NOT NULL constraint.
             'tenant_id'         => \App\Models\Tenant::factory(),
+            'role'              => 'owner',
         ];
     }
 

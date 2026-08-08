@@ -187,7 +187,9 @@ class SendCampaignJob implements ShouldQueue
                     }
 
                     $contentStruct = [
-                        'body'          => 'Template: ' . $campaign->template_name,
+                        'type'          => 'template',
+                        'text'          => '📋 Template: ' . $campaign->template_name,
+                        'body'          => '📋 Template: ' . $campaign->template_name,
                         'template_name' => $campaign->template_name,
                     ];
 

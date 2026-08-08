@@ -42,8 +42,7 @@ class ChatInboxTest extends TestCase
         ]);
     }
 
-    /** @test */
-    public function it_fetches_conversations_with_unread_count_and_message_preview()
+    public function test_it_fetches_conversations_with_unread_count_and_message_preview()
     {
         $conversation = Conversation::create([
             'tenant_id' => $this->tenant->id,
@@ -75,8 +74,7 @@ class ChatInboxTest extends TestCase
         $this->assertEquals('Hello preview', json_decode($responseData[0]['messages'][0]['content'])->text);
     }
 
-    /** @test */
-    public function it_marks_conversation_as_read_and_resets_unread_count_to_zero()
+    public function test_it_marks_conversation_as_read_and_resets_unread_count_to_zero()
     {
         $conversation = Conversation::create([
             'tenant_id' => $this->tenant->id,
@@ -92,8 +90,7 @@ class ChatInboxTest extends TestCase
         $this->assertEquals(0, $conversation->fresh()->unread_count);
     }
 
-    /** @test */
-    public function inbound_webhook_increments_unread_count_and_broadcasts_event()
+    public function test_inbound_webhook_increments_unread_count_and_broadcasts_event()
     {
         Event::fake([MessageReceived::class]);
 
@@ -125,8 +122,7 @@ class ChatInboxTest extends TestCase
         });
     }
 
-    /** @test */
-    public function outbound_webhook_status_update_does_not_increment_unread_count()
+    public function test_outbound_webhook_status_update_does_not_increment_unread_count()
     {
         $conversation = Conversation::create([
             'tenant_id' => $this->tenant->id,
