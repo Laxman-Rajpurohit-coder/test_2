@@ -35,6 +35,7 @@ class Msg91PayloadBuilder
 
         // The nested payload object MSG91 expects
         $payload = [
+            'messaging_product' => 'whatsapp',
             'to'   => $cleanRecipientNumber,
             'type' => $contentType,
         ];
