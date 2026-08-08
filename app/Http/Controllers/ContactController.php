@@ -25,7 +25,7 @@ class ContactController extends Controller
         }
         
         // Cursor pagination for performance on large tables
-        $contacts = $query->orderBy('id', 'desc')->paginate(50);
+        $contacts = $query->orderBy('created_at', 'desc')->paginate(50);
         
         $teamMembers = [];
         $user = auth()->user();

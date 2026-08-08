@@ -34,12 +34,24 @@ class ContactImportService
                 return trim(strtolower($h));
             }, $headers);
 
-            $phoneIdx = array_search('phone_number', $headers);
-            $nameIdx = array_search('name', $headers);
-            $emailIdx = array_search('email', $headers);
+            // Define acceptable synonyms
+            $phoneSynonyms = ['phone_number', 'phone', 'mobile', 'contact_number', 'number'];
+            $nameSynonyms = ['name', 'full_name', 'fullname', 'contact_name', 'first_name'];
+            $emailSynonyms = ['email', 'email_address'];
+
+            $phoneIdx = false;
+            $nameIdx = false;
+            $emailIdx = false;
+
+            // Intelligently match variations
+            foreach ($headers as $idx => $header) {
+                if ($phoneIdx === false && in_array($header, $phoneSynonyms)) $phoneIdx = $idx;
+                if ($nameIdx === false && in_array($header, $nameSynonyms)) $nameIdx = $idx;
+                if ($emailIdx === false && in_array($header, $emailSynonyms)) $emailIdx = $idx;
+            }
 
             if ($phoneIdx === false) {
-                return ['imported' => 0, 'updated' => 0, 'errors' => ['Row 1: Missing required column "phone_number"']];
+                return ['imported' => 0, 'updated' => 0, 'errors' => ['Row 1: Missing required phone column (e.g. phone_number, mobile, contact_number)']];
             }
 
             $rowNum = 2; // Data starts at row 2
@@ -56,9 +68,14 @@ class ContactImportService
                 $name = $nameIdx !== false ? ($data[$nameIdx] ?? null) : null;
                 $email = $emailIdx !== false ? ($data[$emailIdx] ?? null) : null;
 
+                $matchedHeaders = [];
+                if ($phoneIdx !== false) $matchedHeaders[] = $headers[$phoneIdx];
+                if ($nameIdx !== false) $matchedHeaders[] = $headers[$nameIdx];
+                if ($emailIdx !== false) $matchedHeaders[] = $headers[$emailIdx];
+
                 $customFields = [];
                 foreach ($headers as $idx => $headerName) {
-                    if (!in_array($headerName, ['phone_number', 'name', 'email']) && !empty($headerName)) {
+                    if (!in_array($headerName, $matchedHeaders) && !empty($headerName)) {
                         $customFields[$headerName] = $data[$idx] ?? null;
                     }
                 }
