@@ -10,7 +10,7 @@ import Thread from './Thread';
  * @param {Object} props.auth - Authentication data used to identify the current user.
  * @param {Array} props.tenantNumbers - Tenant numbers available for filtering conversations.
  */
-export default function ChatIndex({ auth, tenantNumbers }) {
+export default function ChatIndex({ auth, tenantNumbers, approvedTemplates }) {
     const [conversations, setConversations] = useState([]);
     const [activeConversation, setActiveConversation] = useState(null);
     const [selectedNumberId, setSelectedNumberId] = useState(null);
@@ -118,7 +118,7 @@ export default function ChatIndex({ auth, tenantNumbers }) {
                 {/* RIGHT COLUMN: Active Chat Canvas */}
                 <main className={`flex flex-1 flex-col bg-[#0b141a] relative h-full min-w-0 ${!activeConversation ? 'hidden md:flex' : 'flex'}`}>
                     {activeConversation ? (
-                        <Thread conversation={activeConversation} onBack={() => setActiveConversation(null)} />
+                        <Thread conversation={activeConversation} approvedTemplates={approvedTemplates} onBack={() => setActiveConversation(null)} />
                     ) : (
                         <div className="flex h-full items-center justify-center flex-col space-y-4 bg-[#222e35] text-center p-8">
                             <div className="w-24 h-24 rounded-full bg-[#202c33] flex items-center justify-center shadow-lg border border-[#222d34]">

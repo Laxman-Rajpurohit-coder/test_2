@@ -20,12 +20,19 @@ class ChatController extends Controller
      */
     public function view()
     {
+        $tenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
+
         $tenantNumbers = \Illuminate\Support\Facades\DB::table('tenant_numbers')
-            ->where('tenant_id', app(\App\Services\TenantResolverService::class)->getActiveTenantId())
+            ->where('tenant_id', $tenantId)
+            ->get();
+
+        $approvedTemplates = \App\Models\WhatsappTemplate::where('tenant_id', $tenantId)
+            ->where('status', 'approved')
             ->get();
 
         return Inertia::render('Chat/Index', [
-            'tenantNumbers' => $tenantNumbers
+            'tenantNumbers' => $tenantNumbers,
+            'approvedTemplates' => $approvedTemplates
         ]);
     }
 

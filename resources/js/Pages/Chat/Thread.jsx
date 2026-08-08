@@ -104,7 +104,7 @@ const CustomAudioPlayer = ({ src }) => {
     );
 };
 
-export default function Thread({ conversation, onBack }) {
+export default function Thread({ conversation, onBack, approvedTemplates }) {
     const [messages, setMessages] = useState([]);
     const [nextCursor, setNextCursor] = useState(null);
     const messagesEndRef = useRef(null);
@@ -416,7 +416,7 @@ export default function Thread({ conversation, onBack }) {
                         Sending messages is disabled while impersonating.
                     </div>
                 ) : (
-                    <Composer conversation={conversation} onSent={(newMessage) => {
+                    <Composer conversation={conversation} approvedTemplates={approvedTemplates} onSent={(newMessage) => {
                         if (newMessage) {
                             setMessages(prev => {
                                 const exists = prev.some(m => m.id === newMessage.id);

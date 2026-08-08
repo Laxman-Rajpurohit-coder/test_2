@@ -1,10 +1,15 @@
 import { useState, useRef } from 'react';
 
-export default function Composer({ conversation, onSent }) {
+export default function Composer({ conversation, onSent, approvedTemplates }) {
     const [content, setContent] = useState('');
     const [sending, setSending] = useState(false);
     const [selectedImage, setSelectedImage] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
+
+    // Template Modal States
+    const [showTemplateModal, setShowTemplateModal] = useState(false);
+    const [selectedTemplate, setSelectedTemplate] = useState(null);
+    const [templateVariables, setTemplateVariables] = useState({});
 
     // Interactive Button States
     const [showButtonsPanel, setShowButtonsPanel] = useState(false);
@@ -67,6 +72,89 @@ export default function Composer({ conversation, onSent }) {
             onSent(res.data?.message);
         }).catch((err) => {
             const msg = err.response?.data?.message || err.response?.data?.error || 'Failed to send message.';
+            alert(msg);
+        }).finally(() => {
+            setSending(false);
+        });
+    };
+
+    const handleTemplateSelect = (e) => {
+        const tplName = e.target.value;
+        if (!tplName) {
+            setSelectedTemplate(null);
+            setTemplateVariables({});
+            return;
+        }
+        const tpl = (approvedTemplates || []).find(t => t.name === tplName);
+        setSelectedTemplate(tpl);
+        
+        // Initialize variables based on {{1}}, {{2}} in body text
+        const variables = {};
+        try {
+            const components = typeof tpl.components === 'string' ? JSON.parse(tpl.components) : (tpl.components || []);
+            const body = components.find(c => c.type === 'BODY' || c.type === 'body');
+            if (body && body.text) {
+                const matches = body.text.match(/\{\{(\d+)\}\}/g);
+                if (matches) {
+                    const numbers = matches.map(m => parseInt(m.replace(/[^0-9]/g, '')));
+                    const maxCount = Math.max(...numbers);
+                    for (let i = 1; i <= maxCount; i++) {
+                        variables[i] = '';
+                    }
+                }
+            }
+        } catch (err) {}
+        setTemplateVariables(variables);
+    };
+
+    const handleSendTemplate = (e) => {
+        e.preventDefault();
+        if (!selectedTemplate) return;
+        
+        let template_components = [];
+        if (Object.keys(templateVariables).length > 0) {
+            const parameters = Object.keys(templateVariables)
+                .sort((a,b) => parseInt(a) - parseInt(b))
+                .map(key => ({ type: 'text', text: templateVariables[key] }));
+                
+            template_components.push({
+                type: 'body',
+                parameters: parameters
+            });
+        }
+
+        // Generate the preview text for the UI/DB
+        let previewText = '';
+        try {
+            const components = typeof selectedTemplate.components === 'string' ? JSON.parse(selectedTemplate.components) : (selectedTemplate.components || []);
+            const body = components.find(c => c.type === 'BODY' || c.type === 'body');
+            if (body && body.text) {
+                previewText = body.text.replace(/\{\{(\d+)\}\}/g, (match, p1) => templateVariables[p1] || match);
+            } else {
+                previewText = 'Template: ' + selectedTemplate.name;
+            }
+        } catch(e) {
+            previewText = 'Template: ' + selectedTemplate.name;
+        }
+
+        const payload = {
+            type: 'template',
+            template_name: selectedTemplate.name,
+            template_language: selectedTemplate.language || 'en',
+            content: previewText
+        };
+        if (template_components.length > 0) {
+            payload.template_components = template_components;
+        }
+
+        setSending(true);
+        window.axios.post(`/api/conversations/${conversation.id}/messages`, payload).then((res) => {
+            setShowTemplateModal(false);
+            setSelectedTemplate(null);
+            setTemplateVariables({});
+            onSent(res.data?.message);
+        }).catch((err) => {
+            const msg = err.response?.data?.message || err.response?.data?.error || 'Failed to send template.';
             alert(msg);
         }).finally(() => {
             setSending(false);
@@ -229,19 +317,104 @@ export default function Composer({ conversation, onSent }) {
                 </div>
             )}
 
+            {/* Send Template Modal */}
+            {showTemplateModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-fade-in">
+                    <div className="bg-[#111b21] rounded-xl border border-[#222d34] shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
+                        <div className="flex justify-between items-center p-4 border-b border-[#222d34] bg-[#202c33]">
+                            <h3 className="text-[#e9edef] font-medium">Send WhatsApp Template</h3>
+                            <button onClick={() => { setShowTemplateModal(false); setSelectedTemplate(null); setTemplateVariables({}); }} className="text-[#8696a0] hover:text-[#e9edef]">✕</button>
+                        </div>
+                        <div className="p-4 flex-1 overflow-y-auto space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-[#8696a0] mb-1">Select Template</label>
+                                <select 
+                                    className="w-full bg-[#2a3942] border border-[#3b4a54] text-[#e9edef] rounded-lg px-3 py-2 outline-none focus:border-[#00a884] focus:ring-1 focus:ring-[#00a884]"
+                                    onChange={handleTemplateSelect}
+                                    defaultValue=""
+                                >
+                                    <option value="" disabled>-- Choose a template --</option>
+                                    {(approvedTemplates || []).map(t => (
+                                        <option key={t.id} value={t.name}>{t.name} ({t.language})</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {selectedTemplate && (
+                                <div className="space-y-4 animate-fade-in">
+                                    <div className="bg-[#202c33] p-3 rounded-lg border border-[#222d34]">
+                                        <div className="text-xs text-[#00a884] font-medium mb-2">PREVIEW</div>
+                                        <div className="text-sm text-[#e9edef] whitespace-pre-wrap">
+                                            {(() => {
+                                                try {
+                                                    const components = typeof selectedTemplate.components === 'string' ? JSON.parse(selectedTemplate.components) : (selectedTemplate.components || []);
+                                                    const body = components.find(c => c.type === 'BODY' || c.type === 'body');
+                                                    if (body && body.text) {
+                                                        return body.text.replace(/\{\{(\d+)\}\}/g, (match, p1) => {
+                                                            return templateVariables[p1] ? `[${templateVariables[p1]}]` : match;
+                                                        });
+                                                    }
+                                                    return 'No text body found.';
+                                                } catch(e) { return 'Error rendering preview'; }
+                                            })()}
+                                        </div>
+                                    </div>
+
+                                    {Object.keys(templateVariables).length > 0 && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-[#8696a0] mb-2">Fill Variables</label>
+                                            <div className="space-y-2">
+                                                {Object.keys(templateVariables).sort((a,b) => parseInt(a) - parseInt(b)).map(num => (
+                                                    <div key={num} className="flex items-center gap-2">
+                                                        <span className="text-[#00a884] font-mono text-xs bg-[#2a3942] px-2 py-1 rounded">{'{{' + num + '}}'}</span>
+                                                        <input 
+                                                            type="text"
+                                                            value={templateVariables[num]}
+                                                            onChange={(e) => setTemplateVariables({...templateVariables, [num]: e.target.value})}
+                                                            placeholder={`Value for {{${num}}}`}
+                                                            className="flex-1 bg-[#2a3942] border border-[#3b4a54] text-[#e9edef] rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[#00a884]"
+                                                            required
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        <div className="p-4 border-t border-[#222d34] flex justify-end gap-2 bg-[#202c33]">
+                            <button 
+                                onClick={() => { setShowTemplateModal(false); setSelectedTemplate(null); setTemplateVariables({}); }}
+                                className="px-4 py-2 text-sm text-[#8696a0] hover:text-[#e9edef] transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleSendTemplate}
+                                disabled={!selectedTemplate || sending}
+                                className="px-6 py-2 bg-[#00a884] text-[#111b21] font-medium text-sm rounded-lg hover:bg-[#00a884]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                                {sending ? 'Sending...' : 'Send Template'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <form onSubmit={handleSend} className="flex items-center gap-2 w-full relative z-30">
                 <input type="file" ref={fileInputRef} onChange={handleImageSelect} accept="image/*,video/mp4,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt" className="hidden" />
 
-                {/* Left actions: Attach & Emoji */}
+                {/* Left actions: Attach, Template, Emoji */}
                 <div className="flex items-center gap-1">
-                    <button type="button" onClick={() => setShowButtonsPanel(!showButtonsPanel)} className={`p-2 rounded-full transition-colors ${showButtonsPanel || interactiveButtons.some(b => b.trim() !== '') ? 'text-[#00a884] bg-[#2a3942]' : 'text-[#8696a0] hover:bg-[#2a3942] hover:text-[#e9edef]'}`} title="Interactive Buttons">
-                        <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M4 6h16v4H4zm0 8h16v4H4z"/></svg>
+                    <button type="button" onClick={() => setShowTemplateModal(true)} className="p-2 rounded-full text-[#8696a0] hover:bg-[#2a3942] hover:text-[#e9edef] transition-colors" title="Send Template">
+                        <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
                     </button>
-                    <button type="button" className="p-2 rounded-full text-[#8696a0] hover:bg-[#2a3942] hover:text-[#e9edef] transition-colors hidden sm:block" title="Emoji">
-                        <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1010 10A10 10 0 0012 2zm0 18a8 8 0 118-8 8 8 0 01-8 8zm-3.5-9a1.5 1.5 0 111.5-1.5A1.5 1.5 0 018.5 11zm7 0a1.5 1.5 0 111.5-1.5 1.5 1.5 0 01-1.5 1.5zm-7.5 3a5.5 5.5 0 008 0z"/></svg>
+                    <button type="button" onClick={() => setShowButtonsPanel(!showButtonsPanel)} className={`p-2 rounded-full transition-colors ${showButtonsPanel || interactiveButtons.some(b => b.trim() !== '') ? 'text-[#00a884] bg-[#2a3942]' : 'text-[#8696a0] hover:bg-[#2a3942] hover:text-[#e9edef]'}`} title="Interactive Buttons">
+                        <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M4 6h16v4H4zm0 8h16v4H4z"/></svg>
                     </button>
                     <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 rounded-full text-[#8696a0] hover:bg-[#2a3942] hover:text-[#e9edef] transition-colors" title="Attach Media">
-                        <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M1.992 11.997l8.485-8.485a5.5 5.5 0 017.779 7.778l-9.9 9.9a3.5 3.5 0 01-4.95-4.95l8.485-8.485a1.5 1.5 0 012.121 2.121l-7.424 7.425-1.415-1.414 7.425-7.425a3.5 3.5 0 00-4.95-4.95l-8.485 8.485a5.5 5.5 0 007.778 7.778l9.9-9.9a7.5 7.5 0 00-10.607-10.607l-8.485 8.485z"/></svg>
+                        <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M1.992 11.997l8.485-8.485a5.5 5.5 0 017.779 7.778l-9.9 9.9a3.5 3.5 0 01-4.95-4.95l8.485-8.485a1.5 1.5 0 012.121 2.121l-7.424 7.425-1.415-1.414 7.425-7.425a3.5 3.5 0 00-4.95-4.95l-8.485 8.485a5.5 5.5 0 007.778 7.778l9.9-9.9a7.5 7.5 0 00-10.607-10.607l-8.485 8.485z"/></svg>
                     </button>
                 </div>
 
