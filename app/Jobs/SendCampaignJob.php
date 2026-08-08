@@ -37,6 +37,20 @@ class SendCampaignJob implements ShouldQueue
      */
     public function handle(TenantResolverService $tenantResolver, OutboundReplyService $replyService)
     {
+        // 1. Manually resolve the tenant_id for the campaign to avoid SECURITY ABORT
+        $tenantId = \Illuminate\Support\Facades\DB::table('campaigns')
+            ->where('id', $this->campaignId)
+            ->value('tenant_id');
+
+        if (!$tenantId) {
+            Log::error("SendCampaignJob: Campaign ID {$this->campaignId} not found or missing tenant_id.");
+            return;
+        }
+
+        // 2. Bind the tenant context before using BelongsToTenant models
+        $tenantResolver->setActiveTenantId((int) $tenantId);
+
+        // 3. Now it is safe to use Eloquent models
         $campaign = Campaign::find($this->campaignId);
 
         if (!$campaign || $campaign->status === 'completed' || $campaign->status === 'failed' || $campaign->status === 'cancelled') {
@@ -56,10 +70,8 @@ class SendCampaignJob implements ShouldQueue
             $campaign->update(['status' => 'completed']);
             return;
         }
-
-        // Must bind the tenant context for BelongsToTenant and Resolver
-        $tenantResolver->setActiveTenantId($campaign->tenant_id);
         
+
         try {
             $outboundNumber = $tenantResolver->getIntegratedNumber($campaign->tenant_id);
             if (empty($tenantResolver->getMsg91AuthKey($campaign->tenant_id))) {
