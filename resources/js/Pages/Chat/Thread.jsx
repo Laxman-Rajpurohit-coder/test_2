@@ -179,6 +179,19 @@ export default function Thread({ conversation, onBack }) {
 
     const resolveMediaUrl = (rawUrl) => {
         if (!rawUrl) return '';
+        
+        // If it's a full HTTP URL from an external provider (MSG91/WhatsApp), DO NOT truncate it!
+        if (typeof rawUrl === 'string' && rawUrl.startsWith('http')) {
+            const isExternal = !rawUrl.includes('localhost') 
+                            && !rawUrl.includes('127.0.0.1')
+                            && !rawUrl.includes(window.location.hostname);
+                            
+            if (isExternal) {
+                return rawUrl;
+            }
+        }
+
+        // It's a local or dev URL. Rewrite it to use the current origin so media loads even if app.url was wrong.
         if (typeof rawUrl === 'string' && rawUrl.includes('/storage/')) {
             const pathPart = rawUrl.substring(rawUrl.indexOf('/storage/'));
             return window.location.origin + pathPart;
