@@ -123,6 +123,7 @@ Route::middleware(['auth:web,admin', \App\Http\Middleware\BlockImpersonationWrit
         Route::post('/team', [\App\Http\Controllers\TeamController::class, 'store'])->name('team.store');
         Route::put('/team/{user}/role', [\App\Http\Controllers\TeamController::class, 'updateRole'])->name('team.role.update');
         Route::delete('/team/{user}', [\App\Http\Controllers\TeamController::class, 'removeUser'])->name('team.remove');
+        Route::post('/team/{user}/reset-password', [\App\Http\Controllers\TeamController::class, 'resetPassword'])->name('team.reset-password');
     });
 });
 
