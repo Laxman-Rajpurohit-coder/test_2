@@ -11,17 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('bot_triggers', function (Blueprint $table) {
-            // First we drop the Postgres constraint if we are on pgsql, because Laravel's change() 
-            // sometimes struggles with existing check constraints on ENUMs in Postgres.
-            if (\Illuminate\Support\Facades\DB::getDriverName() === 'pgsql') {
-                \Illuminate\Support\Facades\DB::statement('ALTER TABLE bot_triggers DROP CONSTRAINT IF EXISTS bot_triggers_response_type_check');
-            }
-        });
-
-        Schema::table('bot_triggers', function (Blueprint $table) {
-            $table->enum('response_type', ['text', 'image', 'document', 'flow', 'interactive'])->default('text')->change();
-        });
+        if (\Illuminate\Support\Facades\DB::getDriverName() === 'pgsql') {
+            \Illuminate\Support\Facades\DB::statement('ALTER TABLE bot_triggers DROP CONSTRAINT IF EXISTS bot_triggers_response_type_check');
+            \Illuminate\Support\Facades\DB::statement("ALTER TABLE bot_triggers ALTER COLUMN response_type TYPE varchar(255)");
+            \Illuminate\Support\Facades\DB::statement("ALTER TABLE bot_triggers ADD CONSTRAINT bot_triggers_response_type_check CHECK (response_type IN ('text', 'image', 'document', 'flow', 'interactive'))");
+        } else {
+            Schema::table('bot_triggers', function (Blueprint $table) {
+                $table->string('response_type')->default('text')->change();
+            });
+        }
     }
 
     /**
