@@ -148,6 +148,11 @@ export default function Thread({ conversation, onBack, approvedTemplates }) {
         setIsInitialLoad(true);
         fetchMessages();
 
+        // Fast 3-second polling fallback ensuring instant inbound/outbound sync
+        const pollInterval = setInterval(() => {
+            fetchMessages();
+        }, 3000);
+
         const channel = window.Echo.channel(`conversations.${conversation.id}`);
         channel.listen('.message.received', (e) => {
             if (e.message && typeof e.message === 'object') {
@@ -167,6 +172,7 @@ export default function Thread({ conversation, onBack, approvedTemplates }) {
         });
 
         return () => {
+            clearInterval(pollInterval);
             channel.stopListening('.message.received');
         };
     }, [conversation?.id]);
@@ -342,14 +348,42 @@ export default function Thread({ conversation, onBack, approvedTemplates }) {
                         );
                     }
 
-                    // Safe string handling to prevent runtime .trim() crash
-                    const rawText = content.text !== undefined ? content.text : (content.body !== undefined ? content.body : (typeof content === 'string' ? content : ''));
-                    const textStr = String(rawText || '');
-                    let displayText = textStr.trim() !== '' ? textStr : (content.caption || '');
+                    // Resolves actual template text or full body text
+                    const getDisplayText = () => {
+                        if (content.type === 'template') {
+                            if (content.text && typeof content.text === 'string') {
+                                const trimmed = content.text.trim();
+                                if (trimmed && !trimmed.startsWith('Template:') && !trimmed.startsWith('📋 Template:')) {
+                                    return trimmed;
+                                }
+                            }
+                            if (content.body && typeof content.body === 'string') {
+                                const trimmed = content.body.trim();
+                                if (trimmed && !trimmed.startsWith('Template:') && !trimmed.startsWith('📋 Template:')) {
+                                    return trimmed;
+                                }
+                            }
+                            if (content.template_name && Array.isArray(approvedTemplates)) {
+                                const found = approvedTemplates.find(t => t.name === content.template_name);
+                                if (found && found.components) {
+                                    try {
+                                        const components = typeof found.components === 'string' ? JSON.parse(found.components) : found.components;
+                                        const bodyObj = components.find(c => c.type === 'BODY' || c.type === 'body');
+                                        if (bodyObj && bodyObj.text) {
+                                            return bodyObj.text;
+                                        }
+                                    } catch (e) {}
+                                }
+                            }
+                            return `📋 Template: ${content.template_name || 'WhatsApp Template'}`;
+                        }
 
-                    if (!displayText && content.type === 'template') {
-                        displayText = `📋 Template: ${content.template_name || 'WhatsApp Template'}`;
-                    }
+                        const rawText = content.text !== undefined ? content.text : (content.body !== undefined ? content.body : (typeof content === 'string' ? content : ''));
+                        const textStr = String(rawText || '');
+                        return textStr.trim() !== '' ? textStr : (content.caption || '');
+                    };
+
+                    const displayText = getDisplayText();
 
                     if (!isOutbound) {
                         return (

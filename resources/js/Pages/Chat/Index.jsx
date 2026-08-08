@@ -35,7 +35,7 @@ export default function ChatIndex({ auth, tenantNumbers, approvedTemplates }) {
 
     useEffect(() => {
         fetchConversations();
-        const interval = setInterval(fetchConversations, 10000); // Polling fallback
+        const interval = setInterval(fetchConversations, 3000); // Fast polling fallback
 
         // Request Browser Notification Permission on Load
         if ('Notification' in window && Notification.permission === 'default') {
