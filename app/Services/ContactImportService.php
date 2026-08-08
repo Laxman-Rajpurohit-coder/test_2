@@ -23,35 +23,39 @@ class ContactImportService
         $errors = [];
 
         if (($handle = fopen($file->getRealPath(), 'r')) !== false) {
-            $headers = fgetcsv($handle, 1000, ',');
+            $originalHeaders = fgetcsv($handle, 1000, ',');
             
-            if (!$headers) {
+            if (!$originalHeaders) {
                 return ['imported' => 0, 'updated' => 0, 'errors' => ['Row 1: Empty or invalid CSV headers']];
             }
 
-            // Lowercase and trim headers for robust matching
-            $headers = array_map(function($h) {
-                return trim(strtolower($h));
-            }, $headers);
-
-            // Define acceptable synonyms
-            $phoneSynonyms = ['phone_number', 'phone', 'mobile', 'contact_number', 'number'];
-            $nameSynonyms = ['name', 'full_name', 'fullname', 'contact_name', 'first_name'];
-            $emailSynonyms = ['email', 'email_address'];
+            // Lowercase and strip extra spaces for robust matching, but keep original for custom field keys
+            $normalizedHeaders = array_map(function($h) {
+                return str_replace([' ', '_', '-'], '', strtolower(trim($h)));
+            }, $originalHeaders);
 
             $phoneIdx = false;
             $nameIdx = false;
             $emailIdx = false;
 
-            // Intelligently match variations
-            foreach ($headers as $idx => $header) {
-                if ($phoneIdx === false && in_array($header, $phoneSynonyms)) $phoneIdx = $idx;
-                if ($nameIdx === false && in_array($header, $nameSynonyms)) $nameIdx = $idx;
-                if ($emailIdx === false && in_array($header, $emailSynonyms)) $emailIdx = $idx;
+            // Intelligently match variations using fuzzy matching
+            foreach ($normalizedHeaders as $idx => $header) {
+                // Match "mobile1", "phonenumber", "contactno", "whatsapp"
+                if ($phoneIdx === false && (str_contains($header, 'phone') || str_contains($header, 'mobile') || str_contains($header, 'number') || str_contains($header, 'contact') || str_contains($header, 'whatsapp'))) {
+                    $phoneIdx = $idx;
+                }
+                // Match "name", "fullname", "firstname", "customername"
+                else if ($nameIdx === false && str_contains($header, 'name')) {
+                    $nameIdx = $idx;
+                }
+                // Match "email", "emailaddress", "mail"
+                else if ($emailIdx === false && (str_contains($header, 'email') || str_contains($header, 'mail'))) {
+                    $emailIdx = $idx;
+                }
             }
 
             if ($phoneIdx === false) {
-                return ['imported' => 0, 'updated' => 0, 'errors' => ['Row 1: Missing required phone column (e.g. phone_number, mobile, contact_number)']];
+                return ['imported' => 0, 'updated' => 0, 'errors' => ['Row 1: Missing required phone column. Please ensure one column contains "phone", "mobile", or "number" in its header.']];
             }
 
             $rowNum = 2; // Data starts at row 2
@@ -69,12 +73,12 @@ class ContactImportService
                 $email = $emailIdx !== false ? ($data[$emailIdx] ?? null) : null;
 
                 $matchedHeaders = [];
-                if ($phoneIdx !== false) $matchedHeaders[] = $headers[$phoneIdx];
-                if ($nameIdx !== false) $matchedHeaders[] = $headers[$nameIdx];
-                if ($emailIdx !== false) $matchedHeaders[] = $headers[$emailIdx];
+                if ($phoneIdx !== false) $matchedHeaders[] = $originalHeaders[$phoneIdx];
+                if ($nameIdx !== false) $matchedHeaders[] = $originalHeaders[$nameIdx];
+                if ($emailIdx !== false) $matchedHeaders[] = $originalHeaders[$emailIdx];
 
                 $customFields = [];
-                foreach ($headers as $idx => $headerName) {
+                foreach ($originalHeaders as $idx => $headerName) {
                     if (!in_array($headerName, $matchedHeaders) && !empty($headerName)) {
                         $customFields[$headerName] = $data[$idx] ?? null;
                     }
