@@ -186,10 +186,37 @@ class SendCampaignJob implements ShouldQueue
                         }
                     }
 
+                    // Resolve the actual template body text with variable substitution
+                    $resolvedBodyText = '📋 Template: ' . $campaign->template_name;
+                    try {
+                        $templateModel = \App\Models\WhatsappTemplate::where('tenant_id', $campaign->tenant_id)
+                            ->where('name', $campaign->template_name)
+                            ->first();
+                        if ($templateModel && $templateModel->components) {
+                            $comps = is_string($templateModel->components) ? json_decode($templateModel->components, true) : $templateModel->components;
+                            if (is_array($comps)) {
+                                $bodyComp = collect($comps)->first(fn($c) => ($c['type'] ?? '') === 'BODY' || ($c['type'] ?? '') === 'body');
+                                if ($bodyComp && !empty($bodyComp['text'])) {
+                                    $bodyText = $bodyComp['text'];
+                                    // Substitute {{N}} variables with resolved parameter values
+                                    if (!empty($parameters)) {
+                                        foreach ($parameters as $idx => $param) {
+                                            $placeholder = '{{' . ($idx + 1) . '}}';
+                                            $bodyText = str_replace($placeholder, $param['text'] ?? '', $bodyText);
+                                        }
+                                    }
+                                    $resolvedBodyText = $bodyText;
+                                }
+                            }
+                        }
+                    } catch (\Exception $e) {
+                        Log::warning("Campaign {$campaign->id}: Failed to resolve template body text: " . $e->getMessage());
+                    }
+
                     $contentStruct = [
                         'type'          => 'template',
-                        'text'          => '📋 Template: ' . $campaign->template_name,
-                        'body'          => '📋 Template: ' . $campaign->template_name,
+                        'text'          => $resolvedBodyText,
+                        'body'          => $resolvedBodyText,
                         'template_name' => $campaign->template_name,
                     ];
 

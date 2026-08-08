@@ -351,18 +351,20 @@ export default function Thread({ conversation, onBack, approvedTemplates }) {
                     // Resolves actual template text or full body text
                     const getDisplayText = () => {
                         if (content.type === 'template') {
-                            if (content.text && typeof content.text === 'string') {
-                                const trimmed = content.text.trim();
-                                if (trimmed && !trimmed.startsWith('Template:') && !trimmed.startsWith('📋 Template:')) {
-                                    return trimmed;
-                                }
+                            // 1. Show stored text if it contains actual template body (not just a placeholder)
+                            const storedText = content.text || content.body || '';
+                            const trimmedStored = typeof storedText === 'string' ? storedText.trim() : '';
+                            
+                            // Accept the stored text unless it's ONLY a placeholder like "📋 Template: name"
+                            const isPlaceholder = /^(📋\s*)?Template:\s*.+$/i.test(trimmedStored) && !trimmedStored.includes(' ') === false;
+                            const isJustPlaceholder = trimmedStored === `📋 Template: ${content.template_name}` 
+                                || trimmedStored === `Template: ${content.template_name}`;
+                            
+                            if (trimmedStored && !isJustPlaceholder) {
+                                return trimmedStored;
                             }
-                            if (content.body && typeof content.body === 'string') {
-                                const trimmed = content.body.trim();
-                                if (trimmed && !trimmed.startsWith('Template:') && !trimmed.startsWith('📋 Template:')) {
-                                    return trimmed;
-                                }
-                            }
+
+                            // 2. Fallback: look up the template body from approvedTemplates
                             if (content.template_name && Array.isArray(approvedTemplates)) {
                                 const found = approvedTemplates.find(t => t.name === content.template_name);
                                 if (found && found.components) {
@@ -375,6 +377,8 @@ export default function Thread({ conversation, onBack, approvedTemplates }) {
                                     } catch (e) {}
                                 }
                             }
+
+                            // 3. Last resort: show the placeholder
                             return `📋 Template: ${content.template_name || 'WhatsApp Template'}`;
                         }
 
