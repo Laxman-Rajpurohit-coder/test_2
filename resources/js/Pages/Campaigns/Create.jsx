@@ -242,8 +242,11 @@ export default function Create({ auth, approvedTemplates, groups, tags }) {
                                                                 {'{{' + (idx + 1) + '}}'}
                                                             </span>
                                                             <span className="text-gray-400">=</span>
-                                                            <select
+                                                            <input
+                                                                type="text"
                                                                 required
+                                                                list="fieldOptions"
+                                                                placeholder="e.g. name, Pending Amount"
                                                                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                                                                 value={data.template_variable_map[idx] || ''}
                                                                 onChange={(e) => {
@@ -251,14 +254,12 @@ export default function Create({ auth, approvedTemplates, groups, tags }) {
                                                                     newMap[idx] = e.target.value;
                                                                     setData('template_variable_map', newMap);
                                                                 }}
-                                                            >
-                                                                <option value="">-- Map to Field --</option>
-                                                                <option value="first_name">First Name</option>
-                                                                <option value="last_name">Last Name</option>
-                                                                <option value="email">Email</option>
-                                                                <option value="phone_number">Phone Number</option>
-                                                                {/* You could optionally inject custom_fields keys here if you load them */}
-                                                            </select>
+                                                            />
+                                                            <datalist id="fieldOptions">
+                                                                <option value="name" />
+                                                                <option value="email" />
+                                                                <option value="phone_number" />
+                                                            </datalist>
                                                         </div>
                                                     ))}
                                                 </div>
