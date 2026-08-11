@@ -70,12 +70,23 @@ class RegisteredUserController extends Controller
                 abort(403, 'This invitation has expired.');
             }
 
-            $user = User::create([
-                'name' => $request->name,
-                'email' => $invite->email,
-                'password' => Hash::make($request->password),
-                'tenant_id' => $invite->tenant_id,
-            ]);
+            $existingUser = User::where('email', $invite->email)->first();
+
+            if ($existingUser) {
+                $existingUser->update([
+                    'name' => $request->name ?: $existingUser->name,
+                    'password' => Hash::make($request->password),
+                    'tenant_id' => $invite->tenant_id,
+                ]);
+                $user = $existingUser;
+            } else {
+                $user = User::create([
+                    'name' => $request->name,
+                    'email' => $invite->email,
+                    'password' => Hash::make($request->password),
+                    'tenant_id' => $invite->tenant_id,
+                ]);
+            }
 
             $invite->update(['accepted_at' => now()]);
 

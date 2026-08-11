@@ -22,8 +22,11 @@ class TeamController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'role', 'created_at']);
 
+        $primaryOwner = User::where('tenant_id', $tenantId)->orderBy('id', 'asc')->first();
+
         return Inertia::render('Team/Index', [
             'teamMembers' => $teamMembers,
+            'primaryOwnerId' => $primaryOwner ? $primaryOwner->id : null,
         ]);
     }
 
@@ -120,5 +123,33 @@ class TeamController extends Controller
         $user->delete();
 
         return back()->with('success', 'Team member removed successfully.');
+    }
+
+    /**
+     * Reset the specified team member's password and show it to the owner.
+     */
+    public function resetPassword(Request $request, User $user)
+    {
+        // 1. Cross-tenant IDOR check
+        $activeTenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
+        if ($user->tenant_id !== $activeTenantId) {
+            abort(404);
+        }
+
+        // 2. Prevent resetting the primary owner's password
+        $primaryOwner = \App\Models\User::where('tenant_id', $user->tenant_id)->orderBy('id', 'asc')->first();
+        if ($user->id === $primaryOwner->id) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'user' => 'You cannot reset the password of the primary workspace owner.',
+            ]);
+        }
+
+        $newPassword = \Illuminate\Support\Str::random(16);
+
+        $user->update([
+            'password' => \Illuminate\Support\Facades\Hash::make($newPassword),
+        ]);
+
+        return back()->with('success', 'Password reset successfully.')->with('generated_password', $newPassword);
     }
 }

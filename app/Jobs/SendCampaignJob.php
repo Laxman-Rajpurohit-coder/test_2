@@ -90,11 +90,20 @@ class SendCampaignJob implements ShouldQueue
             return;
         }
 
-        foreach ($recipients as $recipient) {
+        foreach ($recipients as $index => $recipient) {
             $contact = $recipient->contact;
             $phone = $contact->phone_number;
 
             $has24hSession = Cache::has('session:' . $phone);
+
+            // Check if contact has opted out
+            if (!$contact->is_subscribed) {
+                \Illuminate\Support\Facades\DB::transaction(function () use ($recipient, $campaign) {
+                    $recipient->update(['status' => 'skipped', 'failure_reason' => 'Contact opted out (unsubscribed)']);
+                    $campaign->increment('failed_count'); // Incrementing failed_count ensures the campaign finishes
+                });
+                continue;
+            }
 
             // Fetch or create a conversation for this contact to associate the message
             $conversation = \App\Models\Conversation::firstOrCreate([
@@ -120,8 +129,10 @@ class SendCampaignJob implements ShouldQueue
                             $outboundNumber
                         );
 
-                        // Route through standard OutboundReplyService (handles queueing and db storage)
-                        \App\Services\OutboundReplyService::send($conversation->id, $campaign->tenant_id, $contentStruct, $msg91Payload);
+                        // Route through standard OutboundReplyService (handles queueing and db storage).
+                        // $index is passed as a non-blocking dispatch delay (seconds) so this job
+                        // paces sends at ~1/sec without sleep()-blocking the worker (see ISSUE-004).
+                        \App\Services\OutboundReplyService::send($conversation->id, $campaign->tenant_id, $contentStruct, $msg91Payload, $index);
 
                         \Illuminate\Support\Facades\DB::transaction(function () use ($recipient, $campaign) {
                             $recipient->update(['status' => 'sent']);
@@ -243,15 +254,20 @@ class SendCampaignJob implements ShouldQueue
                         $outboundNumber
                     );
 
-                    \App\Services\OutboundReplyService::send(
+                    // $index passed as non-blocking dispatch delay (seconds) — see ISSUE-004.
+                    $messageId = \App\Services\OutboundReplyService::send(
                         $conversation->id,
                         $campaign->tenant_id,
                         $contentStruct,
-                        $msg91Payload
+                        $msg91Payload,
+                        $index
                     );
 
-                    \Illuminate\Support\Facades\DB::transaction(function () use ($recipient, $campaign) {
-                        $recipient->update(['status' => 'sent']);
+                    \Illuminate\Support\Facades\DB::transaction(function () use ($recipient, $campaign, $messageId) {
+                        $recipient->update([
+                            'status' => 'sent',
+                            'whatsapp_message_id' => $messageId
+                        ]);
                         $campaign->increment('sent_count');
                     });
 
@@ -262,19 +278,24 @@ class SendCampaignJob implements ShouldQueue
                     });
                 }
             }
-
-
-            // Enforce 1 msg/sec rate limit per tenant
-            sleep(1);
         }
 
-        // Requeue for the next batch if there are still pending recipients
+        // Requeue for the next batch if there are still pending recipients.
+        // The 1 msg/sec pacing is now enforced via non-blocking per-recipient dispatch
+        // delays above (see ISSUE-004 fix) instead of sleep()-blocking this worker. The
+        // next batch is delayed by batchSize seconds so its own 0..batchSize-1 delay
+        // window starts only after this batch's sends have finished draining, keeping
+        // the ~1 msg/sec ceiling intact across batch boundaries instead of both batches'
+        // delay windows overlapping. NOTE: batchSize is currently fixed at 50 — if this is
+        // ever raised substantially, revisit whether per-recipient delay() calls are still
+        // the right mechanism vs. a queue-level rate limiter (see roadmap issue on
+        // centralized/tenant-configurable throughput).
         $remaining = CampaignRecipient::where('campaign_id', $this->campaignId)
             ->where('status', 'pending')
             ->exists();
 
         if ($remaining) {
-            self::dispatch($this->campaignId);
+            self::dispatch($this->campaignId)->delay(now()->addSeconds($this->batchSize));
         } else {
             $campaign->update(['status' => 'completed']);
         }

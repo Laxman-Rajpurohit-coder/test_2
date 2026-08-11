@@ -13,6 +13,8 @@ class TenantSetting extends Model
         'tenant_id',
         'msg91_auth_key',
         'openai_api_key',
+        'grok_api_key',
+        'gemini_api_key',
         'flowise_endpoint',
         'ai_provider',
         'ai_model',
@@ -57,6 +59,34 @@ class TenantSetting extends Model
     public function setOpenaiApiKeyAttribute($value)
     {
         $this->attributes['openai_api_key'] = $value ? encrypt($value) : null;
+    }
+
+    public function getGeminiApiKeyAttribute($value)
+    {
+        try {
+            return $value ? decrypt($value) : null;
+        } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+            return null;
+        }
+    }
+
+    public function setGeminiApiKeyAttribute($value)
+    {
+        $this->attributes['gemini_api_key'] = $value ? encrypt($value) : null;
+    }
+
+    public function getGrokApiKeyAttribute($value)
+    {
+        try {
+            return $value ? decrypt($value) : null;
+        } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+            return null;
+        }
+    }
+
+    public function setGrokApiKeyAttribute($value)
+    {
+        $this->attributes['grok_api_key'] = $value ? encrypt($value) : null;
     }
 
     public function tenant()

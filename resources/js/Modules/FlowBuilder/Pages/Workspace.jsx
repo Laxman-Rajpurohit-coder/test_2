@@ -356,7 +356,7 @@ export default function Workspace({ flows, active_flow }) {
                                     {selectedNode.type === 'message' && (
                                         <div>
                                             <label className="block text-xs font-bold text-gray-700 mb-1.5">Message Text Template</label>
-                                            <textarea rows={4} value={selectedNode.data.text || ''} onChange={(e) => updateSelectedNodeData('text', e.target.value)} className="w-full border border-gray-200 rounded-lg p-2 text-xs focus:ring-indigo-500" />
+                                            <textarea rows={4} value={selectedNode.data.text || ''} onChange={(e) => updateSelectedNodeData('text', e.target.value)} className="w-full border border-gray-200 rounded-lg p-2 text-xs text-gray-900 focus:ring-indigo-500" />
                                         </div>
                                     )}
 
@@ -364,11 +364,11 @@ export default function Workspace({ flows, active_flow }) {
                                         <div className="space-y-4">
                                             <div>
                                                 <label className="block text-xs font-bold text-gray-700 mb-1.5">Question Prompt</label>
-                                                <textarea rows={3} value={selectedNode.data.text || ''} onChange={(e) => updateSelectedNodeData('text', e.target.value)} className="w-full border border-gray-200 rounded-lg p-2 text-xs focus:ring-indigo-500" />
+                                                <textarea rows={3} value={selectedNode.data.text || ''} onChange={(e) => updateSelectedNodeData('text', e.target.value)} className="w-full border border-gray-200 rounded-lg p-2 text-xs text-gray-900 focus:ring-indigo-500" />
                                             </div>
                                             <div>
                                                 <label className="block text-xs font-bold text-gray-700 mb-1.5">Store Response Variable Name</label>
-                                                <input type="text" value={selectedNode.data.variable_name || ''} onChange={(e) => updateSelectedNodeData('variable_name', e.target.value)} className="w-full border border-gray-200 rounded-lg p-2 text-xs focus:ring-indigo-500" />
+                                                <input type="text" value={selectedNode.data.variable_name || ''} onChange={(e) => updateSelectedNodeData('variable_name', e.target.value)} className="w-full border border-gray-200 rounded-lg p-2 text-xs text-gray-900 focus:ring-indigo-500" />
                                             </div>
                                         </div>
                                     )}
@@ -379,13 +379,13 @@ export default function Workspace({ flows, active_flow }) {
                                             {(selectedNode.data.rules || []).map((rule, idx) => (
                                                 <div key={idx} className="bg-gray-50 border border-gray-200 p-2 rounded-lg space-y-2">
                                                     <div className="flex justify-between items-center"><span className="text-[10px] text-gray-500">#{idx+1}</span><button onClick={() => removeConditionRule(idx)} className="text-[10px] text-rose-500">Remove</button></div>
-                                                    <input type="text" placeholder="Variable" value={rule.variable || ''} onChange={(e) => updateConditionRule(idx, 'variable', e.target.value)} className="w-full border border-gray-200 rounded px-2 py-1 text-xs" />
-                                                    <select value={rule.operator || 'equals'} onChange={(e) => updateConditionRule(idx, 'operator', e.target.value)} className="w-full border border-gray-200 rounded px-2 py-1 text-xs">
+                                                    <input type="text" placeholder="Variable" value={rule.variable || ''} onChange={(e) => updateConditionRule(idx, 'variable', e.target.value)} className="w-full border border-gray-200 rounded px-2 py-1 text-xs text-gray-900" />
+                                                    <select value={rule.operator || 'equals'} onChange={(e) => updateConditionRule(idx, 'operator', e.target.value)} className="w-full border border-gray-200 rounded px-2 py-1 text-xs text-gray-900">
                                                         <option value="equals">equals</option>
                                                         <option value="contains">contains</option>
                                                     </select>
-                                                    <input type="text" placeholder="Value" value={rule.value || ''} onChange={(e) => updateConditionRule(idx, 'value', e.target.value)} className="w-full border border-gray-200 rounded px-2 py-1 text-xs" />
-                                                    <select value={rule.target_node_id || ''} onChange={(e) => updateConditionRule(idx, 'target_node_id', e.target.value)} className="w-full border border-gray-200 rounded px-2 py-1 text-xs font-mono text-amber-600">
+                                                    <input type="text" placeholder="Value" value={rule.value || ''} onChange={(e) => updateConditionRule(idx, 'value', e.target.value)} className="w-full border border-gray-200 rounded px-2 py-1 text-xs text-gray-900" />
+                                                    <select value={rule.target_node_id || ''} onChange={(e) => updateConditionRule(idx, 'target_node_id', e.target.value)} className="w-full border border-gray-200 rounded px-2 py-1 text-xs font-mono text-amber-600 bg-white">
                                                         <option value="">-- Target Node --</option>
                                                         {nodes.filter(n => n.id !== selectedNode.id).map(n => (<option key={n.id} value={n.id}>{n.id}</option>))}
                                                     </select>
@@ -399,13 +399,13 @@ export default function Workspace({ flows, active_flow }) {
                                             <div>
                                                 <label className="block text-xs font-bold text-gray-700 mb-1.5">Target URL</label>
                                                 <div className="flex gap-2">
-                                                    <select value={selectedNode.data.method || 'GET'} onChange={(e) => updateSelectedNodeData('method', e.target.value)} className="border border-gray-200 rounded-lg px-2 text-xs"><option>GET</option><option>POST</option></select>
-                                                    <input type="url" value={selectedNode.data.url || ''} onChange={(e) => updateSelectedNodeData('url', e.target.value)} className="flex-1 border border-gray-200 rounded-lg p-2 text-xs" />
+                                                    <select value={selectedNode.data.method || 'GET'} onChange={(e) => updateSelectedNodeData('method', e.target.value)} className="border border-gray-200 rounded-lg px-2 text-xs text-gray-900"><option>GET</option><option>POST</option></select>
+                                                    <input type="url" value={selectedNode.data.url || ''} onChange={(e) => updateSelectedNodeData('url', e.target.value)} className="flex-1 border border-gray-200 rounded-lg p-2 text-xs text-gray-900" />
                                                 </div>
                                             </div>
                                             <div>
                                                 <label className="block text-xs font-bold text-gray-700 mb-1.5">Response Variable</label>
-                                                <input type="text" value={selectedNode.data.response_variable || ''} onChange={(e) => updateSelectedNodeData('response_variable', e.target.value)} className="w-full border border-gray-200 rounded-lg p-2 text-xs" />
+                                                <input type="text" value={selectedNode.data.response_variable || ''} onChange={(e) => updateSelectedNodeData('response_variable', e.target.value)} className="w-full border border-gray-200 rounded-lg p-2 text-xs text-gray-900" />
                                             </div>
                                         </div>
                                     )}

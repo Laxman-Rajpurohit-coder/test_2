@@ -159,6 +159,26 @@ class TenantResolverService
     }
 
     /**
+     * Resolve Grok API Key for tenant.
+     */
+    public function getGrokApiKey(?int $tenantId = null): ?string
+    {
+        $targetTenantId = $tenantId ?? $this->getActiveTenantId();
+        $setting = TenantSetting::where('tenant_id', $targetTenantId)->first();
+
+        if ($setting && !empty($setting->grok_api_key)) {
+            return $setting->grok_api_key; // Automatically decrypted by Encrypted Cast
+        }
+
+        if ($targetTenantId === 1) {
+            return config('services.grok.api_key') ?? env('GROK_API_KEY');
+        }
+
+        Log::warning("TenantResolverService: Grok API Key missing for Tenant {$targetTenantId}. AI Assistant disabled.");
+        return null;
+    }
+
+    /**
      * Resolve Flowise Endpoint for tenant.
      */
     public function getFlowiseEndpoint(?int $tenantId = null): ?string

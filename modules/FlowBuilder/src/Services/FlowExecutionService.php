@@ -151,7 +151,19 @@ class FlowExecutionService
             case 'message':
                 $text = $this->interpolateVariables($data['text'] ?? '', $session->variables);
                 $this->sendWhatsAppReply($session, $text);
-                break;
+                
+                // Immediately advance to the next connected node (non-blocking)
+                $nodes = $flow->graph['nodes'] ?? [];
+                $nextNodeId = $this->resolveNextNodeId($flow->graph, $node, $session, null);
+                if ($nextNodeId) {
+                    $targetNode = $this->findNodeById($nodes, $nextNodeId);
+                    if ($targetNode) {
+                        $session->update(['current_node_id' => $targetNode['id']]);
+                        return $this->processCurrentNode($session, $flow, $targetNode, null, $depth + 1);
+                    }
+                }
+                $session->update(['status' => 'completed']);
+                return true;
 
             case 'question':
                 $promptText = $this->interpolateVariables($data['text'] ?? '', $session->variables);

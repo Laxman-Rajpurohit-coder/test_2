@@ -18,7 +18,13 @@ class TenantController extends Controller
     public function index()
     {
         $tenants = Tenant::orderBy('created_at', 'desc')->get();
-        return Inertia::render('Admin/Tenants/Index', ['tenants' => $tenants]);
+        return Inertia::render('Admin/Tenants/Index', [
+            'tenants' => $tenants,
+            'webhook' => [
+                'url' => config('app.url') . '/api/msg91/webhook',
+                'secret' => config('services.msg91.webhook_secret'),
+            ],
+        ]);
     }
 
     /**

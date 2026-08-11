@@ -1,0 +1,17 @@
+Option A — Per-conversation context only (moderate complexity):
+The bot remembers what THIS specific customer said earlier in THIS
+conversation (e.g., "earlier you said your order number is #1234,
+so I'll reference that now"). This is standard chat-history-in-
+context, likely already partially possible if conversation history
+is passed to the AI call today — worth checking if it already does
+this or starts fresh every message.
+
+Option B — Per-user PROFILE that persists across conversations
+(significant complexity): The bot remembers facts about a specific
+customer (via phone number) across DIFFERENT conversations over
+time — e.g., "this customer previously complained about late
+delivery two weeks ago." This requires a new data model (something
+like a per-contact "memory" or "notes" table), explicit logic for
+what gets stored and when, and real decisions about data retention/
+privacy for customer conversation history — this is genuinely a new
+feature, not a config tweak.

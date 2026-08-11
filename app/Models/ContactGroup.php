@@ -15,6 +15,6 @@ class ContactGroup extends Model
 
     public function contacts()
     {
-        return $this->belongsToMany(Contact::class);
+        return $this->belongsToMany(Contact::class, 'contact_group_contact');
     }
 }

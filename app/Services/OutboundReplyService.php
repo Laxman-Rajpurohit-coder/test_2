@@ -19,10 +19,14 @@ class OutboundReplyService
      * @param int $tenantId The tenant associated with the conversation.
      * @param array $contentStruct The message content to store.
      * @param array $msg91Payload The payload passed to the Msg91 delivery job.
+     * @param int|null $delaySeconds Optional non-blocking dispatch delay, used by callers
+     *   (e.g. SendCampaignJob) that need to pace outbound sends without blocking the
+     *   dispatching worker with sleep(). The delay is applied to the queued job, not
+     *   to this method's execution — this method still returns immediately.
      */
-    public static function send(int $conversationId, int $tenantId, array $contentStruct, array $msg91Payload): void
+    public static function send(int $conversationId, int $tenantId, array $contentStruct, array $msg91Payload, ?int $delaySeconds = null): string
     {
-        DB::transaction(function () use ($conversationId, $tenantId, $contentStruct, $msg91Payload) {
+        return DB::transaction(function () use ($conversationId, $tenantId, $contentStruct, $msg91Payload, $delaySeconds) {
             $outboundMessageId = Str::uuid()->toString();
 
             $outboundMessage = WhatsappMessage::create([
@@ -47,7 +51,13 @@ class OutboundReplyService
                 Log::warning('WebSocket Broadcast Failed in OutboundReplyService: ' . $e->getMessage());
             }
 
-            SendMsg91Message::dispatch($outboundMessageId, $msg91Payload, $conversationId)->afterCommit();
+            $pendingDispatch = SendMsg91Message::dispatch($outboundMessageId, $msg91Payload, $conversationId)->afterCommit();
+
+            if ($delaySeconds !== null && $delaySeconds > 0) {
+                $pendingDispatch->delay(now()->addSeconds($delaySeconds));
+            }
+
+            return $outboundMessageId;
         });
     }
 }

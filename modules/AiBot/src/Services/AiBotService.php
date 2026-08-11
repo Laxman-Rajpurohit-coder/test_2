@@ -17,17 +17,76 @@ class AiBotService
             return null;
         }
 
-        if ($setting->ai_provider === 'flowise') {
-            if (empty($setting->flowise_endpoint)) {
-                return null; // Fail-closed
-            }
-            return $this->generateFlowiseResponse($userPrompt, $setting);
-        }
+        return match ($setting->ai_provider) {
+            'flowise' => $this->generateFlowiseResponse($userPrompt, $setting),
+            'grok'    => $this->generateGrokResponse($userPrompt, $setting),
+            'gemini'  => $this->generateGeminiResponse($userPrompt, $setting),
+            default   => $this->generateOpenAiResponse($userPrompt, $setting),
+        };
+    }
 
-        if (empty($setting->openai_api_key)) {
-            return null; // Fail-closed
+    /**
+     * Generates a response through the Grok Chat Completions API.
+     */
+    protected function generateGrokResponse(string $userPrompt, TenantSetting $setting): ?string
+    {
+        $model = $setting->ai_model ?: 'grok-2-mini';
+        $systemPrompt = $setting->ai_system_prompt ?: 'You are a helpful customer support assistant for WhatsApp.';
+
+        // Instruct the model to return JSON with reply and confidence.
+        $jsonPrompt = $systemPrompt . "\n\nYou MUST respond in raw JSON format with two keys: 'reply' (string) and 'confidence' (number between 0.0 and 1.0 indicating how certain you are).";
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $setting->grok_api_key,
+                'Content-Type'  => 'application/json',
+            ])
+            ->timeout(10)
+            ->post('https://api.x.ai/v1/chat/completions', [
+                'model'    => $model,
+                'response_format' => ['type' => 'json_object'],
+                'messages' => [
+                    ['role' => 'system', 'content' => $jsonPrompt],
+                    ['role' => 'user', 'content' => $userPrompt],
+                ],
+                'temperature' => 0.7,
+                'max_tokens'  => 500,
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                $content = $data['choices'][0]['message']['content'] ?? '{}';
+                
+                $parsed = json_decode($content, true);
+                
+                if (json_last_error() !== JSON_ERROR_NONE || !is_array($parsed)) {
+                    Log::warning("AiBotService: Grok returned malformed JSON. Failing closed.", ['content' => $content]);
+                    return null;
+                }
+
+                $reply = $parsed['reply'] ?? '';
+                // If confidence is omitted, default to 0.0 (fail closed) instead of 1.0
+                $confidence = isset($parsed['confidence']) ? (float) $parsed['confidence'] : 0.0;
+
+                if ($confidence < $setting->ai_confidence_threshold) {
+                    Log::info("AiBotService: Grok response confidence ({$confidence}) was below threshold ({$setting->ai_confidence_threshold}). Escalating.");
+                    return null;
+                }
+
+                if (empty(trim($reply))) {
+                    Log::info("AiBotService: Grok returned empty reply despite passing confidence. Escalating.");
+                    return null;
+                }
+
+                return trim($reply);
+            }
+
+            Log::error("AiBotService: Grok API error ({$response->status()}): " . $response->body());
+            return null;
+        } catch (\Throwable $e) {
+            Log::error("AiBotService: Grok HTTP exception: " . $e->getMessage());
+            return null;
         }
-        return $this->generateOpenAiResponse($userPrompt, $setting);
     }
 
     /**
@@ -121,6 +180,93 @@ class AiBotService
             return null;
         } catch (\Throwable $e) {
             Log::error("AiBotService: Flowise HTTP exception: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Generates a response through the Google Gemini API.
+     *
+     * @param string $userPrompt
+     * @param TenantSetting $setting
+     * @return string|null
+     */
+    protected function generateGeminiResponse(string $userPrompt, TenantSetting $setting): ?string
+    {
+        $model = $setting->ai_model ?: 'gemini-3.1-flash-lite';
+        $systemPrompt = $setting->ai_system_prompt ?: 'You are a helpful customer support assistant for WhatsApp.';
+
+        // Gemini REST API URL
+        $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key=" . $setting->gemini_api_key;
+
+        // Ensure we explicitly ask for JSON since Gemini has a JSON mode
+        $jsonPrompt = $systemPrompt . "\n\nYou MUST respond in raw JSON format with two keys: 'reply' (string) and 'confidence' (number between 0.0 and 1.0 indicating how certain you are).";
+
+        try {
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json',
+            ])
+            ->timeout(10)
+            ->post($url, [
+                'system_instruction' => [
+                    'parts' => [
+                        ['text' => $jsonPrompt]
+                    ]
+                ],
+                'contents' => [
+                    [
+                        'role' => 'user',
+                        'parts' => [
+                            ['text' => $userPrompt]
+                        ]
+                    ]
+                ],
+                'generationConfig' => [
+                    'responseMimeType' => 'application/json',
+                    'temperature' => 0.7,
+                    'maxOutputTokens' => 500,
+                ]
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                // Gemini response structure: candidates[0].content.parts[0].text
+                $content = $data['candidates'][0]['content']['parts'][0]['text'] ?? '{}';
+                
+                $parsed = json_decode($content, true);
+                
+                if (json_last_error() !== JSON_ERROR_NONE || !is_array($parsed)) {
+                    Log::warning("AiBotService: Gemini returned malformed JSON. Failing closed.", ['content' => $content]);
+                    return null;
+                }
+
+                $reply = $parsed['reply'] ?? '';
+                $confidence = isset($parsed['confidence']) ? (float) $parsed['confidence'] : 0.0;
+
+                if ($confidence < $setting->ai_confidence_threshold) {
+                    Log::info("AiBotService: Gemini response confidence ({$confidence}) was below threshold ({$setting->ai_confidence_threshold}). Escalating.");
+                    return null;
+                }
+
+                if (empty(trim($reply))) {
+                    Log::info("AiBotService: Gemini returned empty reply despite passing confidence. Escalating.");
+                    return null;
+                }
+
+                return trim($reply);
+            }
+
+            // Handle 429 specifically per user requirement
+            if ($response->status() === 429) {
+                Log::warning("AiBotService: Gemini Rate Limit Exceeded (429). Falling back to 2-strike system.");
+                return null;
+            }
+
+            Log::error("AiBotService: Gemini API error ({$response->status()}): " . $response->body());
+            return null;
+        } catch (\Throwable $e) {
+            Log::error("AiBotService: Gemini HTTP exception: " . $e->getMessage());
             return null;
         }
     }

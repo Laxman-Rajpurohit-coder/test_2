@@ -22,6 +22,12 @@ class VerifyMsg91Webhook
 
         // Strict constant-time hash comparison
         if (!hash_equals($expectedSecret, (string) $incomingSecret)) {
+            \Illuminate\Support\Facades\Log::warning('Webhook Auth Failed', [
+                'expected' => $expectedSecret,
+                'received_header' => $request->header('X-MSG91-Secret'),
+                'received_query' => $request->query('secret'),
+                'all_headers' => $request->headers->all(),
+            ]);
             abort(401, 'Unauthorized webhook signature.');
         }
 

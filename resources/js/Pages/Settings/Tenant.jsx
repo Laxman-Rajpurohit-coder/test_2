@@ -4,9 +4,6 @@ import AppLayout from '@/Layouts/AppLayout';
 
 export default function TenantSettings({ settings, numbers, webhook }) {
     const { data, setData, post, processing, errors, reset, recentlySuccessful } = useForm({
-        msg91_auth_key: settings.msg91_auth_key || '',
-        openai_api_key: settings.openai_api_key || '',
-        flowise_endpoint: settings.flowise_endpoint || '',
         ai_provider: settings.ai_provider || 'openai',
         ai_model: settings.ai_model || '',
         ai_system_prompt: settings.ai_system_prompt || '',
@@ -47,85 +44,12 @@ export default function TenantSettings({ settings, numbers, webhook }) {
                     </p>
                 </div>
 
-                {/* Webhook Info */}
-                <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs space-y-4">
-                    <h2 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3">Webhook Configuration</h2>
-                    <p className="text-xs text-gray-500">Copy this URL and Secret into your MSG91 dashboard to receive inbound messages and delivery receipts.</p>
-                    <div className="space-y-3">
-                        <div>
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Webhook URL</label>
-                            <div className="flex items-center">
-                                <code className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700 font-mono break-all select-all">
-                                    {webhook?.url}
-                                </code>
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Webhook Secret (Header: X-MSG91-Secret)</label>
-                            <div className="flex items-center">
-                                <code className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700 font-mono select-all">
-                                    {webhook?.secret || 'Not configured on server'}
-                                </code>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* API Keys Form */}
+                {/* AI Configuration Form */}
                 <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs space-y-5">
-                    <h2 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3">API Credentials</h2>
+                    <h2 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3">AI Bot Configuration</h2>
 
                     <form onSubmit={handleSaveKeys} className="space-y-4">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-700 mb-1">MSG91 Auth Key</label>
-                            <input
-                                type="password"
-                                value={data.msg91_auth_key}
-                                onChange={(e) => setData('msg91_auth_key', e.target.value)}
-                                placeholder="Enter custom MSG91 Auth Key"
-                                className={`w-full px-3 py-2 border rounded-xl text-xs outline-none transition-colors ${
-                                    errors.msg91_auth_key 
-                                        ? 'border-rose-500 focus:ring-rose-200' 
-                                        : 'border-gray-200 focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884]'
-                                }`}
-                            />
-                            {errors.msg91_auth_key && <p className="text-[10px] text-rose-500 mt-1 font-semibold">{errors.msg91_auth_key}</p>}
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-gray-700 mb-1">OpenAI API Key (BYO Key)</label>
-                            <input
-                                type="password"
-                                value={data.openai_api_key}
-                                onChange={(e) => setData('openai_api_key', e.target.value)}
-                                placeholder="sk-proj-..."
-                                className={`w-full px-3 py-2 border rounded-xl text-xs outline-none transition-colors ${
-                                    errors.openai_api_key 
-                                        ? 'border-rose-500 focus:ring-rose-200' 
-                                        : 'border-gray-200 focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884]'
-                                }`}
-                            />
-                            {errors.openai_api_key && <p className="text-[10px] text-rose-500 mt-1 font-semibold">{errors.openai_api_key}</p>}
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-gray-700 mb-1">Flowise AI Endpoint URL</label>
-                            <input
-                                type="url"
-                                value={data.flowise_endpoint}
-                                onChange={(e) => setData('flowise_endpoint', e.target.value)}
-                                placeholder="https://flowise.yourdomain.com/api/v1/prediction/..."
-                                className={`w-full px-3 py-2 border rounded-xl text-xs outline-none transition-colors ${
-                                    errors.flowise_endpoint 
-                                        ? 'border-rose-500 focus:ring-rose-200' 
-                                        : 'border-gray-200 focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884]'
-                                }`}
-                            />
-                            {errors.flowise_endpoint && <p className="text-[10px] text-rose-500 mt-1 font-semibold">{errors.flowise_endpoint}</p>}
-                        </div>
-
-                        <div className="pt-4 mt-4 border-t border-gray-100">
-                            <h3 className="text-sm font-bold text-gray-900 mb-3">AI Bot Fallback Configuration</h3>
+                        <div className="pt-2">
                             
                             <div className="grid grid-cols-2 gap-4 mb-4">
                                 <div>
@@ -136,6 +60,8 @@ export default function TenantSettings({ settings, numbers, webhook }) {
                                         className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
                                     >
                                         <option value="openai">OpenAI (Direct LLM)</option>
+                                        <option value="grok">Grok (xAI)</option>
+                                        <option value="gemini">Gemini (Google AI)</option>
                                         <option value="flowise">Flowise (LangChain/RAG)</option>
                                     </select>
                                 </div>
@@ -145,7 +71,12 @@ export default function TenantSettings({ settings, numbers, webhook }) {
                                         type="text"
                                         value={data.ai_model}
                                         onChange={(e) => setData('ai_model', e.target.value)}
-                                        placeholder="e.g. gpt-4o-mini"
+                                        placeholder={
+                                            data.ai_provider === 'openai' ? 'gpt-4o-mini' : 
+                                            data.ai_provider === 'grok' ? 'grok-2-mini' : 
+                                            data.ai_provider === 'gemini' ? 'gemini-3.1-flash-lite' : 
+                                            'model-name'
+                                        }
                                         className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
                                     />
                                 </div>

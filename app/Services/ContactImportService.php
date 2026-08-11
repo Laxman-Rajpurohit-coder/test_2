@@ -23,15 +23,36 @@ class ContactImportService
         $errors = [];
 
         if (($handle = fopen($file->getRealPath(), 'r')) !== false) {
-            $originalHeaders = fgetcsv($handle, 1000, ',');
+            // Detect delimiter using frequency count heuristic
+            $firstLine = fgets($handle) ?: '';
+            rewind($handle);
+            
+            $commaCount = substr_count($firstLine, ',');
+            $semicolonCount = substr_count($firstLine, ';');
+            $tabCount = substr_count($firstLine, "\t");
+
+            $delimiter = ',';
+            if ($semicolonCount > $commaCount && $semicolonCount >= $tabCount) {
+                $delimiter = ';';
+            } elseif ($tabCount > $commaCount && $tabCount > $semicolonCount) {
+                $delimiter = "\t";
+            }
+
+            $originalHeaders = fgetcsv($handle, 0, $delimiter);
             
             if (!$originalHeaders) {
+                fclose($handle);
                 return ['imported' => 0, 'updated' => 0, 'errors' => ['Row 1: Empty or invalid CSV headers']];
             }
 
+            // Clean UTF-8 BOM and trim whitespace from original headers
+            $originalHeaders = array_map(function($h) {
+                return trim(preg_replace('/\x{EF}\x{BB}\x{BF}/', '', $h));
+            }, $originalHeaders);
+
             // Lowercase and strip extra spaces for robust matching, but keep original for custom field keys
             $normalizedHeaders = array_map(function($h) {
-                return str_replace([' ', '_', '-'], '', strtolower(trim($h)));
+                return str_replace([' ', '_', '-'], '', strtolower($h));
             }, $originalHeaders);
 
             $phoneIdx = false;
@@ -55,11 +76,12 @@ class ContactImportService
             }
 
             if ($phoneIdx === false) {
+                fclose($handle);
                 return ['imported' => 0, 'updated' => 0, 'errors' => ['Row 1: Missing required phone column. Please ensure one column contains "phone", "mobile", or "number" in its header.']];
             }
 
             $rowNum = 2; // Data starts at row 2
-            while (($data = fgetcsv($handle, 1000, ',')) !== false) {
+            while (($data = fgetcsv($handle, 0, $delimiter)) !== false) {
                 $rawPhone = $data[$phoneIdx] ?? '';
                 $normalizedPhone = $this->normalizePhoneNumber($rawPhone);
 
@@ -77,18 +99,27 @@ class ContactImportService
                 if ($nameIdx !== false) $matchedHeaders[] = $originalHeaders[$nameIdx];
                 if ($emailIdx !== false) $matchedHeaders[] = $originalHeaders[$emailIdx];
 
-                $customFields = [];
+                $newCustomFields = [];
                 foreach ($originalHeaders as $idx => $headerName) {
                     if (!in_array($headerName, $matchedHeaders) && !empty($headerName)) {
-                        $customFields[$headerName] = $data[$idx] ?? null;
+                        $newCustomFields[$headerName] = isset($data[$idx]) ? trim($data[$idx]) : null;
                     }
                 }
 
                 try {
+                    $existingContact = Contact::where('tenant_id', $tenantId)
+                        ->where('phone_number', $normalizedPhone)
+                        ->first();
+
+                    $mergedCustomFields = $newCustomFields;
+                    if ($existingContact && is_array($existingContact->custom_fields)) {
+                        $mergedCustomFields = array_merge($existingContact->custom_fields, $newCustomFields);
+                    }
+
                     $contactData = [
-                        'name' => $name,
-                        'email' => $email,
-                        'custom_fields' => $customFields,
+                        'name' => $name ?: ($existingContact->name ?? null),
+                        'email' => $email ?: ($existingContact->email ?? null),
+                        'custom_fields' => $mergedCustomFields,
                     ];
                     
                     if ($assignedUserId !== null) {
@@ -110,7 +141,7 @@ class ContactImportService
                     }
                 } catch (\Exception $e) {
                     Log::error("CSV Import Error on row {$rowNum}: " . $e->getMessage());
-                    $errors[] = "Row {$rowNum}: Database error.";
+                    $errors[] = "Row {$rowNum}: " . $e->getMessage();
                 }
 
                 $rowNum++;
@@ -132,17 +163,6 @@ class ContactImportService
      */
     public function normalizePhoneNumber(string $phone): string
     {
-        // Remove everything except digits
-        $phone = preg_replace('/[^0-9]/', '', $phone);
-        
-        // Remove leading zeros
-        $phone = ltrim($phone, '0');
-
-        // If the number is exactly 10 digits, assume it's an Indian local number and prepend 91
-        if (strlen($phone) === 10) {
-            $phone = '91' . $phone;
-        }
-
-        return $phone;
+        return \App\Support\PhoneNumber::normalize($phone);
     }
 }

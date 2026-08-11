@@ -15,11 +15,12 @@ class Contact extends Model
 
     protected $casts = [
         'custom_fields' => 'array',
+        'is_subscribed' => 'boolean',
     ];
 
     public function contactGroups()
     {
-        return $this->belongsToMany(ContactGroup::class);
+        return $this->belongsToMany(ContactGroup::class, 'contact_group_contact');
     }
 
     public function contactTags()

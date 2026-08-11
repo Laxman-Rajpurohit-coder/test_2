@@ -16,8 +16,8 @@ return new class extends Migration
             $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
             $table->string('name');
             $table->string('language')->default('en');
-            $table->enum('category', ['MARKETING', 'UTILITY', 'AUTHENTICATION']);
-            $table->enum('status', ['approved', 'pending', 'rejected'])->default('pending');
+            $table->string('category');
+            $table->string('status')->default('pending');
             $table->json('components');
             $table->text('rejection_reason')->nullable();
             $table->timestamp('synced_at')->nullable();

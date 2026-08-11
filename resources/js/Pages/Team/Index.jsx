@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Head, useForm, usePage, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 
-export default function TeamIndex({ teamMembers }) {
+export default function TeamIndex({ teamMembers, primaryOwnerId }) {
     const { auth, flash, errors } = usePage().props;
     const currentUser = auth.user;
     const isOwner = currentUser.role === 'owner';
@@ -111,7 +111,7 @@ export default function TeamIndex({ teamMembers }) {
                                                     className="text-xs border border-gray-200 rounded-lg bg-gray-50 py-1 pl-2 pr-6 focus:ring-[#00a884] focus:border-[#00a884]"
                                                     value={member.role}
                                                     onChange={(e) => handleRoleChange(member.id, e.target.value)}
-                                                    disabled={member.id === currentUser.id}
+                                                    disabled={member.id === currentUser.id || member.id === primaryOwnerId}
                                                 >
                                                     <option value="owner">Owner</option>
                                                     <option value="admin">Admin</option>
@@ -123,7 +123,12 @@ export default function TeamIndex({ teamMembers }) {
                                                             router.post(route('team.reset-password', member.id));
                                                         }
                                                     }}
-                                                    className="p-1.5 rounded-lg transition text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                                                    disabled={member.id === primaryOwnerId}
+                                                    className={`p-1.5 rounded-lg transition ${
+                                                        member.id === primaryOwnerId
+                                                            ? 'text-gray-300 cursor-not-allowed'
+                                                            : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+                                                    }`}
                                                     title="Reset Password"
                                                 >
                                                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -132,9 +137,9 @@ export default function TeamIndex({ teamMembers }) {
                                                 </button>
                                                 <button
                                                     onClick={() => handleRemove(member)}
-                                                    disabled={member.id === currentUser.id}
+                                                    disabled={member.id === currentUser.id || member.id === primaryOwnerId}
                                                     className={`p-1.5 rounded-lg transition ${
-                                                        member.id === currentUser.id
+                                                        (member.id === currentUser.id || member.id === primaryOwnerId)
                                                             ? 'text-gray-300 cursor-not-allowed'
                                                             : 'text-gray-400 hover:text-rose-600 hover:bg-rose-50'
                                                     }`}

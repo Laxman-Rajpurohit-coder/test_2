@@ -87,9 +87,12 @@ export default function CampaignsShow({ campaign, recipients }) {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                            recipient.status === 'read' ? 'bg-emerald-100 text-emerald-800' :
+                                            recipient.status === 'delivered' ? 'bg-blue-100 text-blue-800' :
                                             recipient.status === 'sent' ? 'bg-green-100 text-green-800' : 
                                             recipient.status === 'failed' ? 'bg-red-100 text-red-800' :
                                             recipient.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                            recipient.status === 'queued' ? 'bg-purple-100 text-purple-800' :
                                             'bg-gray-100 text-gray-800'
                                         }`}>
                                             {recipient.status}

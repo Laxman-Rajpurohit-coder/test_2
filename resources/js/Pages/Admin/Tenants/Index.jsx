@@ -14,7 +14,7 @@ import SecondaryButton from '@/Components/SecondaryButton';
  * @param {Array} tenants - Tenants displayed in the management table.
  * @return {JSX.Element} The rendered tenant management page.
  */
-export default function TenantIndex({ auth, tenants }) {
+export default function TenantIndex({ auth, tenants, webhook }) {
     const { flash } = usePage().props;
     const [invitingTenant, setInvitingTenant] = useState(null);
     const [isCreatingTenant, setIsCreatingTenant] = useState(false);
@@ -32,6 +32,15 @@ export default function TenantIndex({ auth, tenants }) {
         features: {},
     });
     const [editingFeaturesTenant, setEditingFeaturesTenant] = useState(null);
+
+    const [editingCredentialsTenant, setEditingCredentialsTenant] = useState(null);
+    const { data: credentialData, setData: setCredentialData, patch: patchCredentials, processing: processingCredentials, errors: credentialErrors, reset: resetCredentials, clearErrors: clearCredentialErrors } = useForm({
+        msg91_auth_key: '',
+        openai_api_key: '',
+        grok_api_key: '',
+        gemini_api_key: '',
+        flowise_endpoint: '',
+    });
 
     const openCreateModal = () => {
         setIsCreatingTenant(true);
@@ -88,6 +97,39 @@ export default function TenantIndex({ auth, tenants }) {
         });
     };
 
+    const openCredentialsModal = (tenant) => {
+        setEditingCredentialsTenant(tenant);
+        resetCredentials();
+        clearCredentialErrors();
+        // Fetch current masked credentials
+        window.axios.get(route('admin.tenants.credentials.show', tenant.id))
+            .then(response => {
+                setCredentialData({
+                    msg91_auth_key: response.data.msg91_auth_key || '',
+                    openai_api_key: response.data.openai_api_key || '',
+                    grok_api_key: response.data.grok_api_key || '',
+                    gemini_api_key: response.data.gemini_api_key || '',
+                    flowise_endpoint: response.data.flowise_endpoint || '',
+                });
+            })
+            .catch(error => {
+                console.error("Failed to fetch credentials", error);
+            });
+    };
+
+    const closeCredentialsModal = () => {
+        setEditingCredentialsTenant(null);
+        resetCredentials();
+        clearCredentialErrors();
+    };
+
+    const submitCredentials = (e) => {
+        e.preventDefault();
+        patchCredentials(route('admin.tenants.credentials.update', editingCredentialsTenant.id), {
+            onSuccess: () => closeCredentialsModal(),
+        });
+    };
+
     return (
         <AuthenticatedLayout
             user={auth?.user}
@@ -102,6 +144,30 @@ export default function TenantIndex({ auth, tenants }) {
                             {flash.success}
                         </div>
                     )}
+
+                    {/* Webhook Info */}
+                    <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs space-y-4 mb-6">
+                        <h2 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3">Webhook Configuration</h2>
+                        <p className="text-xs text-gray-500">Copy this URL and Secret into your MSG91 dashboard to receive inbound messages and delivery receipts.</p>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Webhook URL</label>
+                                <div className="flex items-center">
+                                    <code className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700 font-mono break-all select-all">
+                                        {webhook?.url}
+                                    </code>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Webhook Secret (Header: X-MSG91-Secret)</label>
+                                <div className="flex items-center">
+                                    <code className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700 font-mono select-all">
+                                        {webhook?.secret || 'Not configured on server'}
+                                    </code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     
                     <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                         <div className="p-6 bg-white border-b border-gray-200">
@@ -172,6 +238,13 @@ export default function TenantIndex({ auth, tenants }) {
                                                             className="text-teal-600 hover:text-teal-900 text-sm font-medium"
                                                         >
                                                             Features
+                                                        </button>
+                                                        <span className="text-gray-300">|</span>
+                                                        <button 
+                                                            onClick={() => openCredentialsModal(tenant)}
+                                                            className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+                                                        >
+                                                            Credentials
                                                         </button>
                                                         <span className="text-gray-300">|</span>
                                                         <button 
@@ -344,6 +417,83 @@ export default function TenantIndex({ auth, tenants }) {
 
                         <PrimaryButton className="ml-3" disabled={processingFeatures}>
                             Save Features
+                        </PrimaryButton>
+                    </div>
+                </form>
+            </Modal>
+
+            <Modal show={editingCredentialsTenant !== null} onClose={closeCredentialsModal}>
+                <form onSubmit={submitCredentials} className="p-6">
+                    <h2 className="text-lg font-medium text-gray-900 mb-4">
+                        API Credentials for {editingCredentialsTenant?.name}
+                    </h2>
+
+                    <div className="space-y-4">
+                        <div>
+                            <InputLabel htmlFor="msg91_auth_key" value="MSG91 Auth Key" />
+                            <TextInput
+                                id="msg91_auth_key"
+                                type="text"
+                                className="mt-1 block w-full"
+                                value={credentialData.msg91_auth_key}
+                                onChange={(e) => setCredentialData('msg91_auth_key', e.target.value)}
+                            />
+                            <InputError message={credentialErrors.msg91_auth_key} className="mt-2" />
+                        </div>
+
+                        <div>
+                            <InputLabel htmlFor="openai_api_key" value="OpenAI API Key" />
+                            <TextInput
+                                id="openai_api_key"
+                                type="text"
+                                className="mt-1 block w-full"
+                                value={credentialData.openai_api_key}
+                                onChange={(e) => setCredentialData('openai_api_key', e.target.value)}
+                            />
+                            <InputError message={credentialErrors.openai_api_key} className="mt-2" />
+                        </div>
+
+                        <div>
+                            <InputLabel htmlFor="grok_api_key" value="Grok API Key" />
+                            <TextInput
+                                id="grok_api_key"
+                                type="text"
+                                className="mt-1 block w-full"
+                                value={credentialData.grok_api_key}
+                                onChange={(e) => setCredentialData('grok_api_key', e.target.value)}
+                            />
+                            <InputError message={credentialErrors.grok_api_key} className="mt-2" />
+                        </div>
+
+                        <div>
+                            <InputLabel htmlFor="gemini_api_key" value="Gemini API Key" />
+                            <TextInput
+                                id="gemini_api_key"
+                                type="text"
+                                className="mt-1 block w-full"
+                                value={credentialData.gemini_api_key}
+                                onChange={(e) => setCredentialData('gemini_api_key', e.target.value)}
+                            />
+                            <InputError message={credentialErrors.gemini_api_key} className="mt-2" />
+                        </div>
+
+                        <div>
+                            <InputLabel htmlFor="flowise_endpoint" value="Flowise Endpoint URL" />
+                            <TextInput
+                                id="flowise_endpoint"
+                                type="text"
+                                className="mt-1 block w-full"
+                                value={credentialData.flowise_endpoint}
+                                onChange={(e) => setCredentialData('flowise_endpoint', e.target.value)}
+                            />
+                            <InputError message={credentialErrors.flowise_endpoint} className="mt-2" />
+                        </div>
+                    </div>
+
+                    <div className="mt-6 flex justify-end">
+                        <SecondaryButton onClick={closeCredentialsModal}>Cancel</SecondaryButton>
+                        <PrimaryButton className="ml-3" disabled={processingCredentials}>
+                            Save Credentials
                         </PrimaryButton>
                     </div>
                 </form>

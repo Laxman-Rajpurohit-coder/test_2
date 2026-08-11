@@ -69,7 +69,7 @@ export default function Settings({ setting }) {
                         <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
                             AI Provider Engine
                         </label>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-3 gap-4">
                             <button
                                 type="button"
                                 onClick={() => setData('provider', 'openai')}
@@ -81,6 +81,8 @@ export default function Settings({ setting }) {
                             >
                                 <div className="text-sm font-bold text-slate-100 mb-1">OpenAI API</div>
                                 <div className="text-xs text-slate-400">Direct integration with GPT-4o, GPT-4o-mini, or custom models</div>
+                                <div className="text-sm font-bold text-slate-100 mb-1">OpenAI</div>
+                                <div className="text-xs text-slate-400">GPT-4o, GPT-4o-mini</div>
                             </button>
 
                             <button
@@ -92,8 +94,34 @@ export default function Settings({ setting }) {
                                         : 'bg-slate-950 border-slate-800 hover:border-slate-700'
                                 }`}
                             >
-                                <div className="text-sm font-bold text-slate-100 mb-1">Flowise AI</div>
-                                <div className="text-xs text-slate-400">Custom multi-agent workflows & document vector databases</div>
+                                <div className="text-sm font-bold text-slate-100 mb-1">Flowise</div>
+                                <div className="text-xs text-slate-400">Custom workflows</div>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setData('provider', 'grok')}
+                                className={`p-4 rounded-xl border text-left transition-all ${
+                                    data.provider === 'grok'
+                                        ? 'bg-emerald-500/10 border-emerald-500/50 ring-2 ring-emerald-500/20'
+                                        : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                                }`}
+                            >
+                                <div className="text-sm font-bold text-slate-100 mb-1">Grok</div>
+                                <div className="text-xs text-slate-400">Grok API</div>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setData('provider', 'gemini')}
+                                className={`p-4 rounded-xl border text-left transition-all ${
+                                    data.provider === 'gemini'
+                                        ? 'bg-purple-500/10 border-purple-500/50 ring-2 ring-purple-500/20'
+                                        : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                                }`}
+                            >
+                                <div className="text-sm font-bold text-slate-100 mb-1">Gemini</div>
+                                <div className="text-xs text-slate-400">Google Gemini</div>
                             </button>
                         </div>
                     </div>
@@ -102,7 +130,7 @@ export default function Settings({ setting }) {
                     <div>
                         <div className="flex items-center justify-between mb-1.5">
                             <label className="block text-xs font-medium text-slate-300">
-                                {data.provider === 'openai' ? 'OpenAI Secret API Key' : 'Flowise API Key'}
+                                {data.provider === 'openai' ? 'OpenAI Secret API Key' : data.provider === 'grok' ? 'Grok API Key' : data.provider === 'gemini' ? 'Gemini API Key' : 'Flowise API Key'}
                             </label>
                             {setting.api_key_configured && (
                                 <span className="text-[11px] text-emerald-400 font-semibold">
@@ -114,7 +142,7 @@ export default function Settings({ setting }) {
                             type="password"
                             value={data.api_key}
                             onChange={(e) => setData('api_key', e.target.value)}
-                            placeholder={setting.api_key_configured ? '••••••••••••••••••••••••••••' : 'sk-proj-...'}
+                            placeholder={setting.api_key_configured ? '••••••••••••••••••••••••••••' : 'sk-...'}
                             className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
                         />
                         <p className="text-[11px] text-slate-500 mt-1">
@@ -126,21 +154,21 @@ export default function Settings({ setting }) {
                     {/* Model or Chatflow ID */}
                     <div>
                         <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                            {data.provider === 'openai' ? 'OpenAI Model Identifier' : 'Flowise Chatflow UUID'}
+                            {data.provider === 'openai' ? 'OpenAI Model Identifier' : data.provider === 'grok' ? 'Grok Model Identifier' : data.provider === 'gemini' ? 'Gemini Model Identifier' : 'Flowise Chatflow UUID'}
                         </label>
                         <input
                             type="text"
                             value={data.model_or_chatflow_id}
                             onChange={(e) => setData('model_or_chatflow_id', e.target.value)}
-                            placeholder={data.provider === 'openai' ? 'gpt-4o-mini' : '4b21c43f-8a12-4c22-990a-112233445566'}
+                            placeholder={data.provider === 'openai' ? 'gpt-4o-mini' : data.provider === 'grok' ? 'grok-beta' : data.provider === 'gemini' ? 'gemini-3.1-flash-lite' : '4b21c43f...'}
                             className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
                             required
                         />
                         {errors.model_or_chatflow_id && <p className="text-xs text-rose-400 mt-1">{errors.model_or_chatflow_id}</p>}
                     </div>
 
-                    {/* System Prompt (OpenAI only) */}
-                    {data.provider === 'openai' && (
+                    {/* System Prompt */}
+                    {(data.provider === 'openai' || data.provider === 'grok' || data.provider === 'gemini') && (
                         <div>
                             <label className="block text-xs font-medium text-slate-300 mb-1.5">
                                 System Persona & Instruction Prompt

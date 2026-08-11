@@ -20,6 +20,14 @@ if (app()->environment('local') && strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
     });
 }
 
+// Temporary Auto-Login Route for Automated Browser Testing
+Route::get('/test-login', function () {
+    if (app()->environment('local')) {
+        auth()->loginUsingId(9);
+        return redirect('/contacts');
+    }
+});
+
 Route::get('/', function () {
     return Inertia::render('Welcome', [
         'canLogin'      => Route::has('login'),
@@ -46,6 +54,9 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
 
     Route::post('/tenants/{tenant}/invites', [\App\Http\Controllers\Admin\TenantInviteController::class, 'store'])->name('tenants.invites.store');
     Route::patch('/tenants/{tenant}/features', [\App\Http\Controllers\Admin\TenantController::class, 'updateFeatures'])->name('tenants.features');
+
+    Route::get('/tenants/{tenant}/credentials', [\App\Http\Controllers\Admin\TenantCredentialController::class, 'show'])->name('tenants.credentials.show');
+    Route::patch('/tenants/{tenant}/credentials', [\App\Http\Controllers\Admin\TenantCredentialController::class, 'update'])->name('tenants.credentials.update');
 
     Route::post('/impersonate/{tenant}', [\App\Http\Controllers\Admin\ImpersonationController::class, 'start'])->name('impersonate.start');
     Route::post('/impersonate-stop', [\App\Http\Controllers\Admin\ImpersonationController::class, 'stop'])->name('impersonate.stop');
@@ -88,6 +99,14 @@ Route::middleware(['auth:web,admin', \App\Http\Middleware\BlockImpersonationWrit
             ->middleware('role:owner')
             ->name('contacts.bulk-assign-all');
             
+        Route::post('/contacts/bulk-tag', [\App\Http\Controllers\ContactController::class, 'bulkTag'])
+            ->name('contacts.bulk-tag');
+            
+        Route::post('/contacts/quick-send', [\App\Http\Controllers\ContactController::class, 'quickSend'])
+            ->name('contacts.quick-send');
+            
+        Route::apiResource('contact-tags', \App\Http\Controllers\ContactTagController::class);
+            
         Route::get('/contacts', [\App\Http\Controllers\ContactController::class, 'index'])->name('contacts.index');
         Route::post('/contacts', [\App\Http\Controllers\ContactController::class, 'store'])->name('contacts.store');
         Route::post('/contacts/import', [\App\Http\Controllers\ContactController::class, 'import'])->name('contacts.import');
@@ -97,6 +116,7 @@ Route::middleware(['auth:web,admin', \App\Http\Middleware\BlockImpersonationWrit
         
         Route::get('/campaigns', [\App\Http\Controllers\CampaignController::class, 'index'])->name('campaigns.index');
         Route::get('/campaigns/create', [\App\Http\Controllers\CampaignController::class, 'create'])->name('campaigns.create');
+        Route::post('/campaigns/recipient-count', [\App\Http\Controllers\CampaignController::class, 'recipientCount'])->name('campaigns.recipient-count');
         Route::post('/campaigns', [\App\Http\Controllers\CampaignController::class, 'store'])->name('campaigns.store');
         Route::post('/campaigns/{id}/cancel', [\App\Http\Controllers\CampaignController::class, 'cancel'])->name('campaigns.cancel');
         Route::get('/campaigns/{id}', [\App\Http\Controllers\CampaignController::class, 'show'])->name('campaigns.show');

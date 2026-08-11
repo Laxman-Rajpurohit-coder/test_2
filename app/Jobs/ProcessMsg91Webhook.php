@@ -43,6 +43,9 @@ class ProcessMsg91Webhook implements ShouldQueue
                 return; // Invalid payload without customer number
             }
 
+            // Normalize customer number (e.g. 10 digits -> 91xxxxxxxxxx)
+            $customerNumber = \App\Support\PhoneNumber::normalize($customerNumber);
+
             $customerName = $this->payload['customerName'] ?? null;
 
             // Resolve Tenant ID and Tenant Number ID by integratedNumber in webhook payload
@@ -62,16 +65,14 @@ class ProcessMsg91Webhook implements ShouldQueue
             
             app(TenantResolverService::class)->setActiveTenantId($tenantId);
 
-            // Auto-create contact if it doesn't exist
-            if ($direction === 0) {
-                try {
-                    \App\Models\Contact::firstOrCreate(
-                        ['tenant_id' => $tenantId, 'phone_number' => $customerNumber],
-                        ['name' => $customerName ?: 'Unknown']
-                    );
-                } catch (\Exception $e) {
-                    \Illuminate\Support\Facades\Log::warning("ProcessMsg91Webhook: Failed to auto-create contact: " . $e->getMessage());
-                }
+            // Auto-create contact if it doesn't exist for both inbound and outbound messages
+            try {
+                \App\Models\Contact::firstOrCreate(
+                    ['tenant_id' => $tenantId, 'phone_number' => $customerNumber],
+                    ['name' => $customerName ?: 'Unknown']
+                );
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::warning("ProcessMsg91Webhook: Failed to auto-create contact: " . $e->getMessage());
             }
 
             // Identify if we need to increment unread count for inbound message
@@ -100,6 +101,17 @@ class ProcessMsg91Webhook implements ShouldQueue
             $rawType = $this->payload['contentType'] ?? $this->payload['messageType'] ?? $this->payload['type'] ?? 'image';
             $caption = $this->payload['caption'] ?? '';
             $text = $this->payload['text'] ?? $this->payload['content']['text'] ?? $this->payload['content'] ?? null;
+
+            // Handle Opt-out (STOP / UNSUBSCRIBE)
+            if ($direction === 0 && is_string($text)) {
+                $normalizedText = strtoupper(trim($text));
+                if ($normalizedText === 'STOP' || $normalizedText === 'UNSUBSCRIBE') {
+                    \Illuminate\Support\Facades\DB::table('contacts')
+                        ->where('tenant_id', $tenantId)
+                        ->where('phone_number', $customerNumber)
+                        ->update(['is_subscribed' => false]);
+                }
+            }
 
             // Extract WhatsApp Interactive Button or List Reply ID / Payload
             $buttonPayload = $this->payload['button']['payload']
@@ -207,6 +219,17 @@ class ProcessMsg91Webhook implements ShouldQueue
                 }
 
                 DB::table('whatsapp_messages')->where('id', $existingMessage->id)->update($updateFields);
+                
+                // Sync status to campaign_recipients if applicable
+                if (isset($updateFields['status'])) {
+                    DB::table('campaign_recipients')
+                        ->where('whatsapp_message_id', $existingMessage->id)
+                        ->update([
+                            'status' => $updateFields['status'],
+                            'failure_reason' => $updateFields['failure_reason'] ?? null,
+                            'updated_at' => now(),
+                        ]);
+                }
             } else {
                 try {
                     $targetMessageId = Str::uuid()->toString();
@@ -264,6 +287,17 @@ class ProcessMsg91Webhook implements ShouldQueue
                             $updateFields['content'] = json_encode($contentData);
                         }
                         DB::table('whatsapp_messages')->where('id', $existingMessage->id)->update($updateFields);
+                        
+                        // Sync status to campaign_recipients if applicable
+                        if (isset($updateFields['status'])) {
+                            DB::table('campaign_recipients')
+                                ->where('whatsapp_message_id', $existingMessage->id)
+                                ->update([
+                                    'status' => $updateFields['status'],
+                                    'failure_reason' => $updateFields['failure_reason'] ?? null,
+                                    'updated_at' => now(),
+                                ]);
+                        }
                     } else {
                         throw $e;
                     }

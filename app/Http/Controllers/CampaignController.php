@@ -16,7 +16,10 @@ class CampaignController extends Controller
 {
     public function index()
     {
-        $campaigns = Campaign::withCount('recipients')->orderBy('created_at', 'desc')->paginate(20);
+        $campaigns = Campaign::where('is_quick_send', false)
+            ->withCount('recipients')
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
         $approvedTemplates = WhatsappTemplate::where('status', 'approved')
             ->select('id', 'name', 'language', 'category')
             ->get();
@@ -24,6 +27,57 @@ class CampaignController extends Controller
         return Inertia::render('Campaigns/Index', [
             'campaigns' => $campaigns,
             'approvedTemplates' => $approvedTemplates,
+        ]);
+    }
+
+    public function recipientCount(Request $request)
+    {
+        $tenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
+
+        $validated = $request->validate([
+            'target_type' => 'required|in:all,groups,tags',
+            'tag_ids' => 'nullable|array',
+            'tag_ids.*' => [
+                'string',
+                \Illuminate\Validation\Rule::exists('contact_tags', 'id')->where('tenant_id', $tenantId)
+            ],
+            'group_ids' => 'nullable|array',
+            'group_ids.*' => [
+                'string',
+                \Illuminate\Validation\Rule::exists('contact_groups', 'id')->where('tenant_id', $tenantId)
+            ],
+        ]);
+
+        $query = Contact::where('tenant_id', $tenantId)
+            ->where('is_subscribed', true);
+
+        $selectedTags = $validated['tag_ids'] ?? [];
+        $selectedGroups = $validated['group_ids'] ?? [];
+
+        if ($validated['target_type'] === 'tags' && !empty($selectedTags)) {
+            $uniqueTags = array_unique($selectedTags);
+            $query->whereHas('contactTags', function($q) use ($uniqueTags) {
+                $q->whereIn('contact_tags.id', $uniqueTags);
+            });
+        } elseif ($validated['target_type'] === 'groups' && !empty($selectedGroups)) {
+            $uniqueGroups = array_unique($selectedGroups);
+            $query->whereHas('contactGroups', function($q) use ($uniqueGroups) {
+                $q->whereIn('contact_groups.id', $uniqueGroups);
+            });
+        }
+
+        $recipientCount = $query->count();
+
+        $excludedCount = Contact::where('tenant_id', $tenantId)
+            ->where('is_subscribed', false)
+            ->count();
+
+        return response()->json([
+            'recipient_count' => $recipientCount,
+            'target_type' => $validated['target_type'],
+            'selected_tags' => array_values(array_unique($selectedTags)),
+            'selected_groups' => array_values(array_unique($selectedGroups)),
+            'excluded' => $excludedCount,
         ]);
     }
 

@@ -4,14 +4,7 @@ namespace App\Responders;
 
 use App\Contracts\BotResponderInterface;
 use App\DTOs\InboundMessageContext;
-use App\Events\MessageReceived;
-use App\Jobs\SendMsg91Message;
-use App\Models\Conversation;
-use App\Models\WhatsappMessage;
 use App\Services\BotTriggerService;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 class KeywordBotResponder implements BotResponderInterface
 {
@@ -32,9 +25,17 @@ class KeywordBotResponder implements BotResponderInterface
     {
         $integratedNumber = app(\App\Services\TenantResolverService::class)->getIntegratedNumber($context->tenantId);
 
-        // Evaluate keyword triggers against incoming message text
+        // Prioritize button payload over user-typed text if a non-empty payload exists. Normalize by trimming.
+        $trimmedPayload = !empty($context->buttonPayload) ? trim($context->buttonPayload) : '';
+        $textToMatch = !empty($trimmedPayload) ? $trimmedPayload : trim($context->messageText);
+
+        if (empty($textToMatch)) {
+            return false;
+        }
+
+        // Evaluate keyword triggers against incoming message text or payload
         $response = $this->botService->matchAndBuildResponse(
-            $context->messageText,
+            $textToMatch,
             $context->customerNumber,
             $integratedNumber,
             $context->customerName
