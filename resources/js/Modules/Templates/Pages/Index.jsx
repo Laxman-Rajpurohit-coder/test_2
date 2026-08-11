@@ -126,74 +126,53 @@ export default function Index({ auth, templates }) {
                             </div>
                         </div>
                     ) : (
-                        <div className="bg-white rounded-xl border border-gray-200 overflow-visible mt-2 shadow-sm">
-                            <div className="overflow-x-auto min-h-[300px]">
-                                <table className="w-full text-left text-sm text-gray-700">
-                                    <thead className="bg-white text-gray-500 font-semibold text-xs border-b border-gray-200">
-                                        <tr>
-                                            <th className="px-6 py-4 whitespace-nowrap">Name</th>
-                                            <th className="px-6 py-4 whitespace-nowrap">Category <span className="text-gray-300">↑</span></th>
-                                            <th className="px-6 py-4 whitespace-nowrap">Language</th>
-                                            <th className="px-6 py-4 whitespace-nowrap">Clicks</th>
-                                            <th className="px-6 py-4 whitespace-nowrap">Code (JSON)</th>
-                                            <th className="px-6 py-4 whitespace-nowrap">Status</th>
-                                            <th className="px-6 py-4 whitespace-nowrap text-right">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                        {filteredTemplates.map((template) => (
-                                            <tr key={template.id} className="hover:bg-gray-50 transition">
-                                                <td className="px-6 py-3 whitespace-nowrap flex items-center gap-2">
-                                                    <span className="font-medium text-gray-800">{template.name}</span>
-                                                    <button className="text-gray-400 hover:text-gray-600 focus:outline-none" title="Copy name" onClick={() => navigator.clipboard.writeText(template.name)}>
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                                                    </button>
-                                                </td>
-                                                <td className="px-6 py-3 whitespace-nowrap text-xs tracking-wide text-gray-600">{template.category}</td>
-                                                <td className="px-6 py-3 whitespace-nowrap">
-                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold ${template.status === 'approved' ? 'bg-green-50 text-green-700' : 'bg-orange-50 text-orange-700'}`}>
-                                                        {template.status === 'approved' ? (
-                                                            <svg className="w-3.5 h-3.5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>
-                                                        ) : (
-                                                            <svg className="w-3.5 h-3.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                                        )}
-                                                        {template.language} <span className="text-[10px] text-gray-400 font-normal ml-0.5 border border-gray-300 rounded-sm px-0.5">D</span>
+                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                            {filteredTemplates.map((template) => {
+                                const components = Array.isArray(template.components) ? template.components : [];
+                                const bodyText = components.find(c => c.type === 'BODY')?.text || '';
+                                return (
+                                    <div key={template.id} className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 flex flex-col">
+                                        <div className="p-5 flex-grow min-w-0">
+                                            <div className="flex items-start justify-between mb-2 gap-2">
+                                                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 min-w-0">
+                                                    <h3 className="text-lg font-medium text-gray-900 truncate" title={template.name}>
+                                                        {template.name}
+                                                    </h3>
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 uppercase self-start sm:self-auto shrink-0">
+                                                        {template.language}
                                                     </span>
-                                                </td>
-                                                <td className="px-6 py-3 whitespace-nowrap text-gray-400">-</td>
-                                                <td className="px-6 py-3 whitespace-nowrap">
-                                                    <span className="text-gray-400 text-xs font-mono tracking-widest">&lt;&gt;</span>
-                                                </td>
-                                                <td className="px-6 py-3 whitespace-nowrap">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${template.status === 'approved' ? 'bg-[#00a884]' : 'bg-gray-200'}`}>
-                                                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${template.status === 'approved' ? 'translate-x-5' : 'translate-x-1'}`} />
-                                                        </div>
-                                                        <span className="text-xs font-medium text-gray-700">
-                                                            {template.status === 'approved' ? 'Enabled' : 'Disabled'}
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-3 whitespace-nowrap text-right relative">
-                                                    <div className="group inline-block text-left relative z-20">
-                                                        <button className="text-gray-600 hover:text-gray-900 focus:outline-none p-1">
-                                                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path></svg>
-                                                        </button>
-                                                        <div className="hidden group-hover:block absolute right-0 top-6 w-32 bg-white rounded-md shadow-lg border border-gray-100 py-1">
-                                                            <Link href={route('templates.show', template.id)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-indigo-600 text-left">View</Link>
-                                                            <Link href={route('templates.edit', template.id)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-amber-600 text-left">Duplicate</Link>
-                                                            <button onClick={(e) => { e.stopPropagation(); handleDelete(template); }} className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">Delete</button>
-                                                            {template.status === 'approved' && (
-                                                                <Link href={route('campaigns.create', { template: template.id })} className="block px-4 py-2 text-sm text-green-600 hover:bg-green-50 text-left">Use Template &rarr;</Link>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                                                </div>
+                                                <div className="shrink-0">
+                                                    <StatusBadge status={template.status} />
+                                                </div>
+                                            </div>
+                                            <p className="text-xs text-gray-500 mb-4 uppercase tracking-wider">{template.category}</p>
+                                            
+                                            <div className="bg-gray-50 p-3 rounded text-sm text-gray-700 line-clamp-3 h-20 overflow-hidden">
+                                                {bodyText}
+                                            </div>
+                                        </div>
+                                        <div className="bg-gray-50 px-5 py-3 border-t border-gray-200 flex flex-wrap items-center justify-between gap-3">
+                                            <div className="flex flex-wrap items-center gap-3">
+                                                <Link href={route('templates.show', template.id)} className="text-sm font-medium text-indigo-600 hover:text-indigo-900">
+                                                    View
+                                                </Link>
+                                                <Link href={route('templates.edit', template.id)} className="text-sm font-medium text-amber-600 hover:text-amber-700">
+                                                    Duplicate
+                                                </Link>
+                                                <button onClick={() => handleDelete(template)} className="text-sm font-medium text-red-600 hover:text-red-900">
+                                                    Delete
+                                                </button>
+                                            </div>
+                                            {template.status === 'approved' && (
+                                                <Link href={route('campaigns.create', { template: template.id })} className="text-sm font-medium text-green-600 hover:text-green-900 flex items-center ml-auto">
+                                                    Use <span aria-hidden="true" className="ml-1">&rarr;</span>
+                                                </Link>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
