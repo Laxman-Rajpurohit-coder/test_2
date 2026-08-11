@@ -218,6 +218,7 @@ class ContactController extends Controller
             'template_language' => 'required_if:message_type,template|string|nullable',
             'text_content' => 'required_if:message_type,text|string|nullable',
             'template_variable_map' => 'nullable|array',
+            'template_variable_map.*' => 'string|max:64',
         ]);
         
         $tenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
@@ -230,25 +231,8 @@ class ContactController extends Controller
             return back()->with('error', 'No valid contacts selected.');
         }
 
-        if (!empty($validated['template_variable_map'])) {
-            $customFieldKeys = Contact::where('tenant_id', $tenantId)
-                ->whereNotNull('custom_fields')
-                ->get(['custom_fields'])
-                ->flatMap(function ($contact) {
-                    return is_array($contact->custom_fields) ? array_keys($contact->custom_fields) : [];
-                })
-                ->unique()
-                ->toArray();
-            $allowedFields = array_merge(['name', 'phone_number', 'email'], $customFieldKeys);
-            
-            foreach ($validated['template_variable_map'] as $key => $field) {
-                if (!in_array($field, $allowedFields)) {
-                    throw \Illuminate\Validation\ValidationException::withMessages([
-                        'template_variable_map' => "Invalid template variable field: '{$field}'. Must be an existing contact field or custom field."
-                    ]);
-                }
-            }
-        }
+        // Variable map is validated as an array of strings in the $request->validate block.
+        // SendCampaignJob will handle missing fields gracefully by marking the specific recipient as failed.
         
         $campaign = \App\Models\Campaign::create([
             'tenant_id' => $tenantId,
