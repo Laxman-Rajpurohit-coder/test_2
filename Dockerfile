@@ -66,5 +66,5 @@ RUN php artisan storage:link
 # Expose HTTP port (Railway automatically routes traffic to this port)
 EXPOSE 80
 
-# Start Supervisor to manage Nginx, PHP-FPM, Reverb, and Queue Worker
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+# Start Migrations and then Supervisor to manage Nginx, PHP-FPM, Reverb, and Queue Worker
+CMD ["sh", "-c", "php artisan migrate --force && /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf"]
