@@ -29,7 +29,40 @@ class ProcessMsg91Webhook implements ShouldQueue
     public function handle(): void
     {
         try {
-            // Identify direction (0 = Inbound, 1 = Outbound)
+            // 1. Handle Template Webhooks (Status & Category Updates)
+            $type = $this->payload['type'] ?? '';
+            if ($type === 'message_template_status_update' || $type === 'template_category_update') {
+                $dataStr = $this->payload['data'] ?? '{}';
+                $data = json_decode($dataStr, true);
+                if (is_array($data)) {
+                    $templateName = $data['message_template_name'] ?? $this->payload['value'] ?? null;
+                    $language = $data['message_template_language'] ?? null;
+                    
+                    if ($templateName && $language) {
+                        $updateData = [];
+                        if ($type === 'message_template_status_update' && isset($data['event'])) {
+                            $updateData['status'] = strtolower($data['event']);
+                            if (isset($data['reason']) && $data['reason'] !== 'NONE') {
+                                $updateData['rejection_reason'] = $data['reason'];
+                            }
+                        }
+                        if ($type === 'template_category_update' && isset($data['new_category'])) {
+                            $updateData['category'] = strtoupper($data['new_category']);
+                        }
+                        
+                        if (!empty($updateData)) {
+                            \App\Models\WhatsappTemplate::where('name', $templateName)
+                                ->where('language', $language)
+                                ->update($updateData);
+                            
+                            \Illuminate\Support\Facades\Log::info("MSG91 Webhook: Updated Template '{$templateName}'", $updateData);
+                        }
+                    }
+                }
+                return; // Stop processing further for template webhooks
+            }
+
+            // 2. Handle Message Webhooks (Inbound/Outbound)
             $rawDirection = $this->payload['direction'] ?? null;
             $direction = 0;
             if ($rawDirection !== null) {
