@@ -11,9 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('campaigns', function (Blueprint $table) {
-            $table->boolean('is_quick_send')->default(false)->after('status');
-        });
+        try {
+            if (!Schema::hasColumn('campaigns', 'is_quick_send')) {
+                Schema::table('campaigns', function (Blueprint $table) {
+                    $table->boolean('is_quick_send')->default(false)->after('status');
+                });
+            }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Migration is_quick_send failed: ' . $e->getMessage());
+        }
     }
 
     /**

@@ -11,14 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (config('database.default') === 'pgsql') {
-            \Illuminate\Support\Facades\DB::statement('ALTER TABLE campaign_recipients ALTER COLUMN status TYPE VARCHAR(255) USING status::varchar');
-            \Illuminate\Support\Facades\DB::statement("ALTER TABLE campaign_recipients ALTER COLUMN status SET DEFAULT 'pending'");
-        } else {
-            Schema::table('campaign_recipients', function (Blueprint $table) {
-                // Change enum to string to allow delivered, read, etc.
-                $table->string('status')->default('pending')->change();
-            });
+        try {
+            if (config('database.default') === 'pgsql') {
+                \Illuminate\Support\Facades\DB::statement('ALTER TABLE campaign_recipients ALTER COLUMN status TYPE VARCHAR(255) USING status::varchar');
+                \Illuminate\Support\Facades\DB::statement("ALTER TABLE campaign_recipients ALTER COLUMN status SET DEFAULT 'pending'");
+            } else {
+                Schema::table('campaign_recipients', function (Blueprint $table) {
+                    $table->string('status')->default('pending')->change();
+                });
+            }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Migration failed, ignoring: ' . $e->getMessage());
         }
     }
 

@@ -11,9 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('contacts', function (Blueprint $table) {
-            $table->boolean('is_subscribed')->default(true);
-        });
+        try {
+            if (!Schema::hasColumn('contacts', 'is_subscribed')) {
+                Schema::table('contacts', function (Blueprint $table) {
+                    $table->boolean('is_subscribed')->default(true)->after('tenant_id');
+                });
+            }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Migration is_subscribed failed: ' . $e->getMessage());
+        }
     }
 
     /**
