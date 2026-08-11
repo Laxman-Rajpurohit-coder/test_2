@@ -202,7 +202,7 @@ export default function ContactsIndex({ contacts, teamMembers = [], allTags = []
             message_type: qsMessageType,
             template_name: qsTemplateName,
             template_language: qsTemplateLanguage,
-            template_variable_map: qsTemplateVariables,
+            template_variable_map: Object.values(qsTemplateVariables),
             text_content: qsTextContent
         }, {
             onSuccess: () => {
