@@ -15,7 +15,23 @@ class TenantInviteController extends Controller
     public function store(Request $request, Tenant $tenant)
     {
         $validated = $request->validate([
-            'email' => 'required|email|max:255',
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                function ($attribute, $value, $fail) use ($tenant) {
+                    if (\App\Models\User::where('email', $value)->where('tenant_id', $tenant->id)->exists()) {
+                        $fail('This user is already a member of this tenant.');
+                    }
+                },
+                function ($attribute, $value, $fail) use ($tenant) {
+                    if (TenantInvite::where('email', $value)
+                        ->whereNull('accepted_at')
+                        ->exists()) {
+                        $fail('A pending invite already exists for this email address.');
+                    }
+                }
+            ],
         ]);
 
         $invite = TenantInvite::create([
