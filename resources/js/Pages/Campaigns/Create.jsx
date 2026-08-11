@@ -122,12 +122,14 @@ export default function Create({ auth, approvedTemplates = [], groups = [], tags
             scheduled_at = `${scheduledDate} ${scheduledTime}:00`;
         }
 
+        const mappedTargetType = targetType === 'tags' ? 'tag' : (targetType === 'groups' ? 'group' : 'all');
+        const targetId = targetType === 'tags' ? (selectedTagIds[0] || null) : (targetType === 'groups' ? (selectedGroupIds[0] || null) : null);
+
         const payload = {
             name: campaignName,
             message_type: mode,
-            target_type: targetType,
-            tag_ids: selectedTagIds,
-            group_ids: selectedGroupIds,
+            target_type: mappedTargetType,
+            target_id: targetId,
             scheduled_at: scheduled_at,
             ...(mode === 'template' ? {
                 template_name: templateState.template_name,
@@ -233,14 +235,15 @@ export default function Create({ auth, approvedTemplates = [], groups = [], tags
                                 {/* Tags Checkbox List */}
                                 {targetType === 'tags' && (
                                     <div className="p-3 bg-purple-50/50 rounded-xl border border-purple-100 space-y-2 max-h-40 overflow-y-auto">
-                                        <p className="text-xs font-bold text-purple-900 mb-1">Select Target Tags:</p>
+                                        <p className="text-xs font-bold text-purple-900 mb-1">Select Target Tag:</p>
                                         {tags.length > 0 ? tags.map(tag => (
                                             <label key={tag.id} className="flex items-center gap-2 cursor-pointer text-xs font-medium text-gray-800">
                                                 <input 
-                                                    type="checkbox"
+                                                    type="radio"
+                                                    name="target_tag"
                                                     checked={selectedTagIds.includes(tag.id)}
-                                                    onChange={() => handleTagToggle(tag.id)}
-                                                    className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                                    onChange={() => setSelectedTagIds([tag.id])}
+                                                    className="rounded-full border-gray-300 text-purple-600 focus:ring-purple-500"
                                                 />
                                                 {tag.name}
                                             </label>
@@ -253,14 +256,15 @@ export default function Create({ auth, approvedTemplates = [], groups = [], tags
                                 {/* Groups Checkbox List */}
                                 {targetType === 'groups' && (
                                     <div className="p-3 bg-blue-50/50 rounded-xl border border-blue-100 space-y-2 max-h-40 overflow-y-auto">
-                                        <p className="text-xs font-bold text-blue-900 mb-1">Select Target Groups:</p>
+                                        <p className="text-xs font-bold text-blue-900 mb-1">Select Target Group:</p>
                                         {groups.length > 0 ? groups.map(grp => (
                                             <label key={grp.id} className="flex items-center gap-2 cursor-pointer text-xs font-medium text-gray-800">
                                                 <input 
-                                                    type="checkbox"
+                                                    type="radio"
+                                                    name="target_group"
                                                     checked={selectedGroupIds.includes(grp.id)}
-                                                    onChange={() => handleGroupToggle(grp.id)}
-                                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                    onChange={() => setSelectedGroupIds([grp.id])}
+                                                    className="rounded-full border-gray-300 text-blue-600 focus:ring-blue-500"
                                                 />
                                                 {grp.name}
                                             </label>
