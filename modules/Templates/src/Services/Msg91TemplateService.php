@@ -37,10 +37,10 @@ class Msg91TemplateService
             unset($payload['name']);
         }
 
-        // Sanitize components: MSG91 wrapper API rejects 'format' inside BODY components
+        // Sanitize components: MSG91 wrapper API rejects 'format' inside BODY and BUTTONS components
         if (isset($payload['components']) && is_array($payload['components'])) {
             foreach ($payload['components'] as &$component) {
-                if (($component['type'] ?? '') === 'BODY' && isset($component['format'])) {
+                if (in_array(($component['type'] ?? ''), ['BODY', 'BUTTONS']) && isset($component['format'])) {
                     unset($component['format']);
                 }
             }
