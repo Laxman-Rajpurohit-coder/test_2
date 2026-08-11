@@ -25,11 +25,13 @@ if (app()->environment('local') && strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
 // Temporary Auto-Login Route for Automated Browser Testing
 Route::get('/fix-db', function () {
     try {
-        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-        return response()->json([
-            'status' => 'Migrations ran successfully!',
-            'output' => \Illuminate\Support\Facades\Artisan::output()
-        ]);
+        if (!\Illuminate\Support\Facades\Schema::hasColumn('campaigns', 'is_quick_send')) {
+            \Illuminate\Support\Facades\Schema::table('campaigns', function (\Illuminate\Database\Schema\Blueprint $table) {
+                $table->boolean('is_quick_send')->default(false);
+            });
+            return response()->json(['status' => 'Column is_quick_send added successfully!']);
+        }
+        return response()->json(['status' => 'Column already exists.']);
     } catch (\Exception $e) {
         return response()->json([
             'error' => $e->getMessage(),
