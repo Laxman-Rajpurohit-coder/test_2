@@ -25,7 +25,7 @@ class TenantInviteController extends Controller
                     }
                 },
                 function ($attribute, $value, $fail) use ($tenant) {
-                    if (TenantInvite::where('email', $value)
+                    if (\App\Models\TenantInvite::where('email', $value)
                         ->whereNull('accepted_at')
                         ->exists()) {
                         $fail('A pending invite already exists for this email address.');
