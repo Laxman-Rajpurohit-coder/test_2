@@ -14,8 +14,8 @@ class TenantSettingsController extends Controller
     public function edit(TenantResolverService $resolver): Response
     {
         $user = auth()->user();
-        if ($user && method_exists($user, 'isOwner') && !$user->isOwner() && !($user instanceof \App\Models\AdminUser)) {
-            abort(403, 'Only tenant owners can manage API settings.');
+        if ($user && method_exists($user, 'isOwner') && !$user->isOwner() && !$user->isAdmin() && !($user instanceof \App\Models\AdminUser)) {
+            abort(403, 'Only tenant owners or admins can manage API settings.');
         }
 
         $tenantId = $resolver->getActiveTenantId();
@@ -39,8 +39,8 @@ class TenantSettingsController extends Controller
     public function update(Request $request, TenantResolverService $resolver)
     {
         $user = auth()->user();
-        if ($user && method_exists($user, 'isOwner') && !$user->isOwner() && !($user instanceof \App\Models\AdminUser)) {
-            abort(403, 'Only tenant owners can modify API settings.');
+        if ($user && method_exists($user, 'isOwner') && !$user->isOwner() && !$user->isAdmin() && !($user instanceof \App\Models\AdminUser)) {
+            abort(403, 'Only tenant owners or admins can modify API settings.');
         }
         $validated = $request->validate([
             'ai_provider' => 'nullable|string|in:openai,flowise,grok,gemini',
