@@ -22,12 +22,6 @@ if (app()->environment('local') && strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
     });
 }
 
-Route::get('/fix-db', function() {
-    \Illuminate\Support\Facades\DB::table('migrations')->where('migration', 'like', '%tenant_invites%')->delete();
-    \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-    return 'Done: ' . \Illuminate\Support\Facades\Artisan::output();
-});
-
 // Temporary Auto-Login Route for Automated Browser Testing
 
 
