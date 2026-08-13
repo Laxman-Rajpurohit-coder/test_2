@@ -56,6 +56,11 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        return redirect('/')
+            ->withHeaders([
+                // Actively evicts bfcache in Chrome 96+, Firefox 94+, Safari 16.4+
+                // Works alongside the JS pageshow handler as defense-in-depth
+                'Clear-Site-Data' => '"cache"',
+            ]);
     }
 }

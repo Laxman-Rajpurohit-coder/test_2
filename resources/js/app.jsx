@@ -1,7 +1,18 @@
 import '../css/app.css';
 import './bootstrap';
 
+// Global back-button / popstate interceptor
+// To maintain instant SPA transition speeds when switching features, we only force
+// a hard reload on back/forward navigation if the user has logged out (i.e. 'is_logged_in' flag is removed).
+window.addEventListener('popstate', (e) => {
+    if (!localStorage.getItem('is_logged_in')) {
+        window.location.reload();
+    }
+}, true);
+
+
 import { createInertiaApp } from '@inertiajs/react';
+
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 

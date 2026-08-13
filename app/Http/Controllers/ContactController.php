@@ -355,8 +355,13 @@ class ContactController extends Controller
         
         $contact->update($validated);
         
-        return response()->json($contact);
+        if ($request->wantsJson() && !$request->header('X-Inertia')) {
+            return response()->json($contact);
+        }
+
+        return redirect()->back()->with('success', 'Contact updated successfully.');
     }
+
     
     public function destroy($id)
     {

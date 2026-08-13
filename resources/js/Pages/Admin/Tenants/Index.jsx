@@ -139,6 +139,19 @@ export default function TenantIndex({ auth, tenants, webhook }) {
 
             <div className="py-12">
                 <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
+                    {/* Admin Header with Logout */}
+                    <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs">
+                        <div className="text-gray-900 font-bold text-lg">Admin Control Panel</div>
+                        <a
+                            href={route('admin.logout')}
+                            onClick={() => localStorage.removeItem('is_logged_in')}
+                            className="inline-flex items-center px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl transition shadow-sm"
+                        >
+                            Log Out
+                        </a>
+                    </div>
+
+
                     {flash.success && (
                         <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative">
                             {flash.success}
@@ -147,6 +160,7 @@ export default function TenantIndex({ auth, tenants, webhook }) {
 
                     {/* Webhook Info */}
                     <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs space-y-4 mb-6">
+
                         <h2 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3">Webhook Configuration</h2>
                         <p className="text-xs text-gray-500">Copy this URL and Secret into your MSG91 dashboard to receive inbound messages and delivery receipts.</p>
                         <div className="space-y-3">

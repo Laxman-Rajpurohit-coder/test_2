@@ -62,6 +62,9 @@ class AuthenticatedSessionController extends Controller
 
     /**
      * Destroy an authenticated session.
+     *
+     * Clear-Site-Data: "cache" tells the browser to evict ALL bfcache entries
+     * for this origin at logout, so pressing Back cannot restore a stale page.
      */
     public function destroy(Request $request): RedirectResponse
     {
@@ -71,6 +74,11 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        return redirect('/')
+            ->withHeaders([
+                // Actively evicts bfcache in Chrome 96+, Firefox 94+, Safari 16.4+
+                // Works alongside the JS pageshow handler as defense-in-depth
+                'Clear-Site-Data' => '"cache"',
+            ]);
     }
 }

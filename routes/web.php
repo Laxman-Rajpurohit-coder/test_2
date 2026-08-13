@@ -50,7 +50,7 @@ Route::get('/dashboard', [\Modules\Analytics\Http\Controllers\AnalyticsControlle
 // Admin Auth Routes
 Route::get('/admin/login', [\App\Http\Controllers\Admin\AuthController::class, 'create'])->name('admin.login');
 Route::post('/admin/login', [\App\Http\Controllers\Admin\AuthController::class, 'store'])->name('admin.login.store');
-Route::post('/admin/logout', [\App\Http\Controllers\Admin\AuthController::class, 'destroy'])->name('admin.logout');
+Route::match(['get', 'post'], '/admin/logout', [\App\Http\Controllers\Admin\AuthController::class, 'destroy'])->name('admin.logout');
 
 Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/tenants', [\App\Http\Controllers\Admin\TenantController::class, 'index'])->name('tenants.index');

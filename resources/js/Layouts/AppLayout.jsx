@@ -29,6 +29,20 @@ export default function AppLayout({ children }) {
         }
     }, [toast]);
 
+    // Layout mount state initialization
+    useEffect(() => {
+        localStorage.setItem('is_logged_in', 'true');
+        
+        // Dummy unload listener to completely disable browser bfcache (Back-Forward Cache)
+        const handleUnload = () => {};
+        window.addEventListener('unload', handleUnload);
+
+        return () => {
+            window.removeEventListener('unload', handleUnload);
+        };
+    }, []);
+
+
     const currentPath = window.location.pathname;
     const isChatPage = currentPath.startsWith('/chat');
     const isBotPage = currentPath.startsWith('/bot-triggers');
@@ -119,6 +133,7 @@ export default function AppLayout({ children }) {
                             href={route('logout')}
                             method="post"
                             as="button"
+                            onClick={() => localStorage.removeItem('is_logged_in')}
                             className="p-1.5 text-gray-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
                             title="Log Out"
                         >
@@ -201,6 +216,7 @@ export default function AppLayout({ children }) {
                                     href={route('logout')}
                                     method="post"
                                     as="button"
+                                    onClick={() => localStorage.removeItem('is_logged_in')}
                                     className="p-2 text-gray-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition shrink-0"
                                     title="Log Out"
                                 >
