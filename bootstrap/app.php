@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
             \App\Http\Middleware\IdentifyTenant::class,          // Structural Global Web Middleware
             \App\Http\Middleware\CheckTenantSuspended::class,    // Block suspended tenants (data-safe)
+            \App\Http\Middleware\PreventBackHistory::class,      // No-cache headers: blocks back-button data leak
         ]);
 
         $middleware->api(append: [
