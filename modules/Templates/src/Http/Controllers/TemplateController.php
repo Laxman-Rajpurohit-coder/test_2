@@ -36,46 +36,66 @@ class TemplateController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'language' => 'required|string',
-            'category' => 'required|string|in:MARKETING,UTILITY,AUTHENTICATION',
+            'name'       => 'required|string|max:255',
+            'language'   => 'required|string',
+            'category'   => 'required|string|in:MARKETING,UTILITY,AUTHENTICATION',
             'components' => 'required|array',
         ]);
 
         $tenantId = $this->tenantResolver->getActiveTenantId();
-        
-        // These methods will fail loudly if the tenant has not configured their MSG91 credentials
+
+        // Guard: auth key configured?
         $authKey = $this->tenantResolver->getMsg91AuthKey($tenantId);
         if (!$authKey) {
-            throw new \Exception("MSG91 Auth Key is not configured for this tenant.");
+            return back()->withErrors([
+                'submit' => 'MSG91 Auth Key is not configured. Go to Settings → API Keys and add it before submitting templates.',
+            ]);
         }
-        $number = $this->tenantResolver->getIntegratedNumber($tenantId);
 
-        // 1. Create on MSG91 API
-        $this->msg91Service->create($authKey, $number, [
-            'name' => $validated['name'],
-            'language' => $validated['language'],
-            'category' => $validated['category'],
-            'components' => $validated['components'],
-        ]);
+        // Guard: integrated number registered?
+        try {
+            $number = $this->tenantResolver->getIntegratedNumber($tenantId);
+        } catch (\Exception $e) {
+            return back()->withErrors([
+                'submit' => 'No WhatsApp number is configured for your account. Contact your administrator.',
+            ]);
+        }
 
-        // 2. Save locally (using updateOrCreate to avoid unique constraint crashes if the name already existed but was orphaned/rejected)
+        // Submit to MSG91 — catch API errors and surface them cleanly
+        try {
+            $this->msg91Service->create($authKey, $number, [
+                'name'       => $validated['name'],
+                'language'   => $validated['language'],
+                'category'   => $validated['category'],
+                'components' => $validated['components'],
+            ]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Template store failed for tenant ' . $tenantId, [
+                'error' => $e->getMessage(),
+            ]);
+            return back()->withErrors([
+                'submit' => 'MSG91 rejected the template: ' . $e->getMessage(),
+            ])->withInput();
+        }
+
+        // Save locally (updateOrCreate avoids unique constraint crashes on retries)
         WhatsappTemplate::updateOrCreate(
             [
                 'tenant_id' => $tenantId,
-                'name' => $validated['name'],
-                'language' => $validated['language'],
+                'name'      => $validated['name'],
+                'language'  => $validated['language'],
             ],
             [
-                'category' => $validated['category'],
+                'category'   => $validated['category'],
                 'components' => $validated['components'],
-                'status' => 'pending', // MSG91 creates as pending
-                'synced_at' => now(),
+                'status'     => 'pending',
+                'synced_at'  => now(),
             ]
         );
 
         return redirect()->route('templates.index')->with('success', 'Template submitted for approval.');
     }
+
 
     public function show($id)
     {
