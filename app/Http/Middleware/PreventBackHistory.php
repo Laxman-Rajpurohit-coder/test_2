@@ -32,14 +32,18 @@ class PreventBackHistory
 
         // Only apply to authenticated pages (not login page, not public webhook etc.)
         if (auth()->check() || auth('admin')->check()) {
-            $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0');
-            $response->headers->set('Pragma', 'no-cache');
-            $response->headers->set('Expires', '0');
-            $response->headers->set('Vary', 'Cookie');
+            // Use replace=true to force-override any defaults Laravel already set
+            $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0', true);
+            $response->headers->set('Pragma', 'no-cache', true);
+            // Expires must be set as a raw string — Laravel's DateTimeInterface helper
+            // will silently drop '0'; we bypass that by setting the header directly.
+            $response->headers->remove('Expires');
+            $response->headers->set('Expires', 'Thu, 01 Jan 1970 00:00:00 GMT', true);
+            $response->headers->set('Vary', 'Cookie', true);
 
-            // Disable bfcache in supported browsers (Chrome 96+, Firefox, Safari)
-            // When set, the browser removes this page from its back-forward cache.
-            $response->headers->set('Clear-Site-Data', '"cache"');
+            // Clear-Site-Data: "cache" actively evicts the page from bfcache
+            // in Chrome 96+, Firefox 94+, and Safari 16.4+
+            $response->headers->set('Clear-Site-Data', '"cache"', true);
         }
 
         return $response;
