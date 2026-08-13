@@ -11,7 +11,15 @@ class Contact extends Model
 {
     use HasFactory, HasUuids, BelongsToTenant;
 
-    protected $guarded = [];
+    protected $fillable = [
+        'tenant_id',
+        'phone_number',
+        'name',
+        'email',
+        'custom_fields',
+        'is_subscribed',
+        'assigned_user_id',
+    ];
 
     protected $casts = [
         'custom_fields' => 'array',

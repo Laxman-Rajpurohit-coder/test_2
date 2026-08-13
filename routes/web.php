@@ -25,6 +25,9 @@ if (app()->environment('local') && strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
 // Temporary Auto-Login Route for Automated Browser Testing
 
 
+// Public Website Widget Embed Script
+Route::get('/widget/v1/{tenant_id}.js', [\App\Http\Controllers\WidgetController::class, 'script']);
+
 Route::get('/test-login', function () {
     if (app()->environment('local')) {
         auth()->loginUsingId(9);
@@ -135,6 +138,7 @@ Route::middleware(['auth:web,admin', \App\Http\Middleware\BlockImpersonationWrit
     Route::middleware(['role:owner,admin'])->group(function () {
         Route::get('/settings/tenant', [TenantSettingsController::class, 'edit'])->name('settings.tenant.edit');
         Route::post('/settings/tenant', [TenantSettingsController::class, 'update'])->name('settings.tenant.update');
+        Route::post('/settings/tenant/api-key', [TenantSettingsController::class, 'regenerateApiKey'])->name('settings.tenant.api-key');
         Route::post('/settings/tenant/numbers', [TenantSettingsController::class, 'storeNumber'])->name('settings.tenant.numbers.store');
         Route::delete('/settings/tenant/numbers/{number}', [TenantSettingsController::class, 'destroyNumber'])->name('settings.tenant.numbers.destroy');
     });

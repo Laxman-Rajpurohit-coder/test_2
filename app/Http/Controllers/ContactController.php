@@ -24,9 +24,9 @@ class ContactController extends Controller
             });
         }
         
-        // Cursor pagination for performance on large tables
+        // Standard paginated listing for contacts
         $contacts = $query->with('contactTags')->orderBy('created_at', 'desc')->paginate(50);
-        
+
         $teamMembers = [];
         $user = auth()->user();
         $isOwnerOrAdmin = (method_exists($user, 'isOwner') && $user->isOwner()) || $user instanceof \App\Models\AdminUser;
@@ -63,34 +63,39 @@ class ContactController extends Controller
         ]);
     }
     
-    public function store(Request $request, ContactImportService $importService)
+    public function store(Request $request)
     {
         $validated = $request->validate([
             'name' => 'nullable|string|max:255',
             'phone_number' => 'required|string|max:50',
+            'whatsapp_consent' => 'nullable|boolean',
             'assigned_user_id' => 'nullable|exists:users,id',
         ]);
 
         $tenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
 
-        // Normalize phone number (strips characters, prepends 91 to 10-digit numbers)
-        $normalizedPhone = \App\Support\PhoneNumber::normalize($validated['phone_number']);
-
-        if (empty($normalizedPhone)) {
-            return back()->with('error', 'Invalid phone number provided.');
+        // Enforce tenant ownership of assigned user ID
+        if (!empty($validated['assigned_user_id'])) {
+            \App\Models\User::where('id', $validated['assigned_user_id'])
+                ->where('tenant_id', $tenantId)
+                ->firstOrFail();
         }
 
-        Contact::updateOrCreate(
-            [
-                'tenant_id' => $tenantId,
-                'phone_number' => $normalizedPhone,
-            ],
-            [
+        try {
+            // Delegate single contact creation to unified ContactIngestionService with explicit whatsapp_consent
+            $contact = app(\App\Services\ContactIngestionService::class)->ingest($tenantId, [
+                'phone_number' => $validated['phone_number'],
                 'name' => $validated['name'] ?? null,
-                'assigned_user_id' => $validated['assigned_user_id'] ?? null,
-                'custom_fields' => [], // Ensure valid JSON structure
-            ]
-        );
+                'whatsapp_consent' => $validated['whatsapp_consent'] ?? true,
+                'source' => 'Manual Entry',
+            ]);
+
+            if (!empty($validated['assigned_user_id'])) {
+                $contact->update(['assigned_user_id' => $validated['assigned_user_id']]);
+            }
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()->with('error', 'Invalid phone number provided.');
+        }
 
         return back()->with('success', 'Contact added successfully.');
     }
@@ -98,7 +103,7 @@ class ContactController extends Controller
     public function import(Request $request, ContactImportService $importService)
     {
         $request->validate([
-            'file' => 'required|file|mimes:csv,txt|max:10240', // 10MB max
+            'file' => 'required|file|mimes:csv,txt,xlsx,xls|max:10240', // 10MB max
             'assigned_user_id' => 'nullable|exists:users,id',
         ]);
 
@@ -189,6 +194,16 @@ class ContactController extends Controller
         ]);
         
         $tenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
+
+        // Enforce tenant ownership of tag IDs to prevent cross-tenant tag assignment
+        $validTagIds = \App\Models\ContactTag::where('tenant_id', $tenantId)
+            ->whereIn('id', $validated['tag_ids'])
+            ->pluck('id')
+            ->toArray();
+
+        if (count($validTagIds) !== count(array_unique($validated['tag_ids']))) {
+            abort(403, 'Unauthorized tag selection.');
+        }
         
         $contacts = Contact::where('tenant_id', $tenantId)
             ->whereIn('id', $validated['contact_ids'])
@@ -198,9 +213,9 @@ class ContactController extends Controller
             
         foreach ($contacts as $contact) {
             if ($mode === 'remove') {
-                $contact->contactTags()->detach($validated['tag_ids']);
+                $contact->contactTags()->detach($validTagIds);
             } else {
-                $contact->contactTags()->syncWithoutDetaching($validated['tag_ids']);
+                $contact->contactTags()->syncWithoutDetaching($validTagIds);
             }
         }
         
@@ -324,8 +339,21 @@ class ContactController extends Controller
     {
         $tenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
         $contact = Contact::where('tenant_id', $tenantId)->findOrFail($id);
+
+        $validated = $request->validate([
+            'name' => 'nullable|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'assigned_user_id' => 'nullable|exists:users,id',
+            'custom_fields' => 'nullable|array',
+        ]);
+
+        if (!empty($validated['assigned_user_id'])) {
+            \App\Models\User::where('id', $validated['assigned_user_id'])
+                ->where('tenant_id', $tenantId)
+                ->firstOrFail();
+        }
         
-        $contact->update($request->all());
+        $contact->update($validated);
         
         return response()->json($contact);
     }

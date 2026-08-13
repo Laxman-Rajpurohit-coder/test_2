@@ -7,6 +7,7 @@ use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -26,10 +27,33 @@ class AuthenticatedSessionController extends Controller
 
     /**
      * Handle an incoming authentication request.
+     *
+     * DATA SAFETY: Suspension only blocks access — no data is ever deleted.
+     * Reactivating the tenant instantly restores full access.
      */
     public function store(LoginRequest $request): RedirectResponse
     {
         $request->authenticate();
+
+        // After credentials are verified, check if the tenant is suspended
+        // before completing the login flow.
+        $user = Auth::user();
+        if ($user && !empty($user->tenant_id)) {
+            $tenantStatus = DB::table('tenants')
+                ->where('id', $user->tenant_id)
+                ->value('status');
+
+            if ($tenantStatus === 'suspended') {
+                // Log them back out immediately — session cleared, zero data touched
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                return back()->withErrors([
+                    'email' => 'Your account has been suspended. Please contact support.',
+                ])->onlyInput('email');
+            }
+        }
 
         $request->session()->regenerate();
 

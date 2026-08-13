@@ -11,6 +11,14 @@ class TenantSetting extends Model
 
     protected $fillable = [
         'tenant_id',
+        'public_api_key',
+        'public_api_key_last_four',
+        'widget_title',
+        'widget_welcome_msg',
+        'widget_color',
+        'widget_position',
+        'widget_auto_redirect_wa',
+        'widget_target_phone',
         'msg91_auth_key',
         'openai_api_key',
         'grok_api_key',

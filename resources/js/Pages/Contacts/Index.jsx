@@ -374,7 +374,7 @@ export default function ContactsIndex({ contacts, teamMembers = [], allTags = []
                         onClick={() => setImportModalOpen(true)}
                         className="px-4 py-2 bg-white text-gray-700 rounded-lg font-bold shadow-sm transition border border-gray-200 hover:bg-gray-50 text-sm"
                     >
-                        Import CSV
+                        Import CSV/Excel
                     </button>
                     <button 
                         onClick={() => setAddContactModalOpen(true)}
@@ -515,19 +515,19 @@ export default function ContactsIndex({ contacts, teamMembers = [], allTags = []
                         <div className="mb-4 text-sm text-gray-600 bg-blue-50 p-3 rounded-lg border border-blue-100">
                             <p><strong>Requirements:</strong></p>
                             <ul className="list-disc ml-5 mt-1 space-y-1">
-                                <li>CSV format only</li>
+                                <li>CSV or Excel (.xlsx) format</li>
                                 <li>Must include a <code>phone_number</code> header</li>
-                                <li>Optional: <code>name</code>, <code>email</code></li>
+                                <li>Optional: <code>name</code>, <code>email</code>, <code>whatsapp_consent</code></li>
                                 <li>All other headers become custom fields</li>
                             </ul>
                         </div>
 
                         <form onSubmit={handleImport} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Select CSV File</label>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Select File</label>
                                 <input 
                                     type="file" 
-                                    accept=".csv"
+                                    accept=".csv, .xlsx, .xls"
                                     onChange={e => setData('file', e.target.files[0])}
                                     className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-[#00a884] hover:file:bg-emerald-100 transition"
                                 />

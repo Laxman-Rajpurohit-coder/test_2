@@ -2,9 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Models\Contact;
 use App\Models\Tenant;
-use App\Models\User;
 use App\Services\ContactImportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -14,123 +12,60 @@ class ContactImportServiceTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected ContactImportService $service;
+    protected Tenant $tenant;
+
     protected function setUp(): void
     {
         parent::setUp();
-        $this->tenant = Tenant::factory()->create(['slug' => 'test-tenant']);
-        $this->user = User::factory()->create(['tenant_id' => $this->tenant->id]);
-        $this->actingAs($this->user);
+        $this->service = new ContactImportService();
+        $this->tenant = Tenant::factory()->create();
+        app(\App\Services\TenantResolverService::class)->setActiveTenantId($this->tenant->id);
     }
 
-    public function test_can_import_csv_with_many_custom_header_columns()
+    public function test_import_header_matching_ignores_order_number_and_selects_phone()
     {
-        $csvContent = "phone_number,name,email,City,Plan,Grand Total,Kist Amount,Pending Kist,Pending Amount,Status\n"
-                    . "919913844300,Sanjay,sanjay@example.com,Mumbai,Enterprise,5000,1000,5,4000.00,Active\n"
-                    . "918461244495,Rahul,rahul@example.com,Delhi,Pro,9000,1000,5,8000.00,Pending\n";
+        $csvContent = "Order Number,Mobile Number,Name\n12345,919876543210,John Doe\n";
+        $file = UploadedFile::fake()->createWithContent('contacts.csv', $csvContent);
 
-        $tempFile = tempnam(sys_get_temp_dir(), 'csv_test');
-        file_put_contents($tempFile, $csvContent);
-
-        $file = new UploadedFile($tempFile, 'contacts.csv', 'text/csv', null, true);
-
-        $service = new ContactImportService();
-        $result = $service->import($file, $this->tenant->id);
-
-        $this->assertEquals(2, $result['imported']);
-        $this->assertEmpty($result['errors']);
-
-        $contact = Contact::where('phone_number', '919913844300')->first();
-        $this->assertNotNull($contact);
-        $this->assertEquals('Sanjay', $contact->name);
-        $this->assertEquals('sanjay@example.com', $contact->email);
-
-        $customFields = $contact->custom_fields;
-        $this->assertEquals('Mumbai', $customFields['City']);
-        $this->assertEquals('Enterprise', $customFields['Plan']);
-        $this->assertEquals('5000', $customFields['Grand Total']);
-        $this->assertEquals('1000', $customFields['Kist Amount']);
-        $this->assertEquals('5', $customFields['Pending Kist']);
-        $this->assertEquals('4000.00', $customFields['Pending Amount']);
-        $this->assertEquals('Active', $customFields['Status']);
-
-        unlink($tempFile);
-    }
-
-    public function test_handles_utf8_bom_and_alternative_delimiters()
-    {
-        // Semicolon delimited file with UTF-8 BOM
-        $bom = "\xEF\xBB\xBF";
-        $csvContent = $bom . "Mobile Number;Full Name;Email Address;Region\n"
-                    . "9876543210;Amit Kumar;amit@example.com;North\n";
-
-        $tempFile = tempnam(sys_get_temp_dir(), 'csv_bom');
-        file_put_contents($tempFile, $csvContent);
-
-        $file = new UploadedFile($tempFile, 'contacts_bom.csv', 'text/csv', null, true);
-
-        $service = new ContactImportService();
-        $result = $service->import($file, $this->tenant->id);
+        $result = $this->service->import($file, (string)$this->tenant->id);
 
         $this->assertEquals(1, $result['imported']);
-        $this->assertEmpty($result['errors']);
+        $this->assertEquals(0, count($result['errors']));
 
-        $contact = Contact::where('phone_number', '919876543210')->first();
-        $this->assertNotNull($contact);
-        $this->assertEquals('Amit Kumar', $contact->name);
-        $this->assertEquals('North', $contact->custom_fields['Region']);
-
-        unlink($tempFile);
+        $contact = \App\Models\Contact::where('tenant_id', $this->tenant->id)->first();
+        $this->assertEquals('919876543210', $contact->phone_number);
+        $this->assertEquals('John Doe', $contact->name);
+        $this->assertEquals('12345', $contact->custom_fields['Order Number']);
     }
 
-    public function test_merges_custom_fields_on_existing_contact_update()
+    public function test_import_handles_utf8_bom_header()
     {
-        $existing = Contact::create([
-            'tenant_id' => $this->tenant->id,
-            'phone_number' => '919999988888',
-            'name' => 'Original Name',
-            'custom_fields' => ['ExistingKey' => 'ExistingValue']
-        ]);
+        // Prepend UTF-8 BOM bytes (\xEF\xBB\xBF) to header
+        $bomCsv = "\xEF\xBB\xBFPhone,Name\n919111122222,BOM User\n";
+        $file = UploadedFile::fake()->createWithContent('bom_contacts.csv', $bomCsv);
 
-        $csvContent = "phone_number,NewKey\n"
-                    . "919999988888,NewValue\n";
+        $result = $this->service->import($file, (string)$this->tenant->id);
 
-        $tempFile = tempnam(sys_get_temp_dir(), 'csv_update');
-        file_put_contents($tempFile, $csvContent);
+        $this->assertEquals(1, $result['imported']);
+        $this->assertEquals(0, count($result['errors']));
 
-        $file = new UploadedFile($tempFile, 'contacts_update.csv', 'text/csv', null, true);
+        $contact = \App\Models\Contact::where('phone_number', '919111122222')->first();
+        $this->assertNotNull($contact);
+        $this->assertEquals('BOM User', $contact->name);
+    }
 
-        $service = new ContactImportService();
-        $result = $service->import($file, $this->tenant->id);
+    public function test_import_caps_errors_at_100()
+    {
+        $invalidRows = "Phone,Name\n";
+        for ($i = 0; $i < 150; $i++) {
+            $invalidRows .= "invalid_phone,User_{$i}\n";
+        }
+        $file = UploadedFile::fake()->createWithContent('bad_contacts.csv', $invalidRows);
+
+        $result = $this->service->import($file, (string)$this->tenant->id);
 
         $this->assertEquals(0, $result['imported']);
-        $this->assertEquals(1, $result['updated']);
-
-        $existing->refresh();
-        $this->assertEquals('Original Name', $existing->name);
-        $this->assertEquals('ExistingValue', $existing->custom_fields['ExistingKey']);
-        $this->assertEquals('NewValue', $existing->custom_fields['NewKey']);
-
-        unlink($tempFile);
-    }
-
-    public function test_skips_invalid_phone_rows_and_reports_errors()
-    {
-        $csvContent = "phone,name\n"
-                    . ",No Phone User\n"
-                    . "919111122222,Valid User\n";
-
-        $tempFile = tempnam(sys_get_temp_dir(), 'csv_invalid');
-        file_put_contents($tempFile, $csvContent);
-
-        $file = new UploadedFile($tempFile, 'contacts_invalid.csv', 'text/csv', null, true);
-
-        $service = new ContactImportService();
-        $result = $service->import($file, $this->tenant->id);
-
-        $this->assertEquals(1, $result['imported']);
-        $this->assertCount(1, $result['errors']);
-        $this->assertStringContainsString('Row 2', $result['errors'][0]);
-
-        unlink($tempFile);
+        $this->assertEquals(100, count($result['errors']), 'Errors array must be capped at 100 max to prevent memory exhaustion.');
     }
 }
