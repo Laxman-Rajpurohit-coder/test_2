@@ -51,12 +51,14 @@ class ProcessMsg91Webhook implements ShouldQueue
                         }
                         
                         if (!empty($updateData)) {
-                            \App\Models\WhatsappTemplate::where('name', $templateName)
+                            \App\Models\WhatsappTemplate::withoutGlobalScopes()
+                                ->where('name', $templateName)
                                 ->where('language', $language)
                                 ->update($updateData);
                             
                             \Illuminate\Support\Facades\Log::info("MSG91 Webhook: Updated Template '{$templateName}'", $updateData);
                         }
+
                     }
                 }
                 return; // Stop processing further for template webhooks
