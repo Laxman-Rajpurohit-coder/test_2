@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\WhatsappMessage;
+use App\Models\Message;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
@@ -13,10 +13,10 @@ class MessageLogController extends Controller
     {
         $tenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
 
-        $query = WhatsappMessage::query()
-            ->join('conversations', 'whatsapp_messages.conversation_id', '=', 'conversations.id')
+        $query = Message::query()
+            ->join('conversations', 'messages.conversation_id', '=', 'conversations.id')
             ->where('conversations.tenant_id', $tenantId)
-            ->select('whatsapp_messages.*', 'conversations.customer_number');
+            ->select('messages.*', 'conversations.customer_number');
 
         // RBAC: Members only see logs for conversations with contacts assigned to them
         if (auth()->user() && method_exists(auth()->user(), 'isMember') && auth()->user()->isMember()) {
@@ -30,22 +30,22 @@ class MessageLogController extends Controller
         }
 
         if ($request->filled('status')) {
-            $query->where('whatsapp_messages.status', $request->status);
+            $query->where('messages.status', $request->status);
         }
         
         if ($request->filled('direction')) {
-            $query->where('whatsapp_messages.direction', $request->direction);
+            $query->where('messages.direction', $request->direction);
         }
         
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('conversations.customer_number', 'like', "%{$search}%")
-                  ->orWhere('whatsapp_messages.id', 'like', "%{$search}%");
+                  ->orWhere('messages.id', 'like', "%{$search}%");
             });
         }
 
-        $logs = $query->orderBy('whatsapp_messages.created_at', 'desc')->paginate(50)->withQueryString();
+        $logs = $query->orderBy('messages.created_at', 'desc')->paginate(50)->withQueryString();
 
         return Inertia::render('Logs/Index', [
             'logs' => $logs,

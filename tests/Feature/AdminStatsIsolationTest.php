@@ -6,7 +6,7 @@ use App\Models\AdminUser;
 use App\Models\Conversation;
 use App\Models\Tenant;
 use App\Models\User;
-use App\Models\WhatsappMessage;
+use App\Models\Message;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -26,7 +26,7 @@ class AdminStatsIsolationTest extends TestCase
             'customer_number' => '1234567890',
         ]);
         
-        WhatsappMessage::create([
+        Message::create([
             'id' => \Illuminate\Support\Str::uuid()->toString(),
             'tenant_id' => $tenantA->id,
             'conversation_id' => $convA->id,
@@ -35,7 +35,7 @@ class AdminStatsIsolationTest extends TestCase
             'content' => json_encode(['type' => 'text', 'text' => 'Hello Tenant A']),
         ]);
 
-        WhatsappMessage::create([
+        Message::create([
             'id' => \Illuminate\Support\Str::uuid()->toString(),
             'tenant_id' => $tenantA->id,
             'conversation_id' => $convA->id,

@@ -31,9 +31,11 @@ class AppServiceProvider extends ServiceProvider
 
         Vite::prefetch(concurrency: 3);
 
-        // Register Core Keyword Bot Responder into Pipeline (Priority 50)
+        // Register Core Bot Responders into Pipeline
         $pipeline = $this->app->make(BotResponderPipeline::class);
-        $pipeline->register($this->app->make(KeywordBotResponder::class), 50);
+        $pipeline->register($this->app->make(\App\Responders\FirstMessageResponder::class), 20);
+        $pipeline->register($this->app->make(\App\Responders\KeywordBotResponder::class), 50);
+        $pipeline->register($this->app->make(\App\Responders\FallbackInteractiveResponder::class), 80);
 
         \Illuminate\Support\Facades\RateLimiter::for('public-api', function (\Illuminate\Http\Request $request) {
             $token = $request->bearerToken();

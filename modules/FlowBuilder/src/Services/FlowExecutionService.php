@@ -5,7 +5,7 @@ namespace Modules\FlowBuilder\Services;
 use App\Events\MessageReceived;
 use App\Jobs\SendMsg91Message;
 use App\Models\Conversation;
-use App\Models\WhatsappMessage;
+use App\Models\Message;
 use App\Services\Msg91PayloadBuilder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;

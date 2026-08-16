@@ -59,9 +59,21 @@ class TenantResolverService
     public function getTenantNumberRecord(string $integratedNumber): ?object
     {
         $cleanNumber = trim($integratedNumber);
+        $normalized = \App\Support\PhoneNumber::normalize($cleanNumber);
+        $digitsOnly = preg_replace('/[^0-9]/', '', $cleanNumber);
+        $last10 = substr($digitsOnly, -10);
 
         $record = DB::table('tenant_numbers')
-            ->where('integrated_number', $cleanNumber)
+            ->where(function ($query) use ($cleanNumber, $normalized, $digitsOnly, $last10) {
+                $query->where('integrated_number', $cleanNumber)
+                      ->orWhere('integrated_number', $normalized)
+                      ->orWhere('integrated_number', $digitsOnly);
+                if (strlen($last10) === 10) {
+                    $query->orWhere('integrated_number', $last10)
+                          ->orWhere('integrated_number', '91' . $last10)
+                          ->orWhere('integrated_number', '+91' . $last10);
+                }
+            })
             ->first();
 
         if ($record) {

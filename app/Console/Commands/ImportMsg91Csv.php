@@ -86,10 +86,10 @@ class ImportMsg91Csv extends Command
                 }
 
                 // Insert Message if hash doesn't exist (DEDUPLICATION)
-                $exists = DB::table('whatsapp_messages')->where('import_hash', $importHash)->exists();
+                $exists = DB::table('messages')->where('import_hash', $importHash)->exists();
                 
                 if (!$exists) {
-                    DB::table('whatsapp_messages')->insert([
+                    DB::table('messages')->insert([
                         'id' => Str::uuid()->toString(),
                         'conversation_id' => $conversationId,
                         'import_hash' => $importHash,

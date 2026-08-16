@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Events\MessageReceived;
 use App\Jobs\SendMsg91Message;
 use App\Models\Conversation;
-use App\Models\WhatsappMessage;
+use App\Models\Message;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -29,7 +29,7 @@ class OutboundReplyService
         return DB::transaction(function () use ($conversationId, $tenantId, $contentStruct, $msg91Payload, $delaySeconds) {
             $outboundMessageId = Str::uuid()->toString();
 
-            $outboundMessage = WhatsappMessage::create([
+            $outboundMessage = Message::create([
                 'id'               => $outboundMessageId,
                 'tenant_id'        => $tenantId,
                 'conversation_id'  => $conversationId,

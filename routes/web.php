@@ -28,6 +28,12 @@ if (app()->environment('local') && strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
 // Public Website Widget Embed Script
 Route::get('/widget/v1/{tenant_id}.js', [\App\Http\Controllers\WidgetController::class, 'script']);
 
+// Meta (Facebook & Instagram) Webhooks (Public with Rate Limiting)
+Route::middleware(['throttle:120,1'])->group(function () {
+    Route::get('/webhooks/meta', [\App\Http\Controllers\MetaWebhookController::class, 'verify'])->name('webhooks.meta.verify');
+    Route::post('/webhooks/meta', [\App\Http\Controllers\MetaWebhookController::class, 'handle'])->name('webhooks.meta.handle');
+});
+
 Route::get('/test-login', function () {
     if (app()->environment('local')) {
         auth()->loginUsingId(9);
@@ -79,13 +85,22 @@ Route::middleware(['auth:web,admin', \App\Http\Middleware\BlockImpersonationWrit
         return Inertia::render('ComingSoon');
     })->name('coming-soon');
 
-    // Chat Application Routes (Inbox)
-    Route::get('/chat', [ChatController::class, 'view'])->name('chat');
+    // Chat Application Routes (Inbox per Channel)
+    Route::get('/chat', fn() => redirect('/chat/whatsapp'))->name('chat');
+    Route::get('/chat/{channel}', [ChatController::class, 'view'])->name('chat.channel')->where('channel', 'whatsapp|facebook|instagram|all');
     Route::get('/api/conversations', [ChatController::class, 'index'])->name('api.conversations.index');
     Route::post('/api/conversations/{id}/read', [ChatController::class, 'markAsRead'])->name('api.conversations.read');
     Route::get('/api/conversations/{id}/messages', [ChatController::class, 'show'])->name('api.conversations.show');
     Route::post('/api/conversations/{id}/messages', [ChatController::class, 'store']);
     Route::post('/api/conversations/{id}/media', [ChatController::class, 'storeMedia']);
+    Route::post('/api/conversations/{id}/meta-message', [\App\Http\Controllers\MetaWebhookController::class, 'send'])->name('api.conversations.meta-message');
+    Route::post('/api/conversations/bulk-delete', [ChatController::class, 'bulkDelete'])->name('api.conversations.bulk-delete');
+
+    // Customer Tasks & Reminders
+    Route::get('/api/conversations/{id}/tasks', [\App\Http\Controllers\CustomerTaskController::class, 'index'])->name('api.conversations.tasks');
+    Route::post('/tasks', [\App\Http\Controllers\CustomerTaskController::class, 'store'])->name('tasks.store');
+    Route::patch('/tasks/{id}/status', [\App\Http\Controllers\CustomerTaskController::class, 'updateStatus'])->name('tasks.status');
+    Route::delete('/tasks/{id}', [\App\Http\Controllers\CustomerTaskController::class, 'destroy'])->name('tasks.destroy');
 
     // Automated Bot Trigger Routes (requires bot_auto_responder feature)
     Route::middleware(['feature:bot_auto_responder', 'role:owner,admin'])->group(function () {
@@ -112,6 +127,9 @@ Route::middleware(['auth:web,admin', \App\Http\Middleware\BlockImpersonationWrit
         Route::post('/contacts/quick-send', [\App\Http\Controllers\ContactController::class, 'quickSend'])
             ->name('contacts.quick-send');
             
+        Route::post('/contacts/bulk-delete', [\App\Http\Controllers\ContactController::class, 'bulkDelete'])
+            ->name('contacts.bulk-delete');
+
         Route::apiResource('contact-tags', \App\Http\Controllers\ContactTagController::class);
             
         Route::get('/contacts', [\App\Http\Controllers\ContactController::class, 'index'])->name('contacts.index');

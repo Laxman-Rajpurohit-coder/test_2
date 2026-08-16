@@ -7,7 +7,7 @@ use App\Models\ContactTag;
 use App\Models\Conversation;
 use App\Models\Tenant;
 use App\Models\User;
-use App\Models\WhatsappMessage;
+use App\Models\Message;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -48,7 +48,7 @@ class ContactProfileTest extends TestCase
             'last_message_at' => now(),
         ]);
 
-        WhatsappMessage::create([
+        Message::create([
             'id' => (string) \Illuminate\Support\Str::uuid(),
             'tenant_id' => $tenant->id,
             'conversation_id' => $conversation->id,

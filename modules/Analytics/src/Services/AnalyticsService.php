@@ -4,7 +4,7 @@ namespace Modules\Analytics\Services;
 
 use App\Models\BotTrigger;
 use App\Models\Conversation;
-use App\Models\WhatsappMessage;
+use App\Models\Message;
 use DateTimeZone;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -47,8 +47,8 @@ class AnalyticsService
             return $query;
         };
 
-        // Base Eloquent Query Builder for whatsapp_messages inside date range
-        $messagesQuery = $applyTenantScope(WhatsappMessage::query())
+        // Base Eloquent Query Builder for messages inside date range
+        $messagesQuery = $applyTenantScope(Message::query())
             ->whereBetween('created_at', [$startUtc, $endUtc]);
 
         $totalConversations = $applyTenantScope(Conversation::query())
@@ -89,7 +89,7 @@ class AnalyticsService
             
         $bindingsDay = $isSqlite ? [] : [$timezone];
 
-        $messagesPerDay = $applyTenantScope(WhatsappMessage::query())
+        $messagesPerDay = $applyTenantScope(Message::query())
             ->selectRaw(
                 "$dateSelect, " .
                 "COUNT(CASE WHEN direction = 'inbound' THEN 1 END) as inbound, " .
@@ -116,7 +116,7 @@ class AnalyticsService
 
         $bindingsHour = $isSqlite ? [] : [$timezone];
 
-        $busiestHoursRaw = $applyTenantScope(WhatsappMessage::query())
+        $busiestHoursRaw = $applyTenantScope(Message::query())
             ->selectRaw("$hourSelect, COUNT(*) as count", $bindingsHour)
             ->whereBetween('created_at', [$startUtc, $endUtc])
             ->groupByRaw("1")
@@ -143,13 +143,13 @@ class AnalyticsService
         $avgResponse = DB::select("
             WITH first_inbound AS (
                 SELECT conversation_id, MIN(created_at) as first_inbound_at
-                FROM whatsapp_messages
+                FROM messages
                 WHERE tenant_id = ? AND direction = 'inbound' AND created_at BETWEEN ? AND ?
                 GROUP BY conversation_id
             ),
             first_outbound AS (
                 SELECT m.conversation_id, MIN(m.created_at) as first_outbound_at
-                FROM whatsapp_messages m
+                FROM messages m
                 JOIN first_inbound fi ON m.conversation_id = fi.conversation_id
                 WHERE m.tenant_id = ? AND m.direction = 'outbound' AND m.created_at >= fi.first_inbound_at
                 GROUP BY m.conversation_id
@@ -164,7 +164,7 @@ class AnalyticsService
             : null;
 
         // 4. Recent Activity Stream
-        $recentMessages = $applyTenantScope(WhatsappMessage::with('conversation'))
+        $recentMessages = $applyTenantScope(Message::with('conversation'))
             ->orderBy('created_at', 'desc')
             ->take(6)
             ->get()

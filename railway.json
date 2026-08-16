@@ -5,7 +5,7 @@
   },
   "deploy": {
     "startCommand": "/usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf",
-    "releaseCommand": "php artisan migrate --force",
+    "releaseCommand": "php artisan migrate --force && php artisan tenant:clear-meta-credentials",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }

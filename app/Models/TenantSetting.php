@@ -30,10 +30,20 @@ class TenantSetting extends Model
         'ai_is_active',
         'ai_human_escalation_enabled',
         'ai_confidence_threshold',
+        'meta_phone_number_id',
+        'meta_access_token',
+        'meta_waba_id',
+        'facebook_page_id',
+        'instagram_account_id',
+        'meta_app_secret',
+        'meta_webhook_verify_token',
     ];
 
+
     /**
-     * Native Encrypted Casts: Secret API keys are encrypted at rest using APP_KEY.
+     * Encrypted at rest via hand-written accessors using Laravel's encrypt()/decrypt() helpers.
+     * Note: $casts does NOT use the native 'encrypted' cast — the manual accessors include
+     * a DecryptException catch that silently returns null on key rotation, which is intentional.
      */
     protected $casts = [
         'ai_is_active' => 'boolean',
@@ -95,6 +105,34 @@ class TenantSetting extends Model
     public function setGrokApiKeyAttribute($value)
     {
         $this->attributes['grok_api_key'] = $value ? encrypt($value) : null;
+    }
+
+    public function getMetaAppSecretAttribute($value)
+    {
+        try {
+            return $value ? decrypt($value) : null;
+        } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+            return null;
+        }
+    }
+
+    public function setMetaAppSecretAttribute($value)
+    {
+        $this->attributes['meta_app_secret'] = $value ? encrypt($value) : null;
+    }
+
+    public function getMetaWebhookVerifyTokenAttribute($value)
+    {
+        try {
+            return $value ? decrypt($value) : null;
+        } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+            return null;
+        }
+    }
+
+    public function setMetaWebhookVerifyTokenAttribute($value)
+    {
+        $this->attributes['meta_webhook_verify_token'] = $value ? encrypt($value) : null;
     }
 
     public function tenant()

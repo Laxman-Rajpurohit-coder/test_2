@@ -30,12 +30,22 @@ class SendMsg91Message implements ShouldQueue
 
     public function handle(): void
     {
+        // 0. Safety Net: If this is an internal reminder/note, do NOT transmit out to MSG91/customer
+        $isInternal = DB::table('messages')->where('id', $this->messageId)->value('is_internal');
+        if ($isInternal) {
+            Log::info("SendMsg91Message: Skipping outbound transmit for internal message ID: {$this->messageId}");
+            DB::table('messages')
+                ->where('id', $this->messageId)
+                ->update(['status' => 'sent']); // Mark sent locally so UI knows it's processed
+            return;
+        }
+
         // 1. Fail-closed check: Ensure conversation and tenant_id exist
         $tenantId = DB::table('conversations')->where('id', $this->conversationId)->value('tenant_id');
 
         if (!$tenantId) {
             Log::error("SendMsg91Message: Conversation ID {$this->conversationId} not found or missing tenant_id. Aborting dispatch.");
-            DB::table('whatsapp_messages')
+            DB::table('messages')
                 ->where('id', $this->messageId)
                 ->update(['status' => 'failed', 'failure_reason' => 'Conversation or tenant_id not found']);
             return;
@@ -49,7 +59,7 @@ class SendMsg91Message implements ShouldQueue
 
         if (!$authKey) {
             Log::error("SendMsg91Message: No MSG91 Auth Key configured for Tenant ID {$tenantId}. Failing outbound send.");
-            DB::table('whatsapp_messages')
+            DB::table('messages')
                 ->where('id', $this->messageId)
                 ->update(['status' => 'failed', 'failure_reason' => 'MSG91 Auth Key not configured for tenant']);
             return;
@@ -76,7 +86,7 @@ class SendMsg91Message implements ShouldQueue
 
         if ($response->clientError()) {
             // Permanent 4xx client error (bad number, bad auth key): Atomic SQL update only if rank < 1.5
-            DB::table('whatsapp_messages')
+            DB::table('messages')
                 ->where('id', $this->messageId)
                 ->whereRaw("{$rankSql} < 1.5")
                 ->update([
@@ -90,7 +100,7 @@ class SendMsg91Message implements ShouldQueue
             $messageUuid = $responseData['data']['message_uuid'] ?? $responseData['request_id'] ?? null;
 
             // Atomic SQL update: set status = 'sent' ONLY if current rank < 2 (prevent stomping delivered/read)
-            DB::table('whatsapp_messages')
+            DB::table('messages')
                 ->where('id', $this->messageId)
                 ->whereRaw("{$rankSql} < 2")
                 ->update([
@@ -100,13 +110,13 @@ class SendMsg91Message implements ShouldQueue
                 ]);
 
             if ($messageUuid) {
-                DB::table('whatsapp_messages')
+                DB::table('messages')
                     ->where('id', $this->messageId)
                     ->update(['request_id' => $messageUuid]);
             }
         }
 
-        $updatedMessage = DB::table('whatsapp_messages')->find($this->messageId);
+        $updatedMessage = DB::table('messages')->find($this->messageId);
         
         try {
             broadcast(new MessageReceived($this->conversationId, $updatedMessage))->toOthers();
@@ -124,7 +134,7 @@ class SendMsg91Message implements ShouldQueue
 
         $rankSql = "CASE status WHEN 'received' THEN 0 WHEN 'queued' THEN 1 WHEN 'failed' THEN 1.5 WHEN 'sent' THEN 2 WHEN 'delivered' THEN 3 WHEN 'read' THEN 4 ELSE 0 END";
 
-        DB::table('whatsapp_messages')
+        DB::table('messages')
             ->where('id', $this->messageId)
             ->whereRaw("{$rankSql} < 1.5")
             ->update([
@@ -133,7 +143,7 @@ class SendMsg91Message implements ShouldQueue
                 'updated_at'     => now(),
             ]);
 
-        $updatedMessage = DB::table('whatsapp_messages')->find($this->messageId);
+        $updatedMessage = DB::table('messages')->find($this->messageId);
 
         try {
             broadcast(new MessageReceived($this->conversationId, $updatedMessage))->toOthers();

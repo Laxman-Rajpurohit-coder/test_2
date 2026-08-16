@@ -31,6 +31,13 @@ class TenantCredentialController extends Controller
             'grok_api_key' => $mask($setting->grok_api_key ?? ''),
             'gemini_api_key' => $mask($setting->gemini_api_key ?? ''),
             'flowise_endpoint' => $setting->flowise_endpoint ?? '',
+            'meta_phone_number_id' => $setting->meta_phone_number_id ?? '',
+            'meta_access_token' => $mask($setting->meta_access_token ?? ''),
+            'meta_waba_id' => $setting->meta_waba_id ?? '',
+            'facebook_page_id' => $setting->facebook_page_id ?? '',
+            'instagram_account_id' => $setting->instagram_account_id ?? '',
+            'meta_app_secret' => $mask($setting->meta_app_secret ?? ''),
+            'meta_webhook_verify_token' => $mask($setting->meta_webhook_verify_token ?? ''),
         ]);
     }
 
@@ -45,15 +52,29 @@ class TenantCredentialController extends Controller
             'grok_api_key' => 'nullable|string',
             'gemini_api_key' => 'nullable|string',
             'flowise_endpoint' => 'nullable|url',
+            'meta_phone_number_id' => 'nullable|string',
+            'meta_access_token' => 'nullable|string',
+            'meta_waba_id' => 'nullable|string',
+            'facebook_page_id' => 'nullable|string',
+            'instagram_account_id' => 'nullable|string',
+            'meta_app_secret' => 'nullable|string',
+            'meta_webhook_verify_token' => 'nullable|string',
         ]);
 
-        // Explicitly extract ONLY the 5 credential keys from the request
+        // Explicitly extract credential keys from the request
         $credentials = $request->only([
             'msg91_auth_key',
             'openai_api_key',
             'grok_api_key',
             'gemini_api_key',
             'flowise_endpoint',
+            'meta_phone_number_id',
+            'meta_access_token',
+            'meta_waba_id',
+            'facebook_page_id',
+            'instagram_account_id',
+            'meta_app_secret',
+            'meta_webhook_verify_token',
         ]);
 
         $setting = TenantSetting::firstOrNew(['tenant_id' => $tenant->id]);
@@ -71,10 +92,31 @@ class TenantCredentialController extends Controller
         if (array_key_exists('gemini_api_key', $credentials) && !empty($credentials['gemini_api_key']) && !str_contains($credentials['gemini_api_key'], '••••')) {
             $setting->gemini_api_key = $credentials['gemini_api_key'];
         }
+        if (array_key_exists('meta_access_token', $credentials) && !empty($credentials['meta_access_token']) && !str_contains($credentials['meta_access_token'], '••••')) {
+            $setting->meta_access_token = $credentials['meta_access_token'];
+        }
+        if (array_key_exists('meta_app_secret', $credentials) && !empty($credentials['meta_app_secret']) && !str_contains($credentials['meta_app_secret'], '••••')) {
+            $setting->meta_app_secret = $credentials['meta_app_secret'];
+        }
+        if (array_key_exists('meta_webhook_verify_token', $credentials) && !empty($credentials['meta_webhook_verify_token']) && !str_contains($credentials['meta_webhook_verify_token'], '••••')) {
+            $setting->meta_webhook_verify_token = $credentials['meta_webhook_verify_token'];
+        }
         
-        // Flowise endpoint is a URL, not masked
+        // Unmasked string IDs and URLs
         if (array_key_exists('flowise_endpoint', $credentials)) {
             $setting->flowise_endpoint = $credentials['flowise_endpoint'];
+        }
+        if (array_key_exists('meta_phone_number_id', $credentials)) {
+            $setting->meta_phone_number_id = $credentials['meta_phone_number_id'];
+        }
+        if (array_key_exists('meta_waba_id', $credentials)) {
+            $setting->meta_waba_id = $credentials['meta_waba_id'];
+        }
+        if (array_key_exists('facebook_page_id', $credentials)) {
+            $setting->facebook_page_id = $credentials['facebook_page_id'];
+        }
+        if (array_key_exists('instagram_account_id', $credentials)) {
+            $setting->instagram_account_id = $credentials['instagram_account_id'];
         }
 
         $setting->save();

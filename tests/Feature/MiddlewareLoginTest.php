@@ -54,4 +54,39 @@ class MiddlewareLoginTest extends TestCase
         $response->assertStatus(200);
         $this->assertStringContainsString('inertia', $response->content());
     }
+
+    public function test_chat_channel_pages_load_cleanly()
+    {
+        $tenant = \App\Models\Tenant::create([
+            'name' => 'Chat Tenant',
+            'slug' => 'chat-tenant',
+            'status' => 'active'
+        ]);
+
+        $user = new User([
+            'name' => 'Chat User',
+            'email' => 'chat@example.com',
+            'password' => bcrypt('password'),
+        ]);
+        $user->tenant_id = $tenant->id;
+        $user->save();
+
+        // Test /chat redirects to /chat/whatsapp
+        $this->actingAs($user)->get('/chat')->assertRedirect('/chat/whatsapp');
+
+        // Test /chat/whatsapp loads 200
+        $resWa = $this->actingAs($user)->get('/chat/whatsapp');
+        $resWa->assertStatus(200);
+        $resWa->assertInertia(fn ($page) => $page->component('Chat/Index')->where('currentChannel', 'whatsapp'));
+
+        // Test /chat/facebook loads 200
+        $resFb = $this->actingAs($user)->get('/chat/facebook');
+        $resFb->assertStatus(200);
+        $resFb->assertInertia(fn ($page) => $page->component('Chat/Index')->where('currentChannel', 'facebook'));
+
+        // Test /chat/instagram loads 200
+        $resIg = $this->actingAs($user)->get('/chat/instagram');
+        $resIg->assertStatus(200);
+        $resIg->assertInertia(fn ($page) => $page->component('Chat/Index')->where('currentChannel', 'instagram'));
+    }
 }
