@@ -15,23 +15,10 @@ return new class extends Migration
             return;
         }
 
-        // 1️⃣ Drop foreign key constraint (fallback if doctrine/dbal not installed)
-        Schema::table('customer_tasks', function (Blueprint $table) {
-            try {
-                $table->dropForeign(['conversation_id']);
-            } catch (\Exception $e) {
-                // If the foreign key does not exist or DBAL not present, ignore
-            }
-        });
+        // Drop column and any associated constraints in Postgres/SQLite safely
+        \Illuminate\Support\Facades\DB::statement('ALTER TABLE customer_tasks DROP COLUMN IF EXISTS conversation_id CASCADE');
 
-        // 2️⃣ Drop the existing column (uuid)
-        Schema::table('customer_tasks', function (Blueprint $table) {
-            if (Schema::hasColumn('customer_tasks', 'conversation_id')) {
-                $table->dropColumn('conversation_id');
-            }
-        });
-
-        // 3️⃣ Re‑add the column as a foreignId (bigint) referencing conversations.id
+        // Re-add as foreignId referencing conversations(id)
         Schema::table('customer_tasks', function (Blueprint $table) {
             $table->foreignId('conversation_id')
                   ->nullable()
