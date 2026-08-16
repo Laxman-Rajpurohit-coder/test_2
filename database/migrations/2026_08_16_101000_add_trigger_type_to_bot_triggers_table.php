@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('bot_triggers', function (Blueprint $table) {
-            $table->string('trigger_type')->default('keyword')->after('tenant_id');
-        });
+        if (Schema::hasTable('bot_triggers') && !Schema::hasColumn('bot_triggers', 'trigger_type')) {
+            Schema::table('bot_triggers', function (Blueprint $table) {
+                $table->string('trigger_type')->default('keyword')->after('tenant_id');
+            });
+        }
     }
 
     /**
@@ -21,8 +23,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('bot_triggers', function (Blueprint $table) {
-            $table->dropColumn('trigger_type');
-        });
+        if (Schema::hasTable('bot_triggers') && Schema::hasColumn('bot_triggers', 'trigger_type')) {
+            Schema::table('bot_triggers', function (Blueprint $table) {
+                $table->dropColumn('trigger_type');
+            });
+        }
     }
 };

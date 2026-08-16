@@ -8,15 +8,27 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('conversations', function (Blueprint $table) {
-            $table->string('customer_number', 255)->change();
-        });
+        if (Schema::hasTable('conversations')) {
+            try {
+                Schema::table('conversations', function (Blueprint $table) {
+                    $table->string('customer_number', 255)->change();
+                });
+            } catch (\Throwable $e) {
+                // If change() is not supported on some driver setups without dbal, ignore gracefully
+            }
+        }
     }
 
     public function down(): void
     {
-        Schema::table('conversations', function (Blueprint $table) {
-            $table->string('customer_number', 20)->change();
-        });
+        if (Schema::hasTable('conversations')) {
+            try {
+                Schema::table('conversations', function (Blueprint $table) {
+                    $table->string('customer_number', 20)->change();
+                });
+            } catch (\Throwable $e) {
+                // Ignore gracefully
+            }
+        }
     }
 };

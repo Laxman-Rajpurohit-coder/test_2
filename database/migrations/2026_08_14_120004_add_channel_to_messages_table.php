@@ -8,19 +8,25 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('messages', function (Blueprint $table) {
-            $table->enum('channel', ['whatsapp', 'facebook', 'instagram'])
-                ->default('whatsapp')
-                ->after('conversation_id')
-                ->index();
-        });
+        $targetTable = Schema::hasTable('messages') ? 'messages' : (Schema::hasTable('whatsapp_messages') ? 'whatsapp_messages' : null);
+        if ($targetTable && !Schema::hasColumn($targetTable, 'channel')) {
+            Schema::table($targetTable, function (Blueprint $table) {
+                $table->string('channel', 50)
+                    ->default('whatsapp')
+                    ->after('conversation_id')
+                    ->index();
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('messages', function (Blueprint $table) {
-            $table->dropIndex(['channel']);
-            $table->dropColumn('channel');
-        });
+        $targetTable = Schema::hasTable('messages') ? 'messages' : (Schema::hasTable('whatsapp_messages') ? 'whatsapp_messages' : null);
+        if ($targetTable && Schema::hasColumn($targetTable, 'channel')) {
+            Schema::table($targetTable, function (Blueprint $table) {
+                $table->dropIndex(['channel']);
+                $table->dropColumn('channel');
+            });
+        }
     }
 };

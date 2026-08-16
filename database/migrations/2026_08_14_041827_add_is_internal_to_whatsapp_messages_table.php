@@ -11,9 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('whatsapp_messages', function (Blueprint $table) {
-            $table->boolean('is_internal')->default(false)->after('status');
-        });
+        $targetTable = Schema::hasTable('messages') ? 'messages' : (Schema::hasTable('whatsapp_messages') ? 'whatsapp_messages' : null);
+        if ($targetTable && !Schema::hasColumn($targetTable, 'is_internal')) {
+            Schema::table($targetTable, function (Blueprint $table) {
+                $table->boolean('is_internal')->default(false)->after('status');
+            });
+        }
     }
 
     /**
@@ -21,8 +24,11 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('whatsapp_messages', function (Blueprint $table) {
-            $table->dropColumn('is_internal');
-        });
+        $targetTable = Schema::hasTable('messages') ? 'messages' : (Schema::hasTable('whatsapp_messages') ? 'whatsapp_messages' : null);
+        if ($targetTable && Schema::hasColumn($targetTable, 'is_internal')) {
+            Schema::table($targetTable, function (Blueprint $table) {
+                $table->dropColumn('is_internal');
+            });
+        }
     }
 };

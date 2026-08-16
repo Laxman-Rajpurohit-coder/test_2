@@ -7,11 +7,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::rename('whatsapp_messages', 'messages');
+        if (Schema::hasTable('whatsapp_messages') && !Schema::hasTable('messages')) {
+            Schema::rename('whatsapp_messages', 'messages');
+        }
     }
 
     public function down(): void
     {
-        Schema::rename('messages', 'whatsapp_messages');
+        if (Schema::hasTable('messages') && !Schema::hasTable('whatsapp_messages')) {
+            Schema::rename('messages', 'whatsapp_messages');
+        }
     }
 };

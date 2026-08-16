@@ -29,6 +29,15 @@ class AppServiceProvider extends ServiceProvider
             URL::forceScheme('https');
         }
 
+        // Auto-heal schema if running behind or missing table renames
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('whatsapp_messages') && !\Illuminate\Support\Facades\Schema::hasTable('messages')) {
+                \Illuminate\Support\Facades\Schema::rename('whatsapp_messages', 'messages');
+            }
+        } catch (\Throwable $e) {
+            // Ignore DB connection errors during early bootstrap
+        }
+
         Vite::prefetch(concurrency: 3);
 
         // Register Core Bot Responders into Pipeline
