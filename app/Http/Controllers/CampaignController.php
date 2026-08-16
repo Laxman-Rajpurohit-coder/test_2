@@ -182,7 +182,7 @@ class CampaignController extends Controller
             }
         });
 
-        return back()->with('success', 'Campaign created successfully.');
+        return redirect()->route('campaigns.index')->with('success', 'Campaign created successfully.');
     }
 
     public function show(Request $request, $id)

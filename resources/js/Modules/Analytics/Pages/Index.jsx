@@ -16,7 +16,7 @@ import {
     Legend,
 } from 'recharts';
 
-export default function AnalyticsIndex({ metrics, recentMessages: initialRecent = [], filters }) {
+export default function AnalyticsIndex({ metrics, recentMessages: initialRecent = [], tasks = [], filters }) {
     const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
     
     const [dateFrom, setDateFrom] = useState(filters?.date_from || metrics?.date_range?.from || '');
@@ -203,6 +203,119 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
                             </button>
                         </div>
                     </div>
+                </div>
+
+                {/* Dashboard Task & Issue Sheet (Pinned to Top) */}
+                <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                        <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                            <span>📋</span> Active Customer Task Sheet
+                        </h2>
+                        <div className="flex items-center gap-1.5 bg-gray-50 p-1 rounded-lg border border-gray-200/50">
+                            <span className="text-[10px] text-gray-400 font-bold uppercase px-2">Reminders Active</span>
+                        </div>
+                    </div>
+
+                    {tasks.length === 0 ? (
+                        <div className="py-8 text-center text-xs text-gray-400">
+                            No active reminders or customer issues logged. Create reminders from the Chat Details panel.
+                        </div>
+                    ) : (
+                        <div className="w-full overflow-x-auto custom-scrollbar">
+                            <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+                                <thead>
+                                    <tr className="border-b border-gray-100 text-gray-400 font-bold uppercase tracking-wider">
+                                        <th className="pb-3 pt-1 pl-2 min-w-[140px]">Customer</th>
+                                        <th className="pb-3 pt-1 min-w-[200px]">Task Title & Details</th>
+                                        <th className="pb-3 pt-1 min-w-[140px]">Due Date</th>
+                                        <th className="pb-3 pt-1 min-w-[100px]">Status</th>
+                                        <th className="pb-3 pt-1 pr-2 min-w-[120px] text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {tasks.map((task) => {
+                                        const isOverdue = task.due_at && new Date(task.due_at) <= new Date() && task.status !== 'resolved';
+                                        return (
+                                            <tr key={task.id} className="hover:bg-gray-50/50 transition">
+                                                <td className="py-3.5 pl-2 font-bold text-gray-900">
+                                                    {task.contact?.phone_number ? (
+                                                        <Link
+                                                            href={`/chat`}
+                                                            className="text-[#00a884] hover:underline"
+                                                        >
+                                                            +{task.contact.phone_number}
+                                                        </Link>
+                                                    ) : (
+                                                        <span className="text-gray-400">No contact linked</span>
+                                                    )}
+                                                </td>
+                                                <td className="py-3.5 max-w-xs">
+                                                    <div className="font-bold text-gray-900">{task.title}</div>
+                                                    {task.description && (
+                                                        <div className="text-[11px] text-gray-400 mt-0.5 truncate" title={task.description}>
+                                                            {task.description}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="py-3.5">
+                                                    {task.due_at ? (
+                                                        <span className={`font-semibold ${isOverdue ? 'text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-100' : 'text-gray-600'}`}>
+                                                            {new Date(task.due_at).toLocaleString()}
+                                                            {isOverdue && ' (Overdue)'}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-gray-400">No due date</span>
+                                                    )}
+                                                </td>
+                                                <td className="py-3.5">
+                                                    <span className={`text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase ${
+                                                        task.status === 'resolved' 
+                                                            ? 'bg-green-50 text-green-700 border border-green-200' 
+                                                            : task.status === 'in_progress' 
+                                                            ? 'bg-amber-50 text-amber-700 border border-amber-200' 
+                                                            : 'bg-blue-50 text-blue-700 border border-blue-200'
+                                                    }`}>
+                                                        {task.status.replace('_', ' ')}
+                                                    </span>
+                                                </td>
+                                                <td className="py-3.5 pr-2 text-right space-x-2">
+                                                    {task.status !== 'resolved' && (
+                                                        <button
+                                                            onClick={() => router.patch(route('tasks.status', task.id), { status: 'resolved' }, { preserveScroll: true })}
+                                                            className="px-2 py-1 bg-green-50 hover:bg-green-100 text-green-700 font-bold rounded-lg border border-green-200/60 transition"
+                                                            title="Resolve Task"
+                                                        >
+                                                            ✓ Resolve
+                                                        </button>
+                                                    )}
+                                                    {task.status === 'open' && (
+                                                        <button
+                                                            onClick={() => router.patch(route('tasks.status', task.id), { status: 'in_progress' }, { preserveScroll: true })}
+                                                            className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold rounded-lg border border-amber-200/60 transition"
+                                                            title="Mark In Progress"
+                                                        >
+                                                            In Progress
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => {
+                                                            if (confirm('Are you sure you want to delete this task?')) {
+                                                                router.delete(route('tasks.destroy', task.id), { preserveScroll: true });
+                                                            }
+                                                        }}
+                                                        className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg border border-rose-200/60 transition"
+                                                        title="Delete Reminder"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
 
                 {/* Top Metric Cards Row */}

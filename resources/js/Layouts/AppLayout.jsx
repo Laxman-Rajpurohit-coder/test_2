@@ -6,7 +6,7 @@ import { Link, usePage } from '@inertiajs/react';
  * @param {React.ReactNode} children - The content to render inside the main content area.
  * @returns {JSX.Element} The application layout.
  */
-export default function AppLayout({ children }) {
+export default function AppLayout({ children, header }) {
     const { auth, tenant_features, flash } = usePage().props;
     const userName = auth?.user?.name || 'MTech Systems';
     const userEmail = auth?.user?.email || 'admin@msg91.com';
@@ -33,12 +33,12 @@ export default function AppLayout({ children }) {
     useEffect(() => {
         localStorage.setItem('is_logged_in', 'true');
         
-        // Dummy unload listener to completely disable browser bfcache (Back-Forward Cache)
-        const handleUnload = () => {};
-        window.addEventListener('unload', handleUnload);
+        // pagehide listener to disable browser bfcache cleanly without Permissions Policy violations
+        const handlePageHide = () => {};
+        window.addEventListener('pagehide', handlePageHide);
 
         return () => {
-            window.removeEventListener('unload', handleUnload);
+            window.removeEventListener('pagehide', handlePageHide);
         };
     }, []);
 
@@ -267,6 +267,7 @@ export default function AppLayout({ children }) {
                 )}
 
                 <main className={`flex-1 flex flex-col ${isChatPage ? 'p-2 md:p-4' : 'p-6 md:p-8'}`}>
+                    {header && <div className="mb-6">{header}</div>}
                     {children}
                 </main>
             </div>

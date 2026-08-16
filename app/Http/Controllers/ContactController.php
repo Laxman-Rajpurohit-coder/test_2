@@ -299,7 +299,7 @@ class ContactController extends Controller
 
         $messages = [];
         if ($conversation) {
-            $messages = \App\Models\WhatsappMessage::where('conversation_id', $conversation->id)
+            $messages = \App\Models\Message::where('conversation_id', $conversation->id)
                 ->orderBy('created_at', 'asc')
                 ->get();
         }
@@ -371,5 +371,21 @@ class ContactController extends Controller
         $contact->delete();
         
         return response()->json(['message' => 'Deleted']);
+    }
+
+    public function bulkDelete(Request $request)
+    {
+        $request->validate([
+            'contact_ids' => 'required|array',
+            'contact_ids.*' => 'required|exists:contacts,id'
+        ]);
+
+        $tenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
+        
+        Contact::where('tenant_id', $tenantId)
+            ->whereIn('id', $request->input('contact_ids'))
+            ->delete();
+
+        return redirect()->back()->with('success', 'Contacts deleted successfully.');
     }
 }

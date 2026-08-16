@@ -51,6 +51,10 @@ export default function ContactsIndex({ contacts, teamMembers = [], allTags = []
     const [isCreatingTag, setIsCreatingTag] = useState(false);
     const [isSubmittingTag, setIsSubmittingTag] = useState(false);
     const [selectedTags, setSelectedTags] = useState([]);
+    const [manageTagsModalOpen, setManageTagsModalOpen] = useState(false);
+    const [standaloneTagName, setStandaloneTagName] = useState('');
+    const [isCreatingStandaloneTag, setIsCreatingStandaloneTag] = useState(false);
+    const [deletingTagId, setDeletingTagId] = useState(null);
 
     const handleCreateTag = async (e) => {
         e.preventDefault();
@@ -69,6 +73,36 @@ export default function ContactsIndex({ contacts, teamMembers = [], allTags = []
             console.error('Failed to create tag:', err);
         } finally {
             setIsCreatingTag(false);
+        }
+    };
+
+    const handleCreateStandaloneTag = async (e) => {
+        e.preventDefault();
+        if (!standaloneTagName.trim()) return;
+
+        setIsCreatingStandaloneTag(true);
+        try {
+            await axios.post(route('contact-tags.store'), { name: standaloneTagName.trim() });
+            setStandaloneTagName('');
+            router.visit(route('contacts.index'), { preserveScroll: true });
+        } catch (err) {
+            alert('Failed to create tag: ' + (err.response?.data?.message || err.message));
+        } finally {
+            setIsCreatingStandaloneTag(false);
+        }
+    };
+
+    const handleDeleteTag = async (tagId, tagName) => {
+        if (!confirm(`Are you sure you want to delete the tag "${tagName}"? It will be removed from all associated contacts.`)) return;
+
+        setDeletingTagId(tagId);
+        try {
+            await axios.delete(route('contact-tags.destroy', tagId));
+            router.visit(route('contacts.index'), { preserveScroll: true });
+        } catch (err) {
+            alert('Failed to delete tag: ' + (err.response?.data?.message || err.message));
+        } finally {
+            setDeletingTagId(null);
         }
     };
     
@@ -277,6 +311,23 @@ export default function ContactsIndex({ contacts, teamMembers = [], allTags = []
         });
     };
 
+    const handleBulkDelete = () => {
+        if (selectedContacts.length === 0) return;
+        if (!confirm(`Are you sure you want to delete the ${selectedContacts.length} selected contacts?`)) return;
+
+        router.post(route('contacts.bulk-delete'), {
+            contact_ids: selectedContacts
+        }, {
+            onSuccess: () => {
+                setSelectedContacts([]);
+            },
+            onError: (errs) => {
+                alert('Failed to delete selected contacts.');
+            },
+            preserveScroll: true
+        });
+    };
+
     const openQuickSend = (contactId = null) => {
         const targetIds = typeof contactId === 'string' ? [contactId] : selectedContacts;
         setQsContactIds(targetIds);
@@ -328,6 +379,12 @@ export default function ContactsIndex({ contacts, teamMembers = [], allTags = []
                             >
                                 Tag Contacts
                             </button>
+                            <button
+                                onClick={handleBulkDelete}
+                                className="px-4 py-2 bg-red-50 text-red-700 rounded-lg font-bold hover:bg-red-100 transition border border-red-200 flex items-center gap-1.5"
+                            >
+                                🗑️ Delete Selected
+                            </button>
                         </>
                     )}
                     {isOwner && selectedContacts.length > 0 && (
@@ -370,6 +427,12 @@ export default function ContactsIndex({ contacts, teamMembers = [], allTags = []
                             Assign All DB Contacts
                         </button>
                     )}
+                    <button
+                        onClick={() => setManageTagsModalOpen(true)}
+                        className="px-4 py-2 bg-purple-50 text-purple-700 rounded-lg font-bold shadow-sm transition border border-purple-200 hover:bg-purple-100 text-sm flex items-center gap-1.5"
+                    >
+                        🏷️ Manage Tags
+                    </button>
                     <button 
                         onClick={() => setImportModalOpen(true)}
                         className="px-4 py-2 bg-white text-gray-700 rounded-lg font-bold shadow-sm transition border border-gray-200 hover:bg-gray-50 text-sm"
@@ -778,6 +841,83 @@ export default function ContactsIndex({ contacts, teamMembers = [], allTags = []
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Manage Tags Modal (Standalone CRUD without contact selection) */}
+            {manageTagsModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm" onClick={() => setManageTagsModalOpen(false)}></div>
+                    <div className="relative bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl border border-gray-100 max-h-[90vh] flex flex-col">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                                <span>🏷️</span>
+                                <span>Manage Tags</span>
+                            </h2>
+                            <button onClick={() => setManageTagsModalOpen(false)} className="text-gray-400 hover:text-gray-600 font-bold p-1">✕</button>
+                        </div>
+
+                        {/* Create Tag Input Form */}
+                        <form onSubmit={handleCreateStandaloneTag} className="flex gap-2 mb-6">
+                            <input
+                                type="text"
+                                placeholder="Create new tag name..."
+                                value={standaloneTagName}
+                                onChange={(e) => setStandaloneTagName(e.target.value)}
+                                className="flex-1 rounded-lg border-gray-300 text-sm focus:ring-purple-500 focus:border-purple-500"
+                            />
+                            <button
+                                type="submit"
+                                disabled={isCreatingStandaloneTag || !standaloneTagName.trim()}
+                                className="px-4 py-2 bg-purple-600 text-white font-bold text-sm rounded-lg hover:bg-purple-700 transition disabled:opacity-50 shrink-0"
+                            >
+                                {isCreatingStandaloneTag ? 'Adding...' : '+ Add Tag'}
+                            </button>
+                        </form>
+
+                        {/* Tag Pool List */}
+                        <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                                Existing Tags ({allTags.length})
+                            </div>
+                            {allTags.length > 0 ? (
+                                allTags.map(tag => (
+                                    <div key={tag.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200/80 hover:bg-gray-100 transition">
+                                        <div className="flex items-center gap-2.5">
+                                            <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                                            <span className="font-semibold text-gray-900 text-sm">{tag.name}</span>
+                                            <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full font-bold">
+                                                {tag.contacts_count !== undefined ? `${tag.contacts_count} contacts` : 'Tag'}
+                                            </span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDeleteTag(tag.id, tag.name)}
+                                            disabled={deletingTagId === tag.id}
+                                            className="px-2.5 py-1 text-xs text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-lg transition font-medium flex items-center gap-1 border border-transparent hover:border-rose-200 disabled:opacity-50"
+                                            title="Delete tag"
+                                        >
+                                            {deletingTagId === tag.id ? 'Deleting...' : '🗑️ Delete'}
+                                        </button>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-center py-8 text-gray-400 text-sm">
+                                    No tags created yet. Use the input above to create your first tag!
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex justify-end pt-4 mt-4 border-t border-gray-100">
+                            <button
+                                type="button"
+                                onClick={() => setManageTagsModalOpen(false)}
+                                className="px-5 py-2 text-sm font-bold text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+                            >
+                                Close
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

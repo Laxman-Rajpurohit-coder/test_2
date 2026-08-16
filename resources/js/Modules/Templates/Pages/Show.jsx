@@ -22,9 +22,13 @@ export default function Show({ auth, template }) {
             header={
                 <div className="flex justify-between items-center">
                     <div className="flex items-center space-x-4">
-                        <Link href={route('templates.index')} className="text-gray-500 hover:text-gray-700">
+                        <button
+                            type="button"
+                            onClick={() => window.history.length > 1 ? window.history.back() : router.visit(route('templates.index'))}
+                            className="text-gray-500 hover:text-gray-700 font-medium text-sm flex items-center gap-1"
+                        >
                             &larr; Back
-                        </Link>
+                        </button>
                         <h2 className="font-semibold text-xl text-gray-800 leading-tight">Template Details</h2>
                     </div>
                     <div className="flex space-x-3">

@@ -4,7 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Events\MessageReceived;
 use App\Models\Conversation;
-use App\Models\WhatsappMessage;
+use App\Models\Message;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -18,21 +19,53 @@ class ChatController extends Controller
      *
      * @return \Inertia\Response The rendered chat page.
      */
-    public function view()
+    /**
+     * Renders the chat interface for a specific social channel (whatsapp, facebook, instagram, all).
+     *
+     * @param string $channel The requested channel inbox.
+     * @return \Inertia\Response The rendered chat page.
+     */
+    public function view(Request $request, string $channel = 'whatsapp')
     {
+        $validChannels = ['whatsapp', 'facebook', 'instagram', 'all'];
+        if (!in_array($channel, $validChannels, true)) {
+            $channel = 'whatsapp';
+        }
+
         $tenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
 
         $tenantNumbers = \Illuminate\Support\Facades\DB::table('tenant_numbers')
             ->where('tenant_id', $tenantId)
             ->get();
 
+        $setting = \App\Models\TenantSetting::where('tenant_id', $tenantId)->first();
+
         $approvedTemplates = \App\Models\WhatsappTemplate::where('tenant_id', $tenantId)
             ->where('status', 'approved')
             ->get();
 
+        // Calculate channel stats
+        $counts = [
+            'all'       => Conversation::count(),
+            'whatsapp'  => Conversation::where('channel', 'whatsapp')->orWhereNull('channel')->count(),
+            'facebook'  => Conversation::where('channel', 'facebook')->count(),
+            'instagram' => Conversation::where('channel', 'instagram')->count(),
+            'whatsapp_unread'  => (int) Conversation::where(fn($q) => $q->where('channel', 'whatsapp')->orWhereNull('channel'))->sum('unread_count'),
+            'facebook_unread'  => (int) Conversation::where('channel', 'facebook')->sum('unread_count'),
+            'instagram_unread' => (int) Conversation::where('channel', 'instagram')->sum('unread_count'),
+        ];
+
         return Inertia::render('Chat/Index', [
-            'tenantNumbers' => $tenantNumbers,
-            'approvedTemplates' => $approvedTemplates
+            'currentChannel'    => $channel,
+            'channelCounts'     => $counts,
+            'tenantNumbers'     => $tenantNumbers,
+            'approvedTemplates' => $approvedTemplates,
+            'socialSettings'    => [
+                'has_facebook'  => !empty($setting?->facebook_page_id),
+                'has_instagram' => !empty($setting?->instagram_account_id),
+                'facebook_page_id' => $setting?->facebook_page_id,
+                'instagram_account_id' => $setting?->instagram_account_id,
+            ],
         ]);
     }
 
@@ -53,13 +86,20 @@ class ChatController extends Controller
             $query->where('tenant_number_id', $request->input('tenant_number_id'));
         }
 
+        if ($request->filled('channel') && in_array($request->input('channel'), ['whatsapp', 'facebook', 'instagram'])) {
+            $query->where('channel', $request->input('channel'));
+        }
+
         if (auth()->check() && method_exists(auth()->user(), 'isMember') && auth()->user()->isMember()) {
-            $query->whereExists(function ($q) {
-                $q->select(\Illuminate\Support\Facades\DB::raw(1))
-                  ->from('contacts')
-                  ->whereColumn('contacts.phone_number', 'conversations.customer_number')
-                  ->whereColumn('contacts.tenant_id', 'conversations.tenant_id')
-                  ->where('contacts.assigned_user_id', auth()->id());
+            $query->where(function ($q) {
+                $q->where('conversations.assigned_user_id', auth()->id())
+                  ->orWhereExists(function ($sub) {
+                      $sub->select(\Illuminate\Support\Facades\DB::raw(1))
+                          ->from('contacts')
+                          ->whereColumn('contacts.phone_number', 'conversations.customer_number')
+                          ->whereColumn('contacts.tenant_id', 'conversations.tenant_id')
+                          ->where('contacts.assigned_user_id', auth()->id());
+                  });
             });
         }
 
@@ -87,7 +127,7 @@ class ChatController extends Controller
         $limit = $request->query('limit', 50);
         $cursor = $request->query('cursor');
 
-        $query = WhatsappMessage::where('conversation_id', $id)
+        $query = Message::where('conversation_id', $id)
             ->orderBy('created_at', 'desc')
             ->orderBy('id', 'desc');
 
@@ -146,16 +186,13 @@ class ChatController extends Controller
             return response()->json(['error' => 'Conversation not found'], 404);
         }
 
+        // Member role check: channel-neutral — uses conversations.assigned_user_id
         if (method_exists(auth()->user(), 'isMember') && auth()->user()->isMember()) {
-            $hasAccess = \App\Models\Contact::where('tenant_id', $conversation->tenant_id)
-                ->where('phone_number', $conversation->customer_number)
-                ->where('assigned_user_id', auth()->id())
-                ->exists();
-                
-            if (!$hasAccess) {
-                abort(403, 'You are not assigned to this contact.');
+            if ($conversation->assigned_user_id !== auth()->id()) {
+                abort(403, 'You are not assigned to this conversation.');
             }
         }
+
 
         // Enforce 24-Hour Session Guard Rail for free-text messages
         if ($request->input('type') === 'text' && !Cache::has('session:' . $conversation->customer_number)) {
@@ -191,7 +228,7 @@ class ChatController extends Controller
         }
 
         // 1. Save to database as "queued" via Eloquent (Auto-injects tenant_id)
-        $newMessage = WhatsappMessage::create([
+        $newMessage = Message::create([
             'id'               => $messageId,
             'conversation_id'  => $id,
             'direction'        => 'outbound',
@@ -277,16 +314,13 @@ class ChatController extends Controller
             return response()->json(['error' => 'Conversation not found'], 404);
         }
 
+        // Member role check: channel-neutral — uses conversations.assigned_user_id
         if (method_exists(auth()->user(), 'isMember') && auth()->user()->isMember()) {
-            $hasAccess = \App\Models\Contact::where('tenant_id', $conversation->tenant_id)
-                ->where('phone_number', $conversation->customer_number)
-                ->where('assigned_user_id', auth()->id())
-                ->exists();
-                
-            if (!$hasAccess) {
-                abort(403, 'You are not assigned to this contact.');
+            if ($conversation->assigned_user_id !== auth()->id()) {
+                abort(403, 'You are not assigned to this conversation.');
             }
         }
+
 
         // Enforce 24-Hour Session Guard Rail
         if (!Cache::has('session:' . $conversation->customer_number)) {
@@ -341,7 +375,7 @@ class ChatController extends Controller
             $contentPayload['filename'] = $file->getClientOriginalName();
         }
 
-        $newMessage = WhatsappMessage::create([
+        $newMessage = Message::create([
             'id'               => $messageId,
             'conversation_id'  => $id,
             'direction'        => 'outbound',
@@ -397,5 +431,36 @@ class ChatController extends Controller
         }
 
         return response()->json(['status' => 'queued', 'message' => $newMessage]);
+    }
+
+    /**
+     * Delete multiple conversations and their associated messages.
+     *
+     * @param Request $request Validated conversation_ids.
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function bulkDelete(Request $request)
+    {
+        $request->validate([
+            'conversation_ids' => 'required|array',
+            'conversation_ids.*' => 'required|exists:conversations,id'
+        ]);
+
+        $tenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
+
+        $conversations = Conversation::where('tenant_id', $tenantId)
+            ->whereIn('id', $request->input('conversation_ids'))
+            ->get();
+
+        foreach ($conversations as $conversation) {
+            // Delete child messages
+            \App\Models\Message::where('conversation_id', $conversation->id)->delete();
+            // Delete tasks/reminders
+            \App\Models\CustomerTask::where('conversation_id', $conversation->id)->delete();
+            // Delete conversation itself
+            $conversation->delete();
+        }
+
+        return response()->json(['success' => true, 'message' => 'Conversations deleted successfully.']);
     }
 }

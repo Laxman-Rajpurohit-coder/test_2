@@ -293,6 +293,69 @@ export default function Create({ auth, approvedTemplates = [], groups = [], tags
                                     )}
                                 </div>
                             </div>
+
+                            {/* Schedule & Timing Configuration */}
+                            <div className="pt-3 border-t border-gray-100 space-y-3">
+                                <label className="block text-xs font-bold text-gray-700">Delivery Schedule</label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsScheduled(false)}
+                                        className={`p-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 ${
+                                            !isScheduled
+                                                ? 'bg-emerald-50 text-[#00a884] border-[#00a884] shadow-xs'
+                                                : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                                        }`}
+                                    >
+                                        <span>⚡</span>
+                                        Send Immediately
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsScheduled(true)}
+                                        className={`p-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 ${
+                                            isScheduled
+                                                ? 'bg-purple-50 text-purple-700 border-purple-500 shadow-xs'
+                                                : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                                        }`}
+                                    >
+                                        <span>⏰</span>
+                                        Schedule for Later
+                                    </button>
+                                </div>
+
+                                {isScheduled && (
+                                    <div className="p-4 bg-purple-50/50 rounded-xl border border-purple-100 space-y-3">
+                                        <p className="text-xs font-bold text-purple-900 uppercase tracking-wider">
+                                            Select Date & Time (Your Local Timezone)
+                                        </p>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="block text-[11px] font-semibold text-gray-600 mb-1">Date</label>
+                                                <input 
+                                                    type="date"
+                                                    required={isScheduled}
+                                                    min={new Date().toISOString().split('T')[0]}
+                                                    value={scheduledDate}
+                                                    onChange={e => setScheduledDate(e.target.value)}
+                                                    className="w-full text-xs rounded-lg border-gray-200 focus:ring-purple-500 focus:border-purple-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[11px] font-semibold text-gray-600 mb-1">Time</label>
+                                                <input 
+                                                    type="time"
+                                                    required={isScheduled}
+                                                    value={scheduledTime}
+                                                    onChange={e => setScheduledTime(e.target.value)}
+                                                    className="w-full text-xs rounded-lg border-gray-200 focus:ring-purple-500 focus:border-purple-500"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* Step 2: Message Type & Content Mode */}
@@ -427,10 +490,24 @@ export default function Create({ auth, approvedTemplates = [], groups = [], tags
                         <div className="flex justify-end">
                             <button
                                 type="submit"
-                                disabled={!campaignName.trim() || recipientCount === 0}
-                                className="px-6 py-3 bg-[#00a884] text-white font-extrabold text-sm rounded-xl hover:bg-emerald-700 transition shadow-md disabled:opacity-50"
+                                disabled={!campaignName.trim() || recipientCount === 0 || (isScheduled && (!scheduledDate || !scheduledTime))}
+                                className={`px-6 py-3 text-white font-extrabold text-sm rounded-xl transition shadow-md disabled:opacity-50 flex items-center gap-2 ${
+                                    isScheduled
+                                        ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-500/20'
+                                        : 'bg-[#00a884] hover:bg-emerald-700 shadow-emerald-500/20'
+                                }`}
                             >
-                                Launch Broadcast Campaign ➔
+                                {isScheduled ? (
+                                    <>
+                                        <span>⏰</span>
+                                        <span>Schedule Campaign for {scheduledDate || 'Date'} {scheduledTime || 'Time'} ➔</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span>🚀</span>
+                                        <span>Launch Broadcast Campaign ➔</span>
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>

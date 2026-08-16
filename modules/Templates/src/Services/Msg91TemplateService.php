@@ -60,22 +60,75 @@ class Msg91TemplateService
     }
 
     /**
-     * Delete template via MSG91 API
+     * Delete template via MSG91 API.
+     *
+     * Returns true if the template was deleted successfully or was already absent on MSG91.
+     * Returns false if MSG91 returned a known soft-fail (e.g. integration not found),
+     * allowing the caller to decide whether to still delete locally.
+     *
+     * @throws \Exception Only for genuine unexpected failures (network errors, auth failures, etc.).
      */
     public function delete(string $authKey, string $number, string $templateName): bool
     {
         $url = "https://api.msg91.com/api/v5/whatsapp/client-panel-template/?integrated_number={$number}&template_name={$templateName}";
-        
-        $response = Http::withHeaders([
-            'authkey' => $authKey,
-        ])->delete($url);
 
-        if ($response->failed()) {
-            Log::error('MSG91 Delete Template Failed', ['status' => $response->status(), 'body' => $response->body()]);
-            throw new \Exception('Failed to delete template on MSG91: ' . $response->body());
+        try {
+            $response = Http::timeout(15)->withHeaders([
+                'authkey' => $authKey,
+            ])->delete($url);
+        } catch (\Exception $e) {
+            // Network-level failure (connection refused, timeout, DNS error, etc.)
+            Log::warning('MSG91 Delete Template — Network Error (template will be deleted locally anyway)', [
+                'template_name' => $templateName,
+                'error'         => $e->getMessage(),
+            ]);
+            // Treat as soft-fail: allow local deletion to proceed
+            return false;
         }
 
-        return true;
+        if ($response->successful()) {
+            return true;
+        }
+
+        // Parse the MSG91 response body to distinguish soft-fail from hard-fail
+        $responseBody = $response->json() ?? [];
+        $errors       = $responseBody['errors'] ?? ($responseBody['error'] ?? '');
+        $status       = $responseBody['status'] ?? '';
+
+        // Known soft-fail: template is already absent on MSG91's side.
+        // This commonly happens when the WhatsApp integration was removed or
+        // the template was deleted directly from the Meta Business Manager.
+        // In this case we still want to clean up locally — do NOT throw.
+        $softFailPhrases = [
+            'whatsapp integration not found',
+            'template not found',
+            'no template found',
+        ];
+
+        $lowerErrors = strtolower(is_array($errors) ? implode(' ', $errors) : (string) $errors);
+
+        foreach ($softFailPhrases as $phrase) {
+            if (str_contains($lowerErrors, $phrase)) {
+                Log::warning('MSG91 Delete Template — Soft Fail (template absent on MSG91, deleting locally)', [
+                    'template_name' => $templateName,
+                    'msg91_status'  => $status,
+                    'msg91_errors'  => $errors,
+                ]);
+                return false; // Signal soft-fail to caller
+            }
+        }
+
+        // Genuine hard failure — authentication error, rate-limit, unexpected 5xx, etc.
+        Log::error('MSG91 Delete Template Failed', [
+            'http_status'   => $response->status(),
+            'template_name' => $templateName,
+            'body'          => $response->body(),
+        ]);
+
+        throw new \Exception(
+            'Failed to delete template on MSG91 (HTTP ' . $response->status() . '): '
+            . ($lowerErrors ?: $response->body())
+        );
     }
 
     /**
@@ -84,6 +137,7 @@ class Msg91TemplateService
      */
     public function syncToLocal(int $tenantId, array $msg91Templates): void
     {
+        app(\App\Services\TenantResolverService::class)->setActiveTenantId($tenantId);
         $remoteTemplateNames = [];
 
         foreach ($msg91Templates as $remoteTemplateGroup) {

@@ -119,21 +119,56 @@ class TemplateController extends Controller
     public function destroy($id)
     {
         $template = WhatsappTemplate::findOrFail($id);
-        
-        $tenantId = $this->tenantResolver->getActiveTenantId();
-        $authKey = $this->tenantResolver->getMsg91AuthKey($tenantId);
-        if (!$authKey) {
-            throw new \Exception("MSG91 Auth Key is not configured for this tenant.");
-        }
-        $number = $this->tenantResolver->getIntegratedNumber($tenantId);
 
-        // Delete from MSG91
-        $this->msg91Service->delete($authKey, $number, $template->name);
-        
-        // Delete locally
+        $tenantId = $this->tenantResolver->getActiveTenantId();
+        $authKey  = $this->tenantResolver->getMsg91AuthKey($tenantId);
+
+        if (!$authKey) {
+            return redirect()->back()->with(
+                'error',
+                'MSG91 Auth Key is not configured. Please add it in Tenant API Settings before managing templates.'
+            );
+        }
+
+        $number       = $this->tenantResolver->getIntegratedNumber($tenantId);
+        $softFail     = false;
+        $softFailNote = '';
+
+        try {
+            // Returns true on success, false on known soft-fail (template already gone on MSG91's side)
+            $deleted = $this->msg91Service->delete($authKey, $number, $template->name);
+
+            if (!$deleted) {
+                // Soft-fail: MSG91 says integration/template not found — it's already absent remotely
+                $softFail     = true;
+                $softFailNote = 'The template was not found on MSG91 (it may have already been removed from WhatsApp Business Manager). ';
+            }
+        } catch (\Exception $e) {
+            // Hard failure from MSG91 (auth error, rate-limit, unexpected server error)
+            // Log it but do NOT crash — still offer to remove locally
+            \Illuminate\Support\Facades\Log::error('TemplateController::destroy — MSG91 hard failure', [
+                'template_id'   => $id,
+                'template_name' => $template->name,
+                'error'         => $e->getMessage(),
+            ]);
+
+            return redirect()->back()->with(
+                'error',
+                'Could not delete this template from MSG91: ' . $e->getMessage()
+                . ' The local record has been kept. Please try again or delete it manually from WhatsApp Business Manager.'
+            );
+        }
+
+        // Always remove the local record once MSG91 deletion succeeded or soft-failed
         $template->delete();
 
-        return redirect()->route('templates.index')->with('success', 'Template deleted.');
+        $message = $softFail
+            ? $softFailNote . 'The local record has been removed.'
+            : 'Template deleted successfully.';
+
+        $flashKey = $softFail ? 'warning' : 'success';
+
+        return redirect()->route('templates.index')->with($flashKey, $message);
     }
 
     public function sync(Request $request)
