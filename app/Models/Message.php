@@ -6,9 +6,11 @@ use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class WhatsappMessage extends Model
+class Message extends Model
 {
     use HasFactory, BelongsToTenant;
+
+    protected $table = 'messages';
 
     public $incrementing = false;
     protected $keyType = 'string';
@@ -17,6 +19,7 @@ class WhatsappMessage extends Model
         'id',
         'tenant_id',
         'conversation_id',
+        'channel',
         'request_id',
         'meta_uuid',
         'direction',
@@ -24,10 +27,12 @@ class WhatsappMessage extends Model
         'content',
         'failure_reason',
         'vendor_timestamp',
+        'is_internal',
     ];
 
     protected $casts = [
         'vendor_timestamp' => 'datetime',
+        'is_internal'      => 'boolean',
     ];
 
     public function conversation()

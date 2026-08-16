@@ -16,24 +16,31 @@ class Conversation extends Model
         'customer_number',
         'customer_name',
         'last_message_at',
+        'last_customer_message_at',
         'is_human_escalated',
         'ai_fallback_count',
         'unread_count',
+        'channel',
+        'channel_psid',
+        'assigned_user_id',
     ];
 
+
     protected $casts = [
-        'last_message_at' => 'datetime',
-        'is_human_escalated' => 'boolean',
-        'ai_fallback_count' => 'integer',
+        'last_message_at'          => 'datetime',
+        'last_customer_message_at' => 'datetime',
+        'is_human_escalated'       => 'boolean',
+        'ai_fallback_count'        => 'integer',
     ];
+
 
     /**
      * Defines the messages associated with the conversation.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany Related WhatsApp messages.
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany Related messages.
      */
     public function messages()
     {
-        return $this->hasMany(WhatsappMessage::class);
+        return $this->hasMany(Message::class);
     }
 }

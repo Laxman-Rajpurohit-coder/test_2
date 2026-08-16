@@ -148,15 +148,61 @@ class ProcessMsg91Webhook implements ShouldQueue
                 }
             }
 
-            // Extract WhatsApp Interactive Button or List Reply ID / Payload
-            $buttonPayload = $this->payload['button']['payload']
-                ?? $this->payload['button_reply']['id']
-                ?? $this->payload['interactive']['button_reply']['id']
-                ?? $this->payload['list_reply']['id']
-                ?? null;
+            // Helper to safely parse JSON strings or arrays from MSG91 payloads
+            $parseJsonNode = function ($node) {
+                if (is_array($node)) return $node;
+                if (is_string($node)) {
+                    $trimmed = trim($node);
+                    if (str_starts_with($trimmed, '{') || str_starts_with($trimmed, '[')) {
+                        $decoded = json_decode($trimmed, true);
+                        return is_array($decoded) ? $decoded : [];
+                    }
+                }
+                return [];
+            };
 
-            // 1. If MSG91 delivered a Media URL directly
-            if (!empty($url) && is_string($url) && str_starts_with($url, 'http')) {
+            $buttonNode = $parseJsonNode($this->payload['button'] ?? []);
+            $interactiveNode = $parseJsonNode($this->payload['interactive'] ?? []);
+            $messagesNode = $parseJsonNode($this->payload['messages'] ?? []);
+            $firstMessage = !empty($messagesNode) && isset($messagesNode[0]) && is_array($messagesNode[0]) ? $messagesNode[0] : [];
+            $firstMessageButton = isset($firstMessage['button']) ? $parseJsonNode($firstMessage['button']) : [];
+
+            // Extract WhatsApp Interactive Button or List Reply ID / Payload & Title
+            $buttonPayload = $buttonNode['payload']
+                ?? $firstMessageButton['payload']
+                ?? ($interactiveNode['button_reply']['id'] ?? null)
+                ?? ($this->payload['button_reply']['id'] ?? null)
+                ?? ($this->payload['list_reply']['id'] ?? null)
+                ?? ($this->payload['quick_reply']['payload'] ?? null)
+                ?? (is_string($this->payload['button'] ?? null) && !str_starts_with(trim($this->payload['button']), '{') ? $this->payload['button'] : null);
+
+            $buttonTitle = $buttonNode['text']
+                ?? $buttonNode['title']
+                ?? $firstMessageButton['text']
+                ?? $firstMessageButton['title']
+                ?? ($interactiveNode['button_reply']['title'] ?? null)
+                ?? ($this->payload['button_reply']['title'] ?? null)
+                ?? ($this->payload['quick_reply']['text'] ?? null)
+                ?? ($this->payload['title'] ?? null)
+                ?? (is_string($this->payload['button'] ?? null) && !str_starts_with(trim($this->payload['button']), '{') ? $this->payload['button'] : null);
+
+            $isButtonReply = !empty($buttonPayload) || !empty($buttonTitle) || in_array(strtolower($rawType), ['button', 'button_reply', 'interactive', 'quick_reply']);
+
+            // 1. If customer clicked an Interactive/Template Button or List item
+            if ($isButtonReply && (!empty($buttonTitle) || !empty($buttonPayload))) {
+                $effectiveBtnText = !empty($buttonTitle) ? trim($buttonTitle) : trim($buttonPayload);
+                $contentData = [
+                    'type'        => 'button_reply',
+                    'text'        => $effectiveBtnText,
+                    'button_text' => $effectiveBtnText,
+                    'payload'     => $buttonPayload,
+                ];
+                if (empty($text)) {
+                    $text = $effectiveBtnText;
+                }
+            }
+            // 2. If MSG91 delivered a Media URL directly
+            elseif (!empty($url) && is_string($url) && str_starts_with($url, 'http')) {
                 $type = 'image';
                 if (str_contains(strtolower($rawType), 'audio') || str_contains(strtolower($rawType), 'voice') || str_contains(strtolower($url), '.mp3') || str_contains(strtolower($url), '.ogg') || str_contains(strtolower($url), '.webm')) {
                     $type = 'audio';
@@ -170,11 +216,11 @@ class ProcessMsg91Webhook implements ShouldQueue
                     'caption' => is_string($caption) ? $caption : '',
                 ];
             } 
-            // 2. If MSG91 delivered Text or Button content
+            // 3. If MSG91 delivered Text content
             elseif (!empty($text) && is_string($text) && strlen(trim($text)) > 0 && $text !== '{{text}}') {
                 $contentData = ['type' => 'text', 'text' => trim($text)];
             }
-            // 3. Fallback for nested content structure
+            // 4. Fallback for nested content structure
             else {
                 $rawContent = $this->payload['content'] ?? [];
                 if (isset($rawContent['image']) || isset($this->payload['image'])) {
@@ -214,10 +260,11 @@ class ProcessMsg91Webhook implements ShouldQueue
 
             $existingMessage = null;
             if ($wamid) {
-                $existingMessage = DB::table('whatsapp_messages')->where('meta_uuid', $wamid)->first();
+                $existingMessage = DB::table('messages')->where('meta_uuid', $wamid)->first();
             }
-            if (!$existingMessage && $requestId) {
-                $existingMessage = DB::table('whatsapp_messages')->where('request_id', $requestId)->first();
+            // Inbound messages (direction === 0) have their own unique wamid and should NEVER match an existing outbound message by request_id!
+            if (!$existingMessage && $requestId && $direction !== 0) {
+                $existingMessage = DB::table('messages')->where('request_id', $requestId)->first();
             }
 
             $targetMessageId = null;
@@ -253,7 +300,7 @@ class ProcessMsg91Webhook implements ShouldQueue
                     $updateFields['content'] = json_encode($contentData);
                 }
 
-                DB::table('whatsapp_messages')->where('id', $existingMessage->id)->update($updateFields);
+                DB::table('messages')->where('id', $existingMessage->id)->update($updateFields);
                 
                 // Sync status to campaign_recipients if applicable
                 if (isset($updateFields['status'])) {
@@ -268,11 +315,11 @@ class ProcessMsg91Webhook implements ShouldQueue
             } else {
                 try {
                     $targetMessageId = Str::uuid()->toString();
-                    DB::table('whatsapp_messages')->insert([
+                    DB::table('messages')->insert([
                         'id'               => $targetMessageId,
                         'tenant_id'        => $tenantId,
                         'conversation_id'  => $conversationId,
-                        'request_id'       => $requestId,
+                        'request_id'       => $direction === 0 ? null : $requestId,
                         'meta_uuid'        => $wamid,
                         'direction'        => $direction === 0 ? 'inbound' : 'outbound',
                         'status'           => $status,
@@ -285,10 +332,10 @@ class ProcessMsg91Webhook implements ShouldQueue
                 } catch (\Illuminate\Database\QueryException $e) {
                     $existingMessage = null;
                     if ($wamid) {
-                        $existingMessage = DB::table('whatsapp_messages')->where('meta_uuid', $wamid)->first();
+                        $existingMessage = DB::table('messages')->where('meta_uuid', $wamid)->first();
                     }
-                    if (!$existingMessage && $requestId) {
-                        $existingMessage = DB::table('whatsapp_messages')->where('request_id', $requestId)->first();
+                    if (!$existingMessage && $requestId && $direction !== 0) {
+                        $existingMessage = DB::table('messages')->where('request_id', $requestId)->first();
                     }
 
                     if ($existingMessage) {
@@ -321,7 +368,7 @@ class ProcessMsg91Webhook implements ShouldQueue
                         if (!empty($contentData) && ($existingMessage->content === '[]' || empty($existingMessage->content) || $existingMessage->content === '{"text":"","type":"text"}' || str_contains($existingMessage->content, 'Received Media'))) {
                             $updateFields['content'] = json_encode($contentData);
                         }
-                        DB::table('whatsapp_messages')->where('id', $existingMessage->id)->update($updateFields);
+                        DB::table('messages')->where('id', $existingMessage->id)->update($updateFields);
                         
                         // Sync status to campaign_recipients if applicable
                         if (isset($updateFields['status'])) {
@@ -346,7 +393,7 @@ class ProcessMsg91Webhook implements ShouldQueue
 
             // Broadcast real-time websocket payload (Non-blocking guard)
             if ($targetMessageId) {
-                $broadcastMessage = DB::table('whatsapp_messages')->find($targetMessageId);
+                $broadcastMessage = DB::table('messages')->find($targetMessageId);
                 try {
                     broadcast(new MessageReceived($conversationId, $broadcastMessage))->toOthers();
                 } catch (\Throwable $e) {
@@ -354,12 +401,12 @@ class ProcessMsg91Webhook implements ShouldQueue
                 }
 
                 // DISPATCH AUTOMATED BOT TRIGGER JOB FOR INBOUND TEXT / BUTTON MESSAGES
-                if ($direction === 0 && (!empty($text) || !empty($buttonPayload))) {
-                    ProcessBotTriggerJob::dispatch(
+                if ($direction === 0 && (!empty($text) || !empty($buttonPayload) || !empty($buttonTitle))) {
+                    ProcessBotTriggerJob::dispatchSync(
                         $targetMessageId,
                         $conversationId,
                         $customerNumber,
-                        trim($text ?? ''),
+                        trim($text ?? ($buttonTitle ?? '')),
                         $customerName,
                         $buttonPayload
                     );
