@@ -39,7 +39,6 @@ class CustomerTaskIsolationTest extends TestCase
         ]);
 
         $conversationA = Conversation::create([
-            'id' => Str::uuid()->toString(),
             'tenant_id' => $tenantA->id,
             'tenant_number_id' => 1,
             'customer_number' => '919999999999',
@@ -87,7 +86,6 @@ class CustomerTaskIsolationTest extends TestCase
         app(TenantResolverService::class)->setActiveTenantId($tenantA->id);
 
         $conversation = Conversation::create([
-            'id' => Str::uuid()->toString(),
             'tenant_id' => $tenantA->id,
             'tenant_number_id' => 1,
             'customer_number' => '919999999999',
@@ -132,7 +130,6 @@ class CustomerTaskIsolationTest extends TestCase
         app(TenantResolverService::class)->setActiveTenantId($tenant->id);
 
         $conversation = Conversation::create([
-            'id' => Str::uuid()->toString(),
             'tenant_id' => $tenant->id,
             'tenant_number_id' => 1,
             'customer_number' => '919999999999',
@@ -224,7 +221,6 @@ class CustomerTaskIsolationTest extends TestCase
         ]);
 
         $conversation = Conversation::create([
-            'id' => Str::uuid()->toString(),
             'tenant_id' => $tenant->id,
             'tenant_number_id' => 1,
             'customer_number' => '917777777777',

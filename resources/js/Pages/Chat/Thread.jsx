@@ -142,7 +142,7 @@ export default function Thread({ conversation, onBack, approvedTemplates }) {
             conversation_id: conversation.id,
             title: taskTitle,
             description: taskDesc,
-            due_at: taskDue || null,
+            due_at: taskDue ? new Date(taskDue).toISOString() : null,
         }).then(() => {
             setTaskTitle('');
             setTaskDesc('');

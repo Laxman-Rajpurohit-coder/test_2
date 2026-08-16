@@ -135,6 +135,20 @@ class TenantSetting extends Model
         $this->attributes['meta_webhook_verify_token'] = $value ? encrypt($value) : null;
     }
 
+    public function getMetaAccessTokenAttribute($value)
+    {
+        try {
+            return $value ? decrypt($value) : null;
+        } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+            return $value;
+        }
+    }
+
+    public function setMetaAccessTokenAttribute($value)
+    {
+        $this->attributes['meta_access_token'] = $value ? encrypt($value) : null;
+    }
+
     public function tenant()
     {
         return $this->belongsTo(Tenant::class);

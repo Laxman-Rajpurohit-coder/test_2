@@ -116,8 +116,12 @@ export default function AppLayout({ children, header }) {
                 {/* Bottom User Card */}
                 <div className="p-4 border-t border-gray-100">
                     <div className="flex items-center justify-between bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
-                        <div className="flex items-center gap-2.5 overflow-hidden">
-                            <div className="w-8 h-8 rounded-full bg-emerald-100 text-[#00a884] font-bold text-xs flex items-center justify-center border border-emerald-200 shrink-0">
+                        <Link
+                            href={route('profile.edit')}
+                            className="flex items-center gap-2.5 overflow-hidden group hover:opacity-80 transition"
+                            title="Edit Profile"
+                        >
+                            <div className="w-8 h-8 rounded-full bg-emerald-100 text-[#00a884] font-bold text-xs flex items-center justify-center border border-emerald-200 shrink-0 group-hover:bg-[#00a884] group-hover:text-white transition">
                                 {auth?.user?.tenant?.name ? auth.user.tenant.name.substring(0, 2).toUpperCase() : userName.substring(0, 2).toUpperCase()}
                             </div>
                             <div className="truncate">
@@ -128,19 +132,31 @@ export default function AppLayout({ children, header }) {
                                     {userName}
                                 </div>
                             </div>
-                        </div>
-                        <Link
-                            href={route('logout')}
-                            method="post"
-                            as="button"
-                            onClick={() => localStorage.removeItem('is_logged_in')}
-                            className="p-1.5 text-gray-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
-                            title="Log Out"
-                        >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1m0-10V5" />
-                            </svg>
                         </Link>
+                        <div className="flex items-center gap-0.5">
+                            <Link
+                                href={route('profile.edit')}
+                                className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-200/60 transition"
+                                title="Profile Settings"
+                            >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                            </Link>
+                            <Link
+                                href={route('logout')}
+                                method="post"
+                                as="button"
+                                onClick={() => localStorage.removeItem('is_logged_in')}
+                                className="p-1.5 text-gray-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
+                                title="Log Out"
+                            >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1m0-10V5" />
+                                </svg>
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </aside>
@@ -199,8 +215,13 @@ export default function AppLayout({ children, header }) {
                         {/* Mobile User Profile & Logout */}
                         <div className="mt-auto pt-4 border-t border-gray-100">
                             <div className="flex items-center justify-between bg-gray-50/80 p-3 rounded-xl border border-gray-100">
-                                <div className="flex items-center gap-3 overflow-hidden">
-                                    <div className="w-9 h-9 rounded-full bg-emerald-100 text-[#00a884] font-bold text-sm flex items-center justify-center border border-emerald-200 shrink-0">
+                                <Link
+                                    href={route('profile.edit')}
+                                    onClick={() => setMobileMenuOpen(false)}
+                                    className="flex items-center gap-3 overflow-hidden group hover:opacity-80 transition"
+                                    title="Edit Profile"
+                                >
+                                    <div className="w-9 h-9 rounded-full bg-emerald-100 text-[#00a884] font-bold text-sm flex items-center justify-center border border-emerald-200 shrink-0 group-hover:bg-[#00a884] group-hover:text-white transition">
                                         {auth?.user?.tenant?.name ? auth.user.tenant.name.substring(0, 2).toUpperCase() : userName.substring(0, 2).toUpperCase()}
                                     </div>
                                     <div className="truncate">
@@ -211,19 +232,32 @@ export default function AppLayout({ children, header }) {
                                             {userEmail}
                                         </div>
                                     </div>
-                                </div>
-                                <Link
-                                    href={route('logout')}
-                                    method="post"
-                                    as="button"
-                                    onClick={() => localStorage.removeItem('is_logged_in')}
-                                    className="p-2 text-gray-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition shrink-0"
-                                    title="Log Out"
-                                >
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1m0-10V5" />
-                                    </svg>
                                 </Link>
+                                <div className="flex items-center gap-1 shrink-0">
+                                    <Link
+                                        href={route('profile.edit')}
+                                        onClick={() => setMobileMenuOpen(false)}
+                                        className="p-2 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-200/60 transition"
+                                        title="Profile Settings"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                    </Link>
+                                    <Link
+                                        href={route('logout')}
+                                        method="post"
+                                        as="button"
+                                        onClick={() => localStorage.removeItem('is_logged_in')}
+                                        className="p-2 text-gray-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition shrink-0"
+                                        title="Log Out"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1m0-10V5" />
+                                        </svg>
+                                    </Link>
+                                </div>
                             </div>
                         </div>
                     </div>

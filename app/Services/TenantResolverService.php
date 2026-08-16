@@ -208,4 +208,32 @@ class TenantResolverService
 
         return null;
     }
+
+    /**
+     * Resolve Meta WhatsApp Cloud API credentials for tenant.
+     *
+     * @param int|null $tenantId
+     * @return array{access_token: ?string, phone_number_id: ?string, waba_id: ?string}
+     */
+    public function getMetaCredentials(?int $tenantId = null): array
+    {
+        $targetTenantId = $tenantId ?? $this->getActiveTenantId();
+        $setting = TenantSetting::where('tenant_id', $targetTenantId)->first();
+
+        $accessToken = $setting->meta_access_token ?? null;
+        $phoneNumberId = $setting->meta_phone_number_id ?? null;
+        $wabaId = $setting->meta_waba_id ?? null;
+
+        if ($targetTenantId === 1) {
+            $accessToken = $accessToken ?: (config('services.meta.whatsapp_access_token') ?? env('WHATSAPP_ACCESS_TOKEN'));
+            $phoneNumberId = $phoneNumberId ?: (config('services.meta.whatsapp_phone_number_id') ?? env('WHATSAPP_PHONE_NUMBER_ID'));
+            $wabaId = $wabaId ?: (config('services.meta.whatsapp_waba_id') ?? env('WHATSAPP_WABA_ID'));
+        }
+
+        return [
+            'access_token'    => $accessToken,
+            'phone_number_id' => $phoneNumberId,
+            'waba_id'         => $wabaId,
+        ];
+    }
 }

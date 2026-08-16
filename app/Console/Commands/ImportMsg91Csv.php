@@ -8,8 +8,8 @@ use Illuminate\Support\Str;
 
 class ImportMsg91Csv extends Command
 {
-    protected $signature = 'msg91:import {file : Path to the CSV file}';
-    protected $description = 'Import MSG91 historical logs from CSV idempotently.';
+    protected $signature = 'msg91:import {file : Path to the CSV file} {--tenant= : Tenant ID to import records for (defaults to 1)}';
+    protected $description = 'Import MSG91 historical logs from CSV idempotently with tenant scoping.';
 
     public function handle()
     {
@@ -20,7 +20,14 @@ class ImportMsg91Csv extends Command
             return Command::FAILURE;
         }
 
-        $this->info("Importing MSG91 history from {$file}...");
+        $tenantId = (int) ($this->option('tenant') ?? 1);
+        $tenantExists = DB::table('tenants')->where('id', $tenantId)->exists();
+        if (!$tenantExists) {
+            $this->error("Tenant ID {$tenantId} does not exist in the database.");
+            return Command::FAILURE;
+        }
+
+        $this->info("Importing MSG91 history from {$file} for Tenant ID: {$tenantId}...");
 
         $handle = fopen($file, 'r');
         $headers = fgetcsv($handle);
@@ -36,6 +43,7 @@ class ImportMsg91Csv extends Command
         foreach ($required as $req) {
             if (!isset($headerMap[$req])) {
                 $this->error("Missing required column in CSV: {$req}");
+                fclose($handle);
                 return Command::FAILURE;
             }
         }
@@ -66,11 +74,17 @@ class ImportMsg91Csv extends Command
                 $hashInput = $dateTime . '|' . $customerNumber . '|' . $template . '|' . $requestId;
                 $importHash = hash('sha256', $hashInput);
                 
-                // Upsert Conversation
-                $conversation = DB::table('conversations')->where('customer_number', $customerNumber)->first();
+                // Upsert Conversation scoped to tenant
+                $conversation = DB::table('conversations')
+                    ->where('tenant_id', $tenantId)
+                    ->where('customer_number', $customerNumber)
+                    ->first();
+
                 if (!$conversation) {
                     $conversationId = DB::table('conversations')->insertGetId([
+                        'tenant_id' => $tenantId,
                         'customer_number' => $customerNumber,
+                        'channel' => 'whatsapp',
                         'last_message_at' => $dateTime,
                         'created_at' => now(),
                         'updated_at' => now(),
@@ -86,12 +100,17 @@ class ImportMsg91Csv extends Command
                 }
 
                 // Insert Message if hash doesn't exist (DEDUPLICATION)
-                $exists = DB::table('messages')->where('import_hash', $importHash)->exists();
+                $exists = DB::table('messages')
+                    ->where('tenant_id', $tenantId)
+                    ->where('import_hash', $importHash)
+                    ->exists();
                 
                 if (!$exists) {
                     DB::table('messages')->insert([
                         'id' => Str::uuid()->toString(),
+                        'tenant_id' => $tenantId,
                         'conversation_id' => $conversationId,
+                        'channel' => 'whatsapp',
                         'import_hash' => $importHash,
                         'request_id' => $requestId,
                         'direction' => $direction,
@@ -109,13 +128,14 @@ class ImportMsg91Csv extends Command
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
+            fclose($handle);
             $this->error("Failed during import: " . $e->getMessage());
             return Command::FAILURE;
         }
 
         fclose($handle);
 
-        $this->info("Import completed successfully!");
+        $this->info("Import completed successfully for Tenant ID {$tenantId}!");
         $this->info("Imported: {$count} messages.");
         $this->info("Skipped (Duplicates): {$skipped} messages.");
 

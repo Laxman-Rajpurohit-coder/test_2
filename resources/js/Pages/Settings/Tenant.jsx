@@ -1,8 +1,14 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Head, useForm, router } from '@inertiajs/react';
+import axios from 'axios';
 import AppLayout from '@/Layouts/AppLayout';
 
-export default function TenantSettings({ tenantId, settings, numbers, webhook, public_api_key_preview, new_public_api_key }) {
+export default function TenantSettings({ tenantId, settings, numbers, meta, public_api_key_preview, new_public_api_key }) {
+    const [photoPreview, setPhotoPreview] = useState(null);
+    const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+    const [profileLoaded, setProfileLoaded] = useState(false);
+    const [profileError, setProfileError] = useState(null);
+
     const { data, setData, post, processing, errors, reset, recentlySuccessful } = useForm({
         ai_provider: settings.ai_provider || 'openai',
         ai_model: settings.ai_model || '',
@@ -10,6 +16,25 @@ export default function TenantSettings({ tenantId, settings, numbers, webhook, p
         ai_is_active: settings.ai_is_active || false,
         ai_human_escalation_enabled: settings.ai_human_escalation_enabled ?? true,
         ai_confidence_threshold: settings.ai_confidence_threshold || 0.70,
+    });
+
+    const metaForm = useForm({
+        meta_phone_number_id: settings.meta_phone_number_id || '',
+        meta_waba_id: settings.meta_waba_id || '',
+        meta_access_token: '',
+        facebook_page_id: settings.facebook_page_id || '',
+        instagram_account_id: settings.instagram_account_id || '',
+    });
+
+    const profileForm = useForm({
+        about: '',
+        description: '',
+        address: '',
+        email: '',
+        vertical: 'OTHER',
+        websites: ['', ''],
+        profile_picture_url: '',
+        profile_picture: null,
     });
 
     const widgetForm = useForm({
@@ -26,9 +51,69 @@ export default function TenantSettings({ tenantId, settings, numbers, webhook, p
         integrated_number: '',
     });
 
+    // Lazy load WhatsApp Business Profile only when Meta credentials exist
+    const fetchBusinessProfile = async () => {
+        if (!meta?.is_configured) return;
+        setIsLoadingProfile(true);
+        setProfileError(null);
+        try {
+            const response = await axios.get(route('settings.tenant.business-profile.get'));
+            if (response.data?.success && response.data?.data) {
+                const p = response.data.data;
+                const v = p.vertical && p.vertical !== 'UNDEFINED' ? p.vertical : 'OTHER';
+                profileForm.setData({
+                    about: p.about || '',
+                    description: p.description || '',
+                    address: p.address || '',
+                    email: p.email || '',
+                    vertical: v,
+                    websites: p.websites && p.websites.length > 0 ? p.websites : ['', ''],
+                    profile_picture_url: p.profile_picture_url || '',
+                    profile_picture: null,
+                });
+                setProfileLoaded(true);
+            } else {
+                setProfileError(response.data?.error || 'Could not load WhatsApp profile from Meta.');
+            }
+        } catch (err) {
+            setProfileError(err.response?.data?.error || err.message || 'Failed to connect to Meta Graph API.');
+        } finally {
+            setIsLoadingProfile(false);
+        }
+    };
+
+    useEffect(() => {
+        if (meta?.is_configured) {
+            fetchBusinessProfile();
+        }
+    }, [meta?.is_configured]);
+
     const handleSaveKeys = (e) => {
         e.preventDefault();
         post(route('settings.tenant.update'), { preserveScroll: true });
+    };
+
+    const handleSaveMeta = (e) => {
+        e.preventDefault();
+        metaForm.post(route('settings.tenant.meta-credentials'), { 
+            preserveScroll: true,
+            onSuccess: () => {
+                metaForm.reset('meta_access_token');
+                fetchBusinessProfile();
+            }
+        });
+    };
+
+    const handleSaveProfile = (e) => {
+        e.preventDefault();
+        profileForm.post(route('settings.tenant.business-profile'), { 
+            preserveScroll: true,
+            forceFormData: true,
+            onSuccess: () => {
+                fetchBusinessProfile();
+                setPhotoPreview(null);
+            }
+        });
     };
 
     const handleSaveWidget = (e) => {
@@ -49,21 +134,333 @@ export default function TenantSettings({ tenantId, settings, numbers, webhook, p
         }
     };
 
+    const handlePhotoChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            profileForm.setData('profile_picture', file);
+            setPhotoPreview(URL.createObjectURL(file));
+        }
+    };
+
     const embedScript = `<script src="${window.location.origin}/widget/v1/${tenantId}.js" async></script>`;
+
+    const verticals = [
+        { value: 'OTHER', label: 'Other' },
+        { value: 'AUTO', label: 'Automotive' },
+        { value: 'BEAUTY', label: 'Beauty, Spa & Salon' },
+        { value: 'APPAREL', label: 'Clothing & Apparel' },
+        { value: 'EDU', label: 'Education' },
+        { value: 'ENTERTAIN', label: 'Entertainment' },
+        { value: 'EVENT_PLAN', label: 'Event Planning & Service' },
+        { value: 'FINANCE', label: 'Finance & Banking' },
+        { value: 'GROCERY', label: 'Grocery & Supermarket' },
+        { value: 'GOVT', label: 'Public Service / Government' },
+        { value: 'HOTEL', label: 'Hotel & Lodging' },
+        { value: 'HEALTH', label: 'Medical & Health' },
+        { value: 'NONPROFIT', label: 'Non-profit Organization' },
+        { value: 'PROF_SERVICES', label: 'Professional Services' },
+        { value: 'RESTAURANT', label: 'Restaurant' },
+        { value: 'RETAIL', label: 'Retail & Shopping' },
+        { value: 'TRAVEL', label: 'Travel & Transportation' },
+    ];
 
     return (
         <AppLayout>
-            <Head title="Tenant API Settings" />
+            <Head title="Tenant API & WhatsApp Settings" />
 
             <div className="max-w-4xl mx-auto space-y-6">
                 {/* Header */}
                 <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs">
                     <h1 className="text-xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
-                        <span>🔑</span> Tenant API & Integration Settings
+                        <span>🔑</span> Tenant API & WhatsApp Integration Settings
                     </h1>
                     <p className="text-xs text-gray-500 mt-1">
-                        Configure custom MSG91, OpenAI, Flowise credentials and Website Lead Widgets for your organization.
+                        Configure WhatsApp Business Profile, Meta Cloud API, AI Assistants, and Website Lead Widgets.
                     </p>
+                </div>
+
+                {/* WhatsApp Business Profile Manager */}
+                <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs space-y-5">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                        <div className="flex items-center gap-2">
+                            <span className="text-base font-bold text-gray-900">🏢 WhatsApp Business Profile</span>
+                            {meta?.is_configured && (
+                                <button
+                                    type="button"
+                                    onClick={fetchBusinessProfile}
+                                    disabled={isLoadingProfile}
+                                    className="text-xs text-gray-400 hover:text-gray-700 p-1 rounded-md transition"
+                                    title="Refresh profile from Meta"
+                                >
+                                    🔄
+                                </button>
+                            )}
+                        </div>
+                        {meta?.is_configured ? (
+                            <span className="px-2.5 py-0.5 bg-emerald-50 text-[#00a884] border border-emerald-200 rounded-full text-[10px] font-bold">
+                                Meta Cloud API Connected
+                            </span>
+                        ) : (
+                            <span className="px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold">
+                                Meta Credentials Required Below
+                            </span>
+                        )}
+                    </div>
+
+                    {!meta?.is_configured ? (
+                        <div className="p-4 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-center space-y-2">
+                            <p className="text-xs text-gray-600 font-medium">
+                                To manage your public WhatsApp Business Profile (Photo, About, Address, Description), please configure your <strong>Meta Phone Number ID</strong> and <strong>Access Token</strong> in the Meta Credentials section below.
+                            </p>
+                        </div>
+                    ) : (
+                        <form onSubmit={handleSaveProfile} className="space-y-4">
+                            {isLoadingProfile && (
+                                <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-700 text-xs font-semibold">
+                                    <svg className="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                    </svg>
+                                    <span>Syncing business profile details from Meta Cloud API...</span>
+                                </div>
+                            )}
+
+                            {profileError && (
+                                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-medium flex items-center justify-between">
+                                    <span>⚠️ {profileError}</span>
+                                    <button 
+                                        type="button" 
+                                        onClick={fetchBusinessProfile} 
+                                        className="text-xs font-bold text-amber-900 underline ml-2 shrink-0"
+                                    >
+                                        Retry
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Profile Picture & Live Preview */}
+                            <div className="flex items-center gap-5 p-4 bg-gray-50/70 rounded-xl border border-gray-100">
+                                <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-[#00a884] bg-emerald-50 shrink-0 flex items-center justify-center text-gray-400 font-bold text-sm shadow-sm">
+                                    {photoPreview ? (
+                                        <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+                                    ) : profileForm.data.profile_picture_url ? (
+                                        <img src={profileForm.data.profile_picture_url} alt="Profile" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <span>WA</span>
+                                    )}
+                                </div>
+                                <div className="flex-1 space-y-1">
+                                    <label className="block text-xs font-bold text-gray-800">Business Profile Photo</label>
+                                    <input 
+                                        type="file" 
+                                        accept="image/jpeg,image/png"
+                                        onChange={handlePhotoChange}
+                                        className="text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#00a884] file:text-white hover:file:bg-[#008f70] cursor-pointer"
+                                    />
+                                    <p className="text-[10px] text-gray-400">Recommended 640x640 JPG/PNG. Max size: 5MB.</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                                        About Text <span className="text-gray-400 font-normal">(Max 139 chars)</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        maxLength="139"
+                                        value={profileForm.data.about}
+                                        onChange={e => profileForm.setData('about', e.target.value)}
+                                        placeholder="e.g. Premium Fashion & Accessories"
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 mb-1">Business Category (Vertical)</label>
+                                    <select
+                                        value={profileForm.data.vertical}
+                                        onChange={e => profileForm.setData('vertical', e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs outline-none bg-white"
+                                    >
+                                        {verticals.map(v => (
+                                            <option key={v.value} value={v.value}>{v.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 mb-1">
+                                    Business Description <span className="text-gray-400 font-normal">(Max 512 chars)</span>
+                                </label>
+                                <textarea
+                                    maxLength="512"
+                                    rows="3"
+                                    value={profileForm.data.description}
+                                    onChange={e => profileForm.setData('description', e.target.value)}
+                                    placeholder="Describe your services, working hours, and what makes your business unique..."
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
+                                ></textarea>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 mb-1">Business Contact Email</label>
+                                    <input
+                                        type="email"
+                                        value={profileForm.data.email}
+                                        onChange={e => profileForm.setData('email', e.target.value)}
+                                        placeholder="support@company.com"
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 mb-1">Business Physical Address</label>
+                                    <input
+                                        type="text"
+                                        value={profileForm.data.address}
+                                        onChange={e => profileForm.setData('address', e.target.value)}
+                                        placeholder="123 Business Boulevard, City, Country"
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 mb-1">Website URL 1</label>
+                                    <input
+                                        type="url"
+                                        value={profileForm.data.websites[0] || ''}
+                                        onChange={e => {
+                                            const updated = [...profileForm.data.websites];
+                                            updated[0] = e.target.value;
+                                            profileForm.setData('websites', updated);
+                                        }}
+                                        placeholder="https://company.com"
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 mb-1">Website URL 2 (Optional)</label>
+                                    <input
+                                        type="url"
+                                        value={profileForm.data.websites[1] || ''}
+                                        onChange={e => {
+                                            const updated = [...profileForm.data.websites];
+                                            updated[1] = e.target.value;
+                                            profileForm.setData('websites', updated);
+                                        }}
+                                        placeholder="https://store.company.com"
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end pt-2">
+                                <button
+                                    type="submit"
+                                    disabled={profileForm.processing}
+                                    className="flex items-center gap-2 px-5 py-2 bg-[#00a884] hover:bg-[#008f70] text-white rounded-xl text-xs font-bold transition shadow-xs disabled:opacity-50"
+                                >
+                                    {profileForm.processing ? 'Syncing with Meta...' : 'Save & Sync WhatsApp Profile'}
+                                </button>
+                            </div>
+                        </form>
+                    )}
+                </div>
+
+                {/* Meta Cloud API & Omnichannel Credentials */}
+                <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs space-y-5">
+                    <h2 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3 flex items-center justify-between">
+                        <span>📱 Meta Cloud API & Omnichannel Credentials</span>
+                        {settings.has_meta_access_token && (
+                            <span className="text-[10px] px-2 py-0.5 bg-emerald-50 text-[#00a884] border border-emerald-200 rounded-md font-bold">
+                                Token Encrypted At Rest 🔒
+                            </span>
+                        )}
+                    </h2>
+
+                    <form onSubmit={handleSaveMeta} className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 mb-1">WhatsApp Phone Number ID</label>
+                                <input
+                                    type="text"
+                                    value={metaForm.data.meta_phone_number_id}
+                                    onChange={e => metaForm.setData('meta_phone_number_id', e.target.value)}
+                                    placeholder="e.g. 1247778671756217"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 mb-1">WhatsApp Business Account ID (WABA ID)</label>
+                                <input
+                                    type="text"
+                                    value={metaForm.data.meta_waba_id}
+                                    onChange={e => metaForm.setData('meta_waba_id', e.target.value)}
+                                    placeholder="e.g. 109827364512938"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-gray-700 mb-1">
+                                Meta System User Access Token
+                                {settings.has_meta_access_token && (
+                                    <span className="text-emerald-600 font-normal ml-2 text-[10px]">
+                                        (Current token is saved & active. Enter a new token only to replace it)
+                                    </span>
+                                )}
+                            </label>
+                            <input
+                                type="password"
+                                value={metaForm.data.meta_access_token}
+                                onChange={e => metaForm.setData('meta_access_token', e.target.value)}
+                                placeholder={settings.has_meta_access_token ? '••••••••••••••••••••••••••••••••' : 'EAAN76kLhvIIBA...'}
+                                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-gray-100">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 mb-1">Facebook Page ID (Messenger)</label>
+                                <input
+                                    type="text"
+                                    value={metaForm.data.facebook_page_id}
+                                    onChange={e => metaForm.setData('facebook_page_id', e.target.value)}
+                                    placeholder="e.g. 1029384756"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 mb-1">Instagram Business Account ID</label>
+                                <input
+                                    type="text"
+                                    value={metaForm.data.instagram_account_id}
+                                    onChange={e => metaForm.setData('instagram_account_id', e.target.value)}
+                                    placeholder="e.g. 17841400123456789"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end pt-2">
+                            <button
+                                type="submit"
+                                disabled={metaForm.processing}
+                                className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-xs font-bold transition disabled:opacity-50"
+                            >
+                                {metaForm.processing ? 'Saving...' : 'Save Meta Credentials'}
+                            </button>
+                        </div>
+                    </form>
                 </div>
 
                 {/* Public API Key */}

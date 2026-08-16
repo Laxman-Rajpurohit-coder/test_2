@@ -49,4 +49,12 @@ class CustomerTask extends Model
     {
         return $this->belongsTo(Contact::class);
     }
+
+    /**
+     * Relationship with the Conversation model.
+     */
+    public function conversation()
+    {
+        return $this->belongsTo(Conversation::class);
+    }
 }

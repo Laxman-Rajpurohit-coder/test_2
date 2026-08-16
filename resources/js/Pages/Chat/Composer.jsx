@@ -228,7 +228,7 @@ export default function Composer({ conversation, onSent, approvedTemplates }) {
             conversation_id: conversation.id,
             title: reminderTitle,
             description: reminderDesc,
-            due_at: reminderDue || null,
+            due_at: reminderDue ? new Date(reminderDue).toISOString() : null,
             type: reminderType,
             template_name: reminderType === 'auto_message' && selectedReminderTemplate ? selectedReminderTemplate.name : null,
             template_language: reminderType === 'auto_message' && selectedReminderTemplate ? (selectedReminderTemplate.language || 'en') : null,

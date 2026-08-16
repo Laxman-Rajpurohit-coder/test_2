@@ -157,6 +157,9 @@ Route::middleware(['auth:web,admin', \App\Http\Middleware\BlockImpersonationWrit
         Route::get('/settings/tenant', [TenantSettingsController::class, 'edit'])->name('settings.tenant.edit');
         Route::post('/settings/tenant', [TenantSettingsController::class, 'update'])->name('settings.tenant.update');
         Route::post('/settings/tenant/api-key', [TenantSettingsController::class, 'regenerateApiKey'])->name('settings.tenant.api-key');
+        Route::post('/settings/tenant/meta-credentials', [TenantSettingsController::class, 'updateMetaCredentials'])->name('settings.tenant.meta-credentials');
+        Route::get('/settings/tenant/business-profile', [TenantSettingsController::class, 'getBusinessProfile'])->name('settings.tenant.business-profile.get');
+        Route::post('/settings/tenant/business-profile', [TenantSettingsController::class, 'updateBusinessProfile'])->name('settings.tenant.business-profile');
         Route::post('/settings/tenant/numbers', [TenantSettingsController::class, 'storeNumber'])->name('settings.tenant.numbers.store');
         Route::delete('/settings/tenant/numbers/{number}', [TenantSettingsController::class, 'destroyNumber'])->name('settings.tenant.numbers.destroy');
     });
