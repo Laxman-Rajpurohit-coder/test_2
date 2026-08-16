@@ -25,21 +25,25 @@ class BotTriggerController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'keyword'                => 'required|string|max:255',
-            'match_type'             => 'required|in:exact,contains,starts_with',
-            'response_type'          => 'required|in:text,image,document,interactive',
+            'trigger_type'           => 'nullable|string|in:keyword,first_message,fallback',
+            'keyword'                => 'required_if:trigger_type,keyword|nullable|string|max:255',
+            'match_type'             => 'required_if:trigger_type,keyword|nullable|in:exact,contains,starts_with',
+            'response_type'          => 'required|in:text,image,document,flow,interactive',
             'response_payload'       => 'required|array',
-            'response_payload.text'  => 'required_if:response_type,text,interactive|nullable|string',
+            'response_payload.text'  => 'required_if:response_type,text,interactive|nullable|string|max:4096',
             'response_payload.url'   => 'required_if:response_type,image,document|nullable|url',
             'response_payload.buttons'=> 'array|max:3',
             'priority'               => 'integer|min:0|max:999',
             'is_active'              => 'boolean',
         ]);
 
+        $triggerType = $validated['trigger_type'] ?? 'keyword';
+
         // Auto-assigns tenant_id via BelongsToTenant trait
         BotTrigger::create([
-            'keyword'          => strtolower(trim($validated['keyword'])),
-            'match_type'       => $validated['match_type'],
+            'trigger_type'     => $triggerType,
+            'keyword'          => strtolower(trim($validated['keyword'] ?? ($triggerType !== 'keyword' ? $triggerType : ''))),
+            'match_type'       => $validated['match_type'] ?? 'contains',
             'response_type'    => $validated['response_type'],
             'response_payload' => $validated['response_payload'],
             'priority'         => $validated['priority'] ?? 0,
@@ -52,11 +56,12 @@ class BotTriggerController extends Controller
     public function update(Request $request, int $id)
     {
         $validated = $request->validate([
-            'keyword'                => 'required|string|max:255',
-            'match_type'             => 'required|in:exact,contains,starts_with',
-            'response_type'          => 'required|in:text,image,document,interactive',
+            'trigger_type'           => 'nullable|string|in:keyword,first_message,fallback',
+            'keyword'                => 'required_if:trigger_type,keyword|nullable|string|max:255',
+            'match_type'             => 'required_if:trigger_type,keyword|nullable|in:exact,contains,starts_with',
+            'response_type'          => 'required|in:text,image,document,flow,interactive',
             'response_payload'       => 'required|array',
-            'response_payload.text'  => 'required_if:response_type,text,interactive|nullable|string',
+            'response_payload.text'  => 'required_if:response_type,text,interactive|nullable|string|max:4096',
             'response_payload.url'   => 'required_if:response_type,image,document|nullable|url',
             'response_payload.buttons'=> 'array|max:3',
             'priority'               => 'integer|min:0|max:999',
@@ -64,9 +69,12 @@ class BotTriggerController extends Controller
         ]);
 
         $trigger = BotTrigger::findOrFail($id);
+        $triggerType = $validated['trigger_type'] ?? $trigger->trigger_type ?? 'keyword';
+
         $trigger->update([
-            'keyword'          => strtolower(trim($validated['keyword'])),
-            'match_type'       => $validated['match_type'],
+            'trigger_type'     => $triggerType,
+            'keyword'          => strtolower(trim($validated['keyword'] ?? ($triggerType !== 'keyword' ? $triggerType : ''))),
+            'match_type'       => $validated['match_type'] ?? 'contains',
             'response_type'    => $validated['response_type'],
             'response_payload' => $validated['response_payload'],
             'priority'         => $validated['priority'] ?? 0,

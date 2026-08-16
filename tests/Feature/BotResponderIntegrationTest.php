@@ -46,7 +46,7 @@ class BotResponderIntegrationTest extends TestCase
 
         // Fake the MSG91 API call
         Http::fake([
-            '*/api/v5/whatsapp/whatsapp-outbound-message/bulk/' => Http::response(['message' => 'success', 'msgId' => ['fake-msg-id']], 200),
+            'https://api.msg91.com/*' => Http::response(['message' => 'success', 'msgId' => ['fake-msg-id']], 200),
         ]);
 
         // Simulate Inbound Webhook payload from MSG91 for the keyword 'menu'
@@ -84,15 +84,15 @@ class BotResponderIntegrationTest extends TestCase
         });
 
         // 2. Assert Message was saved to DB correctly (content struct threading)
-        $this->assertDatabaseHas('whatsapp_messages', [
+        $this->assertDatabaseHas('messages', [
             'tenant_id' => $tenant->id,
             'direction' => 'outbound',
         ]);
         
-        $outboundMsg = \App\Models\WhatsappMessage::where('tenant_id', $tenant->id)->where('direction', 'outbound')->first();
+        $outboundMsg = \App\Models\Message::where('tenant_id', $tenant->id)->where('direction', 'outbound')->first();
         if (!$outboundMsg) {
             dump("NO OUTBOUND MSG FOUND!");
-            dump(\App\Models\WhatsappMessage::all()->toArray());
+            dump(\App\Models\Message::all()->toArray());
         }
         $content = json_decode($outboundMsg->content, true);
         
@@ -125,7 +125,7 @@ class BotResponderIntegrationTest extends TestCase
         ]);
 
         Http::fake([
-            '*/api/v5/whatsapp/whatsapp-outbound-message/*' => Http::response(['message' => 'success', 'msgId' => ['fake-msg-id-2']], 200),
+            'https://api.msg91.com/*' => Http::response(['message' => 'success', 'msgId' => ['fake-msg-id-2']], 200),
         ]);
 
         // Simulate Inbound Webhook payload from MSG91 for a button click
@@ -192,7 +192,7 @@ class BotResponderIntegrationTest extends TestCase
         ]);
 
         Http::fake([
-            '*/api/v5/whatsapp/whatsapp-outbound-message/bulk/' => Http::response(['message' => 'success'], 200),
+            'https://api.msg91.com/*' => Http::response(['message' => 'success'], 200),
         ]);
 
         // Payload has BOTH conflicting text ('Support') and payload ('BTN_CMD_SUPPORT')
@@ -244,7 +244,7 @@ class BotResponderIntegrationTest extends TestCase
         ]);
 
         Http::fake([
-            '*/api/v5/whatsapp/whatsapp-outbound-message/*' => Http::response(['message' => 'success'], 200),
+            'https://api.msg91.com/*' => Http::response(['message' => 'success'], 200),
         ]);
 
         // Inbound message with empty/whitespace payload

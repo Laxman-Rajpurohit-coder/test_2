@@ -41,8 +41,15 @@ class KeywordBotResponder implements BotResponderInterface
             $context->customerName
         );
 
-        if (!$response) {
+        if (!$response || empty($response['msg91_payload'])) {
             return false; // Keyword not matched, pass to next responder in chain
+        }
+
+        // Sanity Check: If response is text but text is empty, abort dispatch
+        $respType = $response['content_struct']['type'] ?? '';
+        if ($respType === 'text' && empty(trim($response['content_struct']['text'] ?? ''))) {
+            \Illuminate\Support\Facades\Log::warning("KeywordBotResponder: Trigger matched for '{$textToMatch}' but response text is empty. Skipping dispatch.");
+            return false;
         }
 
         \App\Services\OutboundReplyService::send(

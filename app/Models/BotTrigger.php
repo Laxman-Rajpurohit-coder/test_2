@@ -12,6 +12,7 @@ class BotTrigger extends Model
 
     protected $fillable = [
         'tenant_id',
+        'trigger_type',
         'keyword',
         'match_type',
         'response_type',

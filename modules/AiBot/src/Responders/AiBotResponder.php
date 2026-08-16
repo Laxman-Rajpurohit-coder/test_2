@@ -9,7 +9,7 @@ use App\Events\ConversationEscalated;
 use App\Jobs\SendMsg91Message;
 use App\Models\Conversation;
 use App\Models\TenantSetting;
-use App\Models\WhatsappMessage;
+use App\Models\Message;
 use App\Services\Msg91PayloadBuilder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;

@@ -7,7 +7,7 @@ use App\Models\Conversation;
 use App\Models\Tenant;
 use App\Models\TenantNumber;
 use App\Models\TenantSetting;
-use App\Models\WhatsappMessage;
+use App\Models\Message;
 use App\Services\BotResponderPipeline;
 use App\Services\TenantResolverService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -87,7 +87,7 @@ class AiBotPipelineIntegrationTest extends TestCase
         // 8. Assertions
         $this->assertTrue($handled, "Pipeline should have been handled by AiBotResponder.");
 
-        $outboundMessage = WhatsappMessage::where('direction', 'outbound')->first();
+        $outboundMessage = Message::where('direction', 'outbound')->first();
         $this->assertNotNull($outboundMessage, "An outbound WhatsApp message should be created.");
 
         $content = json_decode($outboundMessage->content, true);
