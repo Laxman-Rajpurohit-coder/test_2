@@ -5,55 +5,58 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Database\Schema\Blueprint;
+use App\Models\CustomerTask;
+use App\Models\Conversation;
+use App\Models\Contact;
+use App\Http\Controllers\CustomerTaskController;
 
 class FixCustomerTasksFk extends Command
 {
-    /**
-     * The name and signature of the console command.
-     *
-     * @var string
-     */
     protected $signature = 'fix:customer-tasks-fk';
+    protected $description = 'Fix and verify customer_tasks schema and operations';
 
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
-    protected $description = 'Fix customer_tasks conversation_id foreign key column type to bigint';
-
-    /**
-     * Execute the console command.
-     */
     public function handle()
     {
-        $this->info('Starting customer_tasks fix...');
-
-        // 1. Drop existing column safely in Postgres
-        DB::statement('ALTER TABLE customer_tasks DROP COLUMN IF EXISTS conversation_id CASCADE');
-        $this->info('Dropped existing conversation_id column if existed.');
-
-        // 2. Add foreignId referencing conversations(id)
-        Schema::table('customer_tasks', function (Blueprint $table) {
-            $table->foreignId('conversation_id')
-                  ->nullable()
-                  ->after('contact_id')
-                  ->constrained('conversations')
-                  ->nullOnDelete();
-        });
-        $this->info('Added foreignId conversation_id constrained to conversations table.');
-
-        // 3. Output verification types
+        $this->info("=========================================");
+        $this->info("1. SCHEMA VERIFICATION");
         $tasksColType = Schema::getColumnType('customer_tasks', 'conversation_id');
         $convColType = Schema::getColumnType('conversations', 'id');
+        $tasksContactType = Schema::getColumnType('customer_tasks', 'contact_id');
 
-        $this->info("VERIFIED_TASKS_CONVERSATION_ID_TYPE: {$tasksColType}");
-        $this->info("VERIFIED_CONVERSATIONS_ID_TYPE: {$convColType}");
+        $this->info("customer_tasks.conversation_id type: {$tasksColType}");
+        $this->info("conversations.id type: {$convColType}");
+        $this->info("customer_tasks.contact_id type: {$tasksContactType}");
 
-        // 4. Test a dummy select query to ensure no syntax/type error
-        $testCount = DB::table('customer_tasks')->where('conversation_id', 1185)->count();
-        $this->info("TEST_QUERY_COUNT_CONVERSATION_1185: {$testCount}");
+        $this->info("=========================================");
+        $this->info("2. CONVERSATION 1185 CHECK");
+        $conv = Conversation::withoutGlobalScopes()->find(1185);
+        if ($conv) {
+            $this->info("Conversation 1185 exists: tenant_id={$conv->tenant_id}, customer_number={$conv->customer_number}, name={$conv->customer_name}");
+        } else {
+            $this->warn("Conversation 1185 does not exist. Listing first 3 conversations:");
+            foreach (Conversation::withoutGlobalScopes()->take(3)->get() as $c) {
+                $this->info(" - Conversation ID: {$c->id}, customer_number={$c->customer_number}");
+            }
+        }
+
+        $this->info("=========================================");
+        $this->info("3. CONTROLLER GET /api/conversations/1185/tasks TEST");
+        try {
+            $controller = app(CustomerTaskController::class);
+            $response = $controller->index(1185);
+            $this->info("GET /api/conversations/1185/tasks HTTP Status: " . $response->getStatusCode());
+            $this->info("GET Body: " . json_encode($response->getData()));
+        } catch (\Throwable $e) {
+            $this->error("GET Error: " . $e->getMessage());
+        }
+
+        $this->info("=========================================");
+        $this->info("4. CURRENT customer_tasks ROWS");
+        $rows = DB::table('customer_tasks')->get();
+        $this->info("Total rows count: " . $rows->count());
+        foreach ($rows as $r) {
+            $this->info(" - ID: {$r->id} | Title: {$r->title} | ConvID: {$r->conversation_id} | ContactID: " . ($r->contact_id ?? 'NULL') . " | Status: {$r->status}");
+        }
 
         return Command::SUCCESS;
     }
