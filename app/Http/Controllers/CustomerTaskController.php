@@ -41,9 +41,22 @@ class CustomerTaskController extends Controller
             'template_components' => 'nullable|array',
         ]);
 
+        $contactId = $validated['contact_id'] ?? null;
+        if (!$contactId && !empty($validated['conversation_id'])) {
+            $conv = \App\Models\Conversation::find($validated['conversation_id']);
+            if ($conv && $conv->customer_number) {
+                $contact = \App\Models\Contact::where('phone_number', $conv->customer_number)
+                    ->where('tenant_id', $tenantId)
+                    ->first();
+                if ($contact) {
+                    $contactId = $contact->id;
+                }
+            }
+        }
+
         $task = CustomerTask::create([
             'tenant_id' => $tenantId,
-            'contact_id' => $validated['contact_id'] ?? null,
+            'contact_id' => $contactId,
             'conversation_id' => $validated['conversation_id'] ?? null,
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,

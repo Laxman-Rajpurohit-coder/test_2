@@ -28,7 +28,7 @@ class AnalyticsController extends Controller
         $timezone = $request->query('timezone', 'UTC');
 
         $metrics = $this->analyticsService->getOverviewMetrics($dateFrom, $dateTo, $timezone);
-        $tasks = \App\Models\CustomerTask::orderBy('due_at', 'asc')->get();
+        $tasks = \App\Models\CustomerTask::with('contact')->orderBy('due_at', 'asc')->get();
 
         return Inertia::render('Modules/Analytics/Index', [
             'metrics'        => $metrics,
