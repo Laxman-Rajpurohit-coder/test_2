@@ -32,8 +32,11 @@ class SendTaskReminderAlerts extends Command
     {
         $this->info('Checking for due task reminders...');
 
-        // Find open tasks that are due, where reminder has not been sent yet
-        $tasks = CustomerTask::where('status', '!=', 'resolved')
+        $resolver = app(\App\Services\TenantResolverService::class);
+
+        // Find open tasks that are due across all tenants, where reminder has not been sent yet
+        $tasks = CustomerTask::withoutGlobalScope('tenant_isolation')
+            ->where('status', '!=', 'resolved')
             ->whereNotNull('due_at')
             ->where('due_at', '<=', now())
             ->whereNull('reminder_sent_at')
@@ -45,6 +48,7 @@ class SendTaskReminderAlerts extends Command
         }
 
         foreach ($tasks as $task) {
+            $resolver->setActiveTenantId($task->tenant_id);
             $this->info("Processing reminder for task: {$task->title} (Type: {$task->type}, Tenant ID: {$task->tenant_id})");
 
             if ($task->conversation_id) {
