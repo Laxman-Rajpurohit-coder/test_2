@@ -15,7 +15,7 @@ return new class extends Migration
             Schema::create('customer_tasks', function (Blueprint $table) {
                 $table->uuid('id')->primary();
                 $table->foreignId('tenant_id')->constrained('tenants')->cascadeOnDelete();
-                $table->foreignId('contact_id')->nullable()->constrained('contacts')->nullOnDelete();
+                $table->foreignUuid('contact_id')->nullable()->constrained('contacts')->nullOnDelete();
                 $table->uuid('conversation_id')->nullable(); // UUID reference to conversation table
                 $table->string('title');
                 $table->text('description')->nullable();
