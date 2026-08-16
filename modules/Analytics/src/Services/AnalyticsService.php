@@ -71,16 +71,27 @@ class AnalyticsService
 
         $isSqlite = DB::connection()->getDriverName() === 'sqlite';
 
-        // Type breakdown within range
-        $typeField = $isSqlite 
-            ? "COALESCE(json_extract(content, '$.type'), 'text')"
-            : "COALESCE(NULLIF((content::jsonb)->>'type', ''), 'text')";
-
-        $typeCounts = (clone $messagesQuery)
-            ->select(DB::raw("$typeField as msg_type"), DB::raw('count(*) as total'))
-            ->groupBy(DB::raw($typeField))
-            ->pluck('total', 'msg_type')
-            ->toArray();
+        // Type breakdown within range (safe for non-JSON content in both SQLite and Postgres)
+        $typeCounts = [
+            'text'     => 0,
+            'image'    => 0,
+            'audio'    => 0,
+            'template' => 0,
+        ];
+        $allContents = (clone $messagesQuery)->select('content')->get();
+        foreach ($allContents as $msgRow) {
+            $rawContent = $msgRow->content;
+            $type = 'text';
+            if (is_array($rawContent)) {
+                $type = $rawContent['type'] ?? 'text';
+            } elseif (is_string($rawContent) && (str_starts_with(trim($rawContent), '{') || str_starts_with(trim($rawContent), '['))) {
+                $decoded = json_decode($rawContent, true);
+                if (is_array($decoded) && !empty($decoded['type'])) {
+                    $type = $decoded['type'];
+                }
+            }
+            $typeCounts[$type] = ($typeCounts[$type] ?? 0) + 1;
+        }
 
         // 1. Messages per day trend line
         $dateSelect = $isSqlite 
@@ -140,28 +151,55 @@ class AnalyticsService
             ? "AVG((julianday(fo.first_outbound_at) - julianday(fi.first_inbound_at)) * 24 * 60) as avg_minutes"
             : "AVG(EXTRACT(EPOCH FROM (fo.first_outbound_at - fi.first_inbound_at)) / 60) as avg_minutes";
 
-        $avgResponse = DB::select("
-            WITH first_inbound AS (
-                SELECT conversation_id, MIN(created_at) as first_inbound_at
-                FROM messages
-                WHERE tenant_id = ? AND direction = 'inbound' AND created_at BETWEEN ? AND ?
-                GROUP BY conversation_id
-            ),
-            first_outbound AS (
-                SELECT m.conversation_id, MIN(m.created_at) as first_outbound_at
-                FROM messages m
-                JOIN first_inbound fi ON m.conversation_id = fi.conversation_id
-                WHERE m.tenant_id = ? AND m.direction = 'outbound' AND m.created_at >= fi.first_inbound_at
-                GROUP BY m.conversation_id
-            )
-            SELECT $avgMinutesSelect
-            FROM first_inbound fi
-            JOIN first_outbound fo ON fi.conversation_id = fo.conversation_id
-        ", [$targetTenantId, $startUtc, $endUtc, $targetTenantId]);
+        $avgFirstResponseMinutes = null;
+        try {
+            if ($targetTenantId !== null) {
+                $avgResponse = DB::select("
+                    WITH first_inbound AS (
+                        SELECT conversation_id, MIN(created_at) as first_inbound_at
+                        FROM messages
+                        WHERE tenant_id = ? AND direction = 'inbound' AND created_at BETWEEN ? AND ?
+                        GROUP BY conversation_id
+                    ),
+                    first_outbound AS (
+                        SELECT m.conversation_id, MIN(m.created_at) as first_outbound_at
+                        FROM messages m
+                        JOIN first_inbound fi ON m.conversation_id = fi.conversation_id
+                        WHERE m.tenant_id = ? AND m.direction = 'outbound' AND m.created_at >= fi.first_inbound_at
+                        GROUP BY m.conversation_id
+                    )
+                    SELECT $avgMinutesSelect
+                    FROM first_inbound fi
+                    JOIN first_outbound fo ON fi.conversation_id = fo.conversation_id
+                ", [$targetTenantId, $startUtc, $endUtc, $targetTenantId]);
+            } else {
+                $avgResponse = DB::select("
+                    WITH first_inbound AS (
+                        SELECT conversation_id, MIN(created_at) as first_inbound_at
+                        FROM messages
+                        WHERE direction = 'inbound' AND created_at BETWEEN ? AND ?
+                        GROUP BY conversation_id
+                    ),
+                    first_outbound AS (
+                        SELECT m.conversation_id, MIN(m.created_at) as first_outbound_at
+                        FROM messages m
+                        JOIN first_inbound fi ON m.conversation_id = fi.conversation_id
+                        WHERE m.direction = 'outbound' AND m.created_at >= fi.first_inbound_at
+                        GROUP BY m.conversation_id
+                    )
+                    SELECT $avgMinutesSelect
+                    FROM first_inbound fi
+                    JOIN first_outbound fo ON fi.conversation_id = fo.conversation_id
+                ", [$startUtc, $endUtc]);
+            }
 
-        $avgFirstResponseMinutes = isset($avgResponse[0]->avg_minutes) && !is_null($avgResponse[0]->avg_minutes)
-            ? round((float)$avgResponse[0]->avg_minutes, 1)
-            : null;
+            if (isset($avgResponse[0]->avg_minutes) && !is_null($avgResponse[0]->avg_minutes)) {
+                $avgFirstResponseMinutes = round((float)$avgResponse[0]->avg_minutes, 1);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("AnalyticsService: Avg response calculation error: " . $e->getMessage());
+            $avgFirstResponseMinutes = null;
+        }
 
         // 4. Recent Activity Stream
         $recentMessages = $applyTenantScope(Message::with('conversation'))
