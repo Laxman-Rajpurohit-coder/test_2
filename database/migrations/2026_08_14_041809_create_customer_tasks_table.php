@@ -11,23 +11,25 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('customer_tasks', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->foreignId('tenant_id')->constrained('tenants')->cascadeOnDelete();
-            $table->foreignId('contact_id')->nullable()->constrained('contacts')->nullOnDelete();
-            $table->uuid('conversation_id')->nullable(); // UUID reference to conversation table
-            $table->string('title');
-            $table->text('description')->nullable();
-            $table->string('status')->default('open'); // open, in_progress, resolved
-            $table->dateTime('due_at')->nullable();
-            $table->dateTime('reminder_sent_at')->nullable();
-            $table->timestamps();
+        if (!Schema::hasTable('customer_tasks')) {
+            Schema::create('customer_tasks', function (Blueprint $table) {
+                $table->uuid('id')->primary();
+                $table->foreignId('tenant_id')->constrained('tenants')->cascadeOnDelete();
+                $table->foreignId('contact_id')->nullable()->constrained('contacts')->nullOnDelete();
+                $table->uuid('conversation_id')->nullable(); // UUID reference to conversation table
+                $table->string('title');
+                $table->text('description')->nullable();
+                $table->string('status')->default('open'); // open, in_progress, resolved
+                $table->dateTime('due_at')->nullable();
+                $table->dateTime('reminder_sent_at')->nullable();
+                $table->timestamps();
 
-            // Indexes
-            $table->index('tenant_id');
-            $table->index(['tenant_id', 'status']);
-            $table->index('due_at');
-        });
+                // Indexes
+                $table->index('tenant_id');
+                $table->index(['tenant_id', 'status']);
+                $table->index('due_at');
+            });
+        }
     }
 
     /**

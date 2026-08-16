@@ -11,7 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        \Illuminate\Support\Facades\DB::statement('CREATE UNIQUE INDEX tenant_invites_email_pending_unique ON tenant_invites(email) WHERE accepted_at IS NULL');
+        try {
+            \Illuminate\Support\Facades\DB::statement('CREATE UNIQUE INDEX IF NOT EXISTS tenant_invites_email_pending_unique ON tenant_invites(email) WHERE accepted_at IS NULL');
+        } catch (\Throwable $e) {
+            // In case sqlite or unsupported driver
+        }
     }
 
     /**
@@ -19,6 +23,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        \Illuminate\Support\Facades\DB::statement('DROP INDEX tenant_invites_email_pending_unique');
+        try {
+            \Illuminate\Support\Facades\DB::statement('DROP INDEX IF EXISTS tenant_invites_email_pending_unique');
+        } catch (\Throwable $e) {
+            // Ignore gracefully
+        }
     }
 };

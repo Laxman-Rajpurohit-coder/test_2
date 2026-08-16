@@ -11,15 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('tenant_invites', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
-            $table->string('email');
-            $table->string('token')->unique();
-            $table->timestamp('accepted_at')->nullable();
-            $table->timestamp('expires_at');
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('tenant_invites')) {
+            Schema::create('tenant_invites', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
+                $table->string('email');
+                $table->string('token')->unique();
+                $table->timestamp('accepted_at')->nullable();
+                $table->timestamp('expires_at');
+                $table->timestamps();
+            });
+        }
     }
 
     /**
