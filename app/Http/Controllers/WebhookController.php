@@ -21,9 +21,9 @@ class WebhookController extends Controller
             ]);
         }
 
-        // Immediately dispatch to Redis Queue to avoid MSG91 8-second timeout penalty
-        ProcessMsg91Webhook::dispatch($payload);
+        // Process webhook synchronously for immediate DB ingestion and real-time bot response
+        ProcessMsg91Webhook::dispatchSync($payload);
 
-        return response()->json(['status' => 'success', 'message' => 'Queued'], 200);
+        return response()->json(['status' => 'success', 'message' => 'Processed'], 200);
     }
 }
