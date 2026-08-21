@@ -104,7 +104,7 @@ const CustomAudioPlayer = ({ src }) => {
     );
 };
 
-export default function Thread({ conversation, onBack, approvedTemplates }) {
+export default function Thread({ conversation, onBack, approvedTemplates, onToggleFavorite }) {
     const [messages, setMessages] = useState([]);
     const [nextCursor, setNextCursor] = useState(null);
     const messagesEndRef = useRef(null);
