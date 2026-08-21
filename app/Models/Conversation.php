@@ -49,6 +49,6 @@ class Conversation extends Model
      */
     public function latestMessage()
     {
-        return $this->hasOne(Message::class)->latestOfMany('vendor_timestamp');
+        return $this->hasOne(Message::class)->latest('vendor_timestamp');
     }
 }
