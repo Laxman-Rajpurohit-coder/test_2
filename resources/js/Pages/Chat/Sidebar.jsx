@@ -14,13 +14,15 @@ import { useState } from 'react';
  */
 export default function Sidebar({ conversations, activeConversation, onSelect, user, tenantNumbers, selectedNumberId, onSelectNumber, onConversationsDeleted, currentChannel = 'whatsapp' }) {
     const [searchQuery, setSearchQuery] = useState('');
+    const [showUnreadOnly, setShowUnreadOnly] = useState(false);
     const [isSelectMode, setIsSelectMode] = useState(false);
     const [selectedConversations, setSelectedConversations] = useState([]);
 
     const filteredConversations = conversations.filter(conv => {
         const matchesSearch = (conv.customer_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
             (conv.customer_number || '').includes(searchQuery);
-        return matchesSearch;
+        const matchesUnread = !showUnreadOnly || conv.unread_count > 0;
+        return matchesSearch && matchesUnread;
     });
 
     const formatTimestamp = (dateStr) => {
@@ -137,8 +139,8 @@ export default function Sidebar({ conversations, activeConversation, onSelect, u
             )}
 
             {/* Search Bar Container */}
-            <div className="px-3 py-2 bg-[#111b21] border-b border-[#222d34] flex-shrink-0">
-                <div className="flex items-center gap-2 rounded-lg bg-[#202c33] px-3 py-1.5 text-sm w-full border border-[#222d34]/60">
+            <div className="px-3 py-2 bg-[#111b21] border-b border-[#222d34] flex-shrink-0 flex items-center gap-2">
+                <div className="flex-1 flex items-center gap-2 rounded-lg bg-[#202c33] px-3 py-1.5 text-sm border border-[#222d34]/60">
                     <span className="text-[#8696a0] shrink-0 text-xs">🔍</span>
                     <input 
                         type="text" 
@@ -156,6 +158,22 @@ export default function Sidebar({ conversations, activeConversation, onSelect, u
                         </button>
                     )}
                 </div>
+
+                {/* Unread Filter Toggle Button */}
+                <button
+                    type="button"
+                    onClick={() => setShowUnreadOnly(!showUnreadOnly)}
+                    className={`p-2 rounded-lg text-xs font-semibold shrink-0 transition-colors border ${
+                        showUnreadOnly 
+                            ? 'bg-[#00a884] text-[#111b21] border-[#00a884] shadow-md shadow-emerald-500/10' 
+                            : 'bg-[#202c33] text-[#8696a0] border-[#222d34]/60 hover:text-[#e9edef]'
+                    }`}
+                    title={showUnreadOnly ? "Show all chats" : "Filter by unread"}
+                >
+                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                        <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z"/>
+                    </svg>
+                </button>
             </div>
 
             {/* Conversation Threads List */}
