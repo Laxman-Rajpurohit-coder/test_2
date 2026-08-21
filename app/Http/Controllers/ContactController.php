@@ -42,16 +42,25 @@ class ContactController extends Controller
             ->where('status', 'approved')
             ->get();
         
-        $customFieldKeys = \App\Models\Contact::where('tenant_id', $tenantId)
-            ->whereNotNull('custom_fields')
-            ->limit(200)
-            ->get(['custom_fields'])
-            ->flatMap(function ($contact) {
-                return is_array($contact->custom_fields) ? array_keys($contact->custom_fields) : [];
-            })
-            ->unique()
-            ->values()
-            ->toArray();
+        $isPostgres = \Illuminate\Support\Facades\DB::connection()->getDriverName() === 'pgsql';
+        if ($isPostgres) {
+            $customFieldKeys = \Illuminate\Support\Facades\DB::table('contacts')
+                ->where('tenant_id', $tenantId)
+                ->whereNotNull('custom_fields')
+                ->selectRaw('distinct jsonb_object_keys(custom_fields) as key')
+                ->pluck('key')
+                ->toArray();
+        } else {
+            $customFieldKeys = \App\Models\Contact::where('tenant_id', $tenantId)
+                ->whereNotNull('custom_fields')
+                ->pluck('custom_fields')
+                ->flatMap(function ($fields) {
+                    return is_array($fields) ? array_keys($fields) : [];
+                })
+                ->unique()
+                ->values()
+                ->toArray();
+        }
 
         $availableContactFields = array_merge(['name', 'phone_number', 'email'], $customFieldKeys);
         

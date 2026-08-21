@@ -82,12 +82,15 @@ class AnalyticsService
             ->pluck('total', 'type')
             ->toArray();
 
-        $typeCounts = [
-            'text'     => (int)($typeCountsRaw['text'] ?? 0),
-            'image'    => (int)($typeCountsRaw['image'] ?? 0),
-            'audio'    => (int)($typeCountsRaw['audio'] ?? 0),
-            'template' => (int)($typeCountsRaw['template'] ?? 0),
-        ];
+        $typeCounts = [];
+        foreach ($typeCountsRaw as $type => $count) {
+            $typeCounts[$type] = (int)$count;
+        }
+        foreach (['text', 'image', 'audio', 'template'] as $defaultType) {
+            if (!isset($typeCounts[$defaultType])) {
+                $typeCounts[$defaultType] = 0;
+            }
+        }
 
         // 1. Messages per day trend line
         $dateSelect = $isSqlite 
@@ -239,12 +242,7 @@ class AnalyticsService
             ],
             'busiest_hours'              => $busiestHours,
             'avg_first_response_minutes' => $avgFirstResponseMinutes,
-            'type_breakdown'             => [
-                'text'     => (int)($typeCounts['text'] ?? 0),
-                'image'    => (int)($typeCounts['image'] ?? 0),
-                'audio'    => (int)($typeCounts['audio'] ?? 0),
-                'template' => (int)($typeCounts['template'] ?? 0),
-            ],
+            'type_breakdown'             => $typeCounts,
             'recent_messages' => $recentMessages,
         ];
     }
