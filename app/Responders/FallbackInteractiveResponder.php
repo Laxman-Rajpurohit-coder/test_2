@@ -85,9 +85,9 @@ class FallbackInteractiveResponder implements BotResponderInterface
 
         // Default safety-net interactive fallback menu
         $defaultButtons = [
-            ['id' => 'talk_to_agent', 'title' => 'Talk to Agent'],
-            ['id' => 'check_balance', 'title' => 'Check Balance'],
-            ['id' => 'support', 'title' => 'Support / Help'],
+            ['type' => 'reply', 'reply' => ['id' => 'talk_to_agent', 'title' => 'Talk to Agent']],
+            ['type' => 'reply', 'reply' => ['id' => 'check_balance', 'title' => 'Check Balance']],
+            ['type' => 'reply', 'reply' => ['id' => 'support', 'title' => 'Support / Help']],
         ];
 
         $defaultText = "नमस्ते {$resolvedName}! हमें आपका संदेश प्राप्त हुआ। कृपया नीचे दिए गए विकल्पों में से चुनें या अपना प्रश्न टाइप करें:";
