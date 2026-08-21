@@ -18,6 +18,10 @@ return new class extends Migration
         Schema::table('customer_tasks', function (Blueprint $table) {
             $table->index('conversation_id');
         });
+
+        Schema::table('conversations', function (Blueprint $table) {
+            $table->index('last_message_at');
+        });
     }
 
     /**
@@ -31,6 +35,10 @@ return new class extends Migration
 
         Schema::table('customer_tasks', function (Blueprint $table) {
             $table->dropIndex(['conversation_id']);
+        });
+
+        Schema::table('conversations', function (Blueprint $table) {
+            $table->dropIndex(['last_message_at']);
         });
     }
 };
