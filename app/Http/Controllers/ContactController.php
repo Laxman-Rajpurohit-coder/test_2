@@ -44,6 +44,7 @@ class ContactController extends Controller
         
         $customFieldKeys = \App\Models\Contact::where('tenant_id', $tenantId)
             ->whereNotNull('custom_fields')
+            ->limit(200)
             ->get(['custom_fields'])
             ->flatMap(function ($contact) {
                 return is_array($contact->custom_fields) ? array_keys($contact->custom_fields) : [];

@@ -71,27 +71,23 @@ class AnalyticsService
 
         $isSqlite = DB::connection()->getDriverName() === 'sqlite';
 
-        // Type breakdown within range (safe for non-JSON content in both SQLite and Postgres)
+        // Type breakdown within range (database-driven JSON query)
+        $typeSelect = $isSqlite
+            ? "COALESCE(json_extract(content, '$.type'), 'text') as type"
+            : "COALESCE(content->>'type', 'text') as type";
+
+        $typeCountsRaw = (clone $messagesQuery)
+            ->selectRaw("$typeSelect, COUNT(*) as total")
+            ->groupByRaw("1")
+            ->pluck('total', 'type')
+            ->toArray();
+
         $typeCounts = [
-            'text'     => 0,
-            'image'    => 0,
-            'audio'    => 0,
-            'template' => 0,
+            'text'     => (int)($typeCountsRaw['text'] ?? 0),
+            'image'    => (int)($typeCountsRaw['image'] ?? 0),
+            'audio'    => (int)($typeCountsRaw['audio'] ?? 0),
+            'template' => (int)($typeCountsRaw['template'] ?? 0),
         ];
-        $allContents = (clone $messagesQuery)->select('content')->get();
-        foreach ($allContents as $msgRow) {
-            $rawContent = $msgRow->content;
-            $type = 'text';
-            if (is_array($rawContent)) {
-                $type = $rawContent['type'] ?? 'text';
-            } elseif (is_string($rawContent) && (str_starts_with(trim($rawContent), '{') || str_starts_with(trim($rawContent), '['))) {
-                $decoded = json_decode($rawContent, true);
-                if (is_array($decoded) && !empty($decoded['type'])) {
-                    $type = $decoded['type'];
-                }
-            }
-            $typeCounts[$type] = ($typeCounts[$type] ?? 0) + 1;
-        }
 
         // 1. Messages per day trend line
         $dateSelect = $isSqlite 
