@@ -42,7 +42,7 @@ export default function ChatIndex({ auth, tenantNumbers, approvedTemplates, curr
 
     useEffect(() => {
         fetchConversations();
-        const interval = setInterval(fetchConversations, 3000); // Fast polling fallback
+        const interval = setInterval(fetchConversations, 15000); // Fallback backup when WebSocket is idle
 
         // Request Browser Notification Permission on Load
         if ('Notification' in window && Notification.permission === 'default') {

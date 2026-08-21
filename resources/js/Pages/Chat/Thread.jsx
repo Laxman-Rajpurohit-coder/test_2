@@ -129,7 +129,7 @@ export default function Thread({ conversation, onBack, approvedTemplates }) {
     useEffect(() => {
         if (!conversation?.id) return;
         fetchTasks();
-        const taskInterval = setInterval(fetchTasks, 5000);
+        const taskInterval = setInterval(fetchTasks, 20000);
         return () => clearInterval(taskInterval);
     }, [conversation?.id]);
 
@@ -207,10 +207,10 @@ export default function Thread({ conversation, onBack, approvedTemplates }) {
         setIsInitialLoad(true);
         fetchMessages();
 
-        // Fast 3-second polling fallback ensuring instant inbound/outbound sync
+        // Fast 15-second polling fallback ensuring backup sync when WS is idle
         const pollInterval = setInterval(() => {
             fetchMessages();
-        }, 3000);
+        }, 15000);
 
         const channel = window.Echo.channel(`conversations.${conversation.id}`);
         channel.listen('.message.received', (e) => {

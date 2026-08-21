@@ -78,9 +78,7 @@ class ChatController extends Controller
     public function index(Request $request)
     {
         $query = Conversation::orderBy('last_message_at', 'desc')
-            ->with(['messages' => function ($q) {
-                $q->orderBy('vendor_timestamp', 'desc')->limit(1);
-            }]);
+            ->with(['latestMessage']);
 
         if ($request->filled('tenant_number_id')) {
             $query->where('tenant_number_id', $request->input('tenant_number_id'));
@@ -103,7 +101,11 @@ class ChatController extends Controller
             });
         }
 
-        $conversations = $query->get();
+        $conversations = $query->get()->map(function ($conv) {
+            $conv->setRelation('messages', $conv->latestMessage ? collect([$conv->latestMessage]) : collect());
+            unset($conv->latestMessage);
+            return $conv;
+        });
             
         return response()->json($conversations);
     }
