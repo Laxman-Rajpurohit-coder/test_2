@@ -302,15 +302,19 @@ class ProcessMsg91Webhook implements ShouldQueue
 
                 DB::table('messages')->where('id', $existingMessage->id)->update($updateFields);
                 
-                // Sync status to campaign_recipients if applicable
+                // Sync status to campaign_recipients if applicable (Non-blocking guard)
                 if (isset($updateFields['status'])) {
-                    DB::table('campaign_recipients')
-                        ->where('whatsapp_message_id', $existingMessage->id)
-                        ->update([
-                            'status' => $updateFields['status'],
-                            'failure_reason' => $updateFields['failure_reason'] ?? null,
-                            'updated_at' => now(),
-                        ]);
+                    try {
+                        DB::table('campaign_recipients')
+                            ->where('whatsapp_message_id', $existingMessage->id)
+                            ->update([
+                                'status' => $updateFields['status'],
+                                'failure_reason' => $updateFields['failure_reason'] ?? null,
+                                'updated_at' => now(),
+                            ]);
+                    } catch (\Throwable $e) {
+                        Log::warning('ProcessMsg91Webhook: campaign_recipients status sync failed (non-blocking): ' . $e->getMessage());
+                    }
                 }
             } else {
                 try {
@@ -370,15 +374,19 @@ class ProcessMsg91Webhook implements ShouldQueue
                         }
                         DB::table('messages')->where('id', $existingMessage->id)->update($updateFields);
                         
-                        // Sync status to campaign_recipients if applicable
+                        // Sync status to campaign_recipients if applicable (Non-blocking guard)
                         if (isset($updateFields['status'])) {
-                            DB::table('campaign_recipients')
-                                ->where('whatsapp_message_id', $existingMessage->id)
-                                ->update([
-                                    'status' => $updateFields['status'],
-                                    'failure_reason' => $updateFields['failure_reason'] ?? null,
-                                    'updated_at' => now(),
-                                ]);
+                            try {
+                                DB::table('campaign_recipients')
+                                    ->where('whatsapp_message_id', $existingMessage->id)
+                                    ->update([
+                                        'status' => $updateFields['status'],
+                                        'failure_reason' => $updateFields['failure_reason'] ?? null,
+                                        'updated_at' => now(),
+                                    ]);
+                            } catch (\Throwable $e) {
+                                Log::warning('ProcessMsg91Webhook: campaign_recipients status sync failed (non-blocking): ' . $e->getMessage());
+                            }
                         }
                     } else {
                         throw $e;

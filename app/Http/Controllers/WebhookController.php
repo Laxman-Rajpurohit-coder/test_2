@@ -21,9 +21,18 @@ class WebhookController extends Controller
             ]);
         }
 
-        // Process webhook synchronously for immediate DB ingestion and real-time bot response
-        ProcessMsg91Webhook::dispatchSync($payload);
+        try {
+            // Process webhook synchronously for immediate DB ingestion and real-time bot response
+            ProcessMsg91Webhook::dispatchSync($payload);
+            return response()->json(['status' => 'success', 'message' => 'Processed'], 200);
+        } catch (\Throwable $e) {
+            if (str_contains($e->getMessage(), 'SECURITY ABORT')) {
+                Log::warning('WebhookController: ' . $e->getMessage() . ' Acknowledging 200 to prevent retry storm.');
+                return response()->json(['status' => 'rejected', 'message' => 'Unmapped integrated number'], 200);
+            }
 
-        return response()->json(['status' => 'success', 'message' => 'Processed'], 200);
+            Log::error('WebhookController: Unexpected error processing webhook: ' . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
     }
 }

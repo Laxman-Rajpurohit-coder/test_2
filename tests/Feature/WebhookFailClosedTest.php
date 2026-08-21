@@ -28,4 +28,24 @@ class WebhookFailClosedTest extends TestCase
         // Because we now rethrow it, PHPUnit will catch it and pass the test.
         $job->handle();
     }
+
+    public function test_webhook_controller_returns_200_and_halts_retries_when_unmapped_number_is_received()
+    {
+        config(['services.msg91.webhook_secret' => 'test_secret']);
+
+        $response = $this->postJson('/api/msg91/webhook', [
+            'direction' => 0,
+            'integratedNumber' => '910000000000', // Unmapped number
+            'mobile' => '919876543210',
+            'text' => 'Hello',
+        ], [
+            'X-MSG91-Secret' => 'test_secret',
+        ]);
+
+        $response->assertOk();
+        $response->assertJson([
+            'status' => 'rejected',
+            'message' => 'Unmapped integrated number',
+        ]);
+    }
 }
