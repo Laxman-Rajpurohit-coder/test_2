@@ -202,6 +202,8 @@ export default function Thread({ conversation, onBack, approvedTemplates }) {
 
     useEffect(() => {
         if (!conversation?.id) return;
+        setMessages([]);
+        setNextCursor(null);
         setIsInitialLoad(true);
         fetchMessages();
 
