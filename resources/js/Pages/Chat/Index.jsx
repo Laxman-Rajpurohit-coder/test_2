@@ -1,19 +1,28 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import AppLayout from '@/Layouts/AppLayout';
 import Sidebar from './Sidebar';
 import Thread from './Thread';
 
 /**
- * Render the WhatsApp-style inbox for browsing and viewing conversations.
- * @param {Object} props - Component properties.
- * @param {Object} props.auth - Authentication data used to identify the current user.
- * @param {Array} props.tenantNumbers - Tenant numbers available for filtering conversations.
+ * High-performance, accessible Chat Inbox with cursor pagination,
+ * server-side search, real-time in-place updates, and favorites.
  */
 export default function ChatIndex({ auth, tenantNumbers, approvedTemplates, currentChannel = 'whatsapp', channelCounts = {}, socialSettings = {} }) {
     const [conversations, setConversations] = useState([]);
+    const [nextCursor, setNextCursor] = useState(null);
+    const [hasMore, setHasMore] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+
     const [activeConversation, setActiveConversation] = useState(null);
     const [selectedNumberId, setSelectedNumberId] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+    const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+
+    // Debounce timer reference for search
+    const searchDebounceRef = useRef(null);
 
     // Keep global state in sync for the websocket closure
     useEffect(() => {
@@ -23,75 +32,219 @@ export default function ChatIndex({ auth, tenantNumbers, approvedTemplates, curr
     const { impersonation } = usePage().props;
     const resolvedTenantId = impersonation?.is_impersonating ? impersonation.tenant_id : auth?.user?.tenant_id;
 
-    const fetchConversations = () => {
-        let url = '/api/conversations';
-        const params = [];
+    /**
+     * Fetch conversations with cursor pagination and server-side filters.
+     */
+    const fetchConversations = useCallback((reset = true, cursor = null) => {
+        if (reset) {
+            setIsLoading(true);
+        } else {
+            setIsLoadingMore(true);
+        }
+
+        const params = new URLSearchParams();
         if (selectedNumberId) {
-            params.push(`tenant_number_id=${selectedNumberId}`);
+            params.set('tenant_number_id', selectedNumberId);
         }
         if (currentChannel && currentChannel !== 'all') {
-            params.push(`channel=${currentChannel}`);
+            params.set('channel', currentChannel);
         }
-        if (params.length > 0) {
-            url += `?${params.join('&')}`;
+        if (showUnreadOnly) {
+            params.set('unread_only', '1');
         }
-        window.axios.get(url).then(res => {
-            setConversations(res.data);
-        });
+        if (showFavoritesOnly) {
+            params.set('favorite_only', '1');
+        }
+        if (searchQuery.trim()) {
+            params.set('search', searchQuery.trim());
+        }
+        if (cursor) {
+            params.set('cursor', cursor);
+        }
+        params.set('limit', '40');
+
+        window.axios.get(`/api/conversations?${params.toString()}`)
+            .then(res => {
+                const newItems = res.data?.data || [];
+                const next = res.data?.next_cursor || null;
+                const more = Boolean(res.data?.has_more);
+
+                setNextCursor(next);
+                setHasMore(more);
+
+                if (reset) {
+                    setConversations(newItems);
+                } else {
+                    setConversations(prev => {
+                        const existingIds = new Set(prev.map(c => c.id));
+                        const uniqueNew = newItems.filter(item => !existingIds.has(item.id));
+                        return [...prev, ...uniqueNew];
+                    });
+                }
+            })
+            .catch(console.error)
+            .finally(() => {
+                setIsLoading(false);
+                setIsLoadingMore(false);
+            });
+    }, [selectedNumberId, currentChannel, showUnreadOnly, showFavoritesOnly, searchQuery]);
+
+    // Initial fetch and filter triggers
+    useEffect(() => {
+        fetchConversations(true, null);
+    }, [selectedNumberId, currentChannel, showUnreadOnly, showFavoritesOnly]);
+
+    // Handle debounced search input changes
+    const handleSearchChange = (query) => {
+        setSearchQuery(query);
+        if (searchDebounceRef.current) {
+            clearTimeout(searchDebounceRef.current);
+        }
+        searchDebounceRef.current = setTimeout(() => {
+            // Trigger fetch with new search query
+            const params = new URLSearchParams();
+            if (selectedNumberId) params.set('tenant_number_id', selectedNumberId);
+            if (currentChannel && currentChannel !== 'all') params.set('channel', currentChannel);
+            if (showUnreadOnly) params.set('unread_only', '1');
+            if (showFavoritesOnly) params.set('favorite_only', '1');
+            if (query.trim()) params.set('search', query.trim());
+            params.set('limit', '40');
+
+            setIsLoading(true);
+            window.axios.get(`/api/conversations?${params.toString()}`)
+                .then(res => {
+                    setConversations(res.data?.data || []);
+                    setNextCursor(res.data?.next_cursor || null);
+                    setHasMore(Boolean(res.data?.has_more));
+                })
+                .catch(console.error)
+                .finally(() => setIsLoading(false));
+        }, 300);
     };
 
-    useEffect(() => {
-        fetchConversations();
-        const interval = setInterval(fetchConversations, 15000); // Fallback backup when WebSocket is idle
+    // Load next cursor batch on scroll
+    const handleLoadMore = () => {
+        if (nextCursor && hasMore && !isLoadingMore) {
+            fetchConversations(false, nextCursor);
+        }
+    };
 
+    // Optimistic Favorite Toggle
+    const handleToggleFavorite = (convId) => {
+        setConversations(prev => prev.map(c => {
+            if (c.id === convId) {
+                return { ...c, is_favorite: !c.is_favorite };
+            }
+            return c;
+        }));
+
+        if (activeConversation && activeConversation.id === convId) {
+            setActiveConversation(prev => ({ ...prev, is_favorite: !prev.is_favorite }));
+        }
+
+        window.axios.post(`/api/conversations/${convId}/favorite`)
+            .then(res => {
+                if (res.data && typeof res.data.is_favorite === 'boolean') {
+                    const serverFav = res.data.is_favorite;
+                    setConversations(prev => prev.map(c => c.id === convId ? { ...c, is_favorite: serverFav } : c));
+                    if (activeConversation && activeConversation.id === convId) {
+                        setActiveConversation(prev => ({ ...prev, is_favorite: serverFav }));
+                    }
+                }
+            })
+            .catch(err => {
+                console.error('Failed to toggle favorite:', err);
+                // Rollback on error
+                setConversations(prev => prev.map(c => {
+                    if (c.id === convId) {
+                        return { ...c, is_favorite: !c.is_favorite };
+                    }
+                    return c;
+                }));
+            });
+    };
+
+    // Setup Real-time In-place WebSocket listener
+    useEffect(() => {
         // Request Browser Notification Permission on Load
         if ('Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission();
         }
 
-        // Real-time Sidebar Updates
         let channel = null;
-        
-        if (resolvedTenantId) {
+        if (resolvedTenantId && window.Echo) {
             channel = window.Echo.private(`tenant.${resolvedTenantId}`);
             channel.listen('.message.received', (e) => {
-                fetchConversations();
-                
-                // Show Desktop Notification if it's an inbound message and NOT the active chat
-                if (e.message && e.message.direction === 'inbound') {
-                    const isMuted = window.activeConversationId === e.message.conversation_id && document.visibilityState === 'visible';
-                    
-                    if (!isMuted && 'Notification' in window && Notification.permission === 'granted') {
-                        let textStr = 'New Message';
-                        try {
-                            const parsed = typeof e.message.content === 'string' ? JSON.parse(e.message.content) : e.message.content;
-                            if (parsed && typeof parsed === 'string') {
-                                textStr = JSON.parse(parsed).text || textStr;
-                            } else if (parsed && parsed.text) {
-                                textStr = parsed.text;
-                            } else if (parsed && parsed.type) {
-                                textStr = '📷 ' + parsed.type;
-                            }
-                        } catch(err) {}
+                if (!e.message) return;
 
-                        const channelLabel = e.message.channel === 'facebook' ? 'Facebook Messenger' : e.message.channel === 'instagram' ? 'Instagram Direct' : 'WhatsApp';
+                const msg = e.message;
+                const convId = msg.conversation_id;
+                const isInbound = msg.direction === 'inbound';
+                const isActive = window.activeConversationId === convId && document.visibilityState === 'visible';
 
-                        new Notification(`New ${channelLabel} Message`, {
-                            body: textStr,
-                            icon: '/favicon.ico'
-                        });
+                // Extract preview string cleanly
+                let previewText = '📷 Media';
+                try {
+                    const parsed = typeof msg.content === 'string' ? JSON.parse(msg.content) : msg.content;
+                    if (parsed && typeof parsed === 'string') {
+                        previewText = JSON.parse(parsed).text || previewText;
+                    } else if (parsed && parsed.text) {
+                        previewText = parsed.text;
+                    } else if (parsed && parsed.type) {
+                        previewText = '📷 ' + parsed.type;
                     }
+                } catch (err) {}
+
+                // In-place update in React state: move to top & update preview
+                setConversations(prev => {
+                    const existsIndex = prev.findIndex(c => c.id === convId);
+                    if (existsIndex >= 0) {
+                        const updatedConv = {
+                            ...prev[existsIndex],
+                            preview: previewText,
+                            last_message_at: new Date().toISOString(),
+                            last_message_direction: msg.direction,
+                            last_message_status: msg.status || 'delivered',
+                            unread_count: isActive ? 0 : (isInbound ? (prev[existsIndex].unread_count || 0) + 1 : prev[existsIndex].unread_count),
+                        };
+                        const filtered = prev.filter(c => c.id !== convId);
+                        return [updatedConv, ...filtered];
+                    } else {
+                        // New conversation not in current page, prepend minimal DTO
+                        const newConv = {
+                            id: convId,
+                            customer_name: msg.customer_name || msg.customer_number || 'New Contact',
+                            customer_number: msg.customer_number || '',
+                            channel: msg.channel || currentChannel,
+                            unread_count: isActive ? 0 : (isInbound ? 1 : 0),
+                            is_favorite: false,
+                            last_message_at: new Date().toISOString(),
+                            preview: previewText,
+                            last_message_direction: msg.direction,
+                            last_message_status: msg.status || 'delivered',
+                            tenant_number_id: msg.tenant_number_id || null,
+                        };
+                        return [newConv, ...prev];
+                    }
+                });
+
+                // Trigger Desktop Notification if not active chat
+                if (isInbound && !isActive && 'Notification' in window && Notification.permission === 'granted') {
+                    const channelLabel = msg.channel === 'facebook' ? 'Facebook Messenger' : msg.channel === 'instagram' ? 'Instagram Direct' : 'WhatsApp';
+                    new Notification(`New ${channelLabel} Message`, {
+                        body: previewText,
+                        icon: '/favicon.ico'
+                    });
                 }
             });
         }
 
         return () => {
-            clearInterval(interval);
             if (channel) {
                 window.Echo.leave(`tenant.${resolvedTenantId}`);
             }
         };
-    }, [selectedNumberId, currentChannel]);
+    }, [resolvedTenantId, currentChannel]);
 
     const handleSelectConversation = (conv) => {
         setActiveConversation(conv);
@@ -105,7 +258,7 @@ export default function ChatIndex({ auth, tenantNumbers, approvedTemplates, curr
         if (activeConversation && deletedIds.includes(activeConversation.id)) {
             setActiveConversation(null);
         }
-        fetchConversations();
+        setConversations(prev => prev.filter(c => !deletedIds.includes(c.id)));
     };
 
     const channelTabs = [
@@ -120,8 +273,8 @@ export default function ChatIndex({ auth, tenantNumbers, approvedTemplates, curr
                     <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0012.04 2zm.01 16.59c-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.32a8.192 8.192 0 01-1.26-4.38c0-4.54 3.7-8.24 8.24-8.24 2.2 0 4.27.86 5.82 2.42a8.194 8.194 0 012.41 5.83c0 4.54-3.7 8.24-8.24 8.24z"/>
                 </svg>
             ),
-            activeClass: 'bg-[#00a884] text-[#111b21] shadow-md shadow-emerald-500/20 font-bold',
-            inactiveClass: 'text-[#8696a0] hover:text-[#e9edef] hover:bg-[#202c33]'
+            activeClass: 'bg-[#00a884] text-[#111b21] shadow-md shadow-emerald-500/20 font-black',
+            inactiveClass: 'text-[#9ca3af] hover:text-[#e9edef] hover:bg-[#202c33]'
         },
         {
             id: 'facebook',
@@ -135,7 +288,7 @@ export default function ChatIndex({ auth, tenantNumbers, approvedTemplates, curr
                 </svg>
             ),
             activeClass: 'bg-[#1877f2] text-white shadow-md shadow-blue-500/20 font-bold',
-            inactiveClass: 'text-[#8696a0] hover:text-[#1877f2] hover:bg-[#202c33]'
+            inactiveClass: 'text-[#9ca3af] hover:text-[#1877f2] hover:bg-[#202c33]'
         },
         {
             id: 'instagram',
@@ -149,7 +302,7 @@ export default function ChatIndex({ auth, tenantNumbers, approvedTemplates, curr
                 </svg>
             ),
             activeClass: 'bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] text-white shadow-md shadow-pink-500/20 font-bold',
-            inactiveClass: 'text-[#8696a0] hover:text-pink-400 hover:bg-[#202c33]'
+            inactiveClass: 'text-[#9ca3af] hover:text-pink-400 hover:bg-[#202c33]'
         },
         {
             id: 'all',
@@ -163,7 +316,7 @@ export default function ChatIndex({ auth, tenantNumbers, approvedTemplates, curr
                 </svg>
             ),
             activeClass: 'bg-[#2a3942] text-[#e9edef] ring-1 ring-[#3b4a54] font-bold',
-            inactiveClass: 'text-[#8696a0] hover:text-[#e9edef] hover:bg-[#202c33]'
+            inactiveClass: 'text-[#9ca3af] hover:text-[#e9edef] hover:bg-[#202c33]'
         }
     ];
 
@@ -197,7 +350,7 @@ export default function ChatIndex({ auth, tenantNumbers, approvedTemplates, curr
                                             {tab.unread}
                                         </span>
                                     ) : (
-                                        <span className={`text-[10px] opacity-75 font-medium`}>
+                                        <span className="text-[10px] text-[#9ca3af] font-medium">
                                             ({tab.count})
                                         </span>
                                     )}
@@ -248,13 +401,28 @@ export default function ChatIndex({ auth, tenantNumbers, approvedTemplates, curr
                             onSelectNumber={setSelectedNumberId}
                             onConversationsDeleted={handleConversationsDeleted}
                             currentChannel={currentChannel}
+                            searchQuery={searchQuery}
+                            onSearchChange={handleSearchChange}
+                            showUnreadOnly={showUnreadOnly}
+                            onToggleUnreadOnly={() => setShowUnreadOnly(!showUnreadOnly)}
+                            showFavoritesOnly={showFavoritesOnly}
+                            onToggleFavoritesOnly={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                            onToggleFavorite={handleToggleFavorite}
+                            onLoadMore={handleLoadMore}
+                            hasMore={hasMore}
+                            isLoadingMore={isLoadingMore}
                         />
                     </aside>
                     
                     {/* RIGHT COLUMN: Active Chat Canvas */}
                     <main className={`flex flex-1 flex-col bg-[#0b141a] relative h-full min-w-0 ${!activeConversation ? 'hidden md:flex' : 'flex'}`}>
                         {activeConversation ? (
-                            <Thread conversation={activeConversation} approvedTemplates={approvedTemplates} onBack={() => setActiveConversation(null)} />
+                            <Thread 
+                                conversation={activeConversation} 
+                                approvedTemplates={approvedTemplates} 
+                                onBack={() => setActiveConversation(null)} 
+                                onToggleFavorite={handleToggleFavorite}
+                            />
                         ) : (
                             <div className="flex h-full items-center justify-center flex-col space-y-4 bg-[#222e35] text-center p-8">
                                 {currentChannel === 'facebook' ? (
@@ -288,26 +456,22 @@ export default function ChatIndex({ auth, tenantNumbers, approvedTemplates, curr
                                         </div>
                                         <h2 className="text-2xl font-light text-[#e9edef] mt-2">Unified Omnichannel Inbox</h2>
                                         <p className="text-sm text-[#8696a0] max-w-md leading-relaxed">
-                                            All your customer conversations across WhatsApp, Facebook Messenger, and Instagram Direct in one place.
+                                            View, triage, and reply to all customer conversations across WhatsApp, Facebook, and Instagram.
                                         </p>
                                     </>
                                 ) : (
                                     <>
-                                        <div className="w-24 h-24 rounded-full bg-[#202c33] flex items-center justify-center shadow-lg border border-[#222d34]">
+                                        <div className="w-24 h-24 rounded-full bg-[#00a884]/10 border border-[#00a884]/30 flex items-center justify-center shadow-lg shadow-emerald-500/10">
                                             <svg className="w-12 h-12 text-[#00a884]" fill="currentColor" viewBox="0 0 24 24">
                                                 <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0012.04 2zm.01 16.59c-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.32a8.192 8.192 0 01-1.26-4.38c0-4.54 3.7-8.24 8.24-8.24 2.2 0 4.27.86 5.82 2.42a8.194 8.194 0 012.41 5.83c0 4.54-3.7 8.24-8.24 8.24z"/>
                                             </svg>
                                         </div>
                                         <h2 className="text-2xl font-light text-[#e9edef] mt-2">WhatsApp Web for Business</h2>
                                         <p className="text-sm text-[#8696a0] max-w-md leading-relaxed">
-                                            Send and receive WhatsApp messages in real time with template support and interactive quick-replies.
+                                            Send and receive messages seamlessly without keeping your phone online. Select a chat from the left sidebar to start messaging.
                                         </p>
                                     </>
                                 )}
-                                <div className="flex items-center gap-2 text-xs text-[#8696a0] mt-6">
-                                    <svg className="w-4 h-4 text-[#8696a0]" fill="currentColor" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
-                                    <span>Real-time WebSocket connection active</span>
-                                </div>
                             </div>
                         )}
                     </main>

@@ -563,25 +563,25 @@ export default function Composer({ conversation, onSent, approvedTemplates }) {
             )}
 
             <form onSubmit={handleSend} className="flex items-center gap-2 w-full relative z-30">
-                <input type="file" ref={fileInputRef} onChange={handleImageSelect} accept="image/*,video/mp4,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt" className="hidden" />
+                <input type="file" ref={fileInputRef} onChange={handleImageSelect} accept="image/*,video/mp4,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt" className="hidden" aria-label="File upload" />
 
                 {/* Left actions: Attach, Template, Emoji */}
                 <div className="flex items-center gap-1">
                     {!(conversation?.channel === 'facebook' || conversation?.channel === 'instagram') && (
                         <>
-                            <button type="button" onClick={() => setShowTemplateModal(true)} className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#2a3942] text-[#8696a0] hover:bg-[#3b4a54] hover:text-[#e9edef] transition-colors" title="Send Template">
+                            <button type="button" onClick={() => setShowTemplateModal(true)} className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#2a3942] text-[#8696a0] hover:bg-[#3b4a54] hover:text-[#e9edef] transition-colors" title="Send Template" aria-label="Send WhatsApp Template">
                                 <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
                                 <span className="text-xs font-medium uppercase tracking-wider">Template</span>
                             </button>
-                            <button type="button" onClick={() => setShowButtonsPanel(!showButtonsPanel)} className={`p-2 rounded-full transition-colors ${showButtonsPanel || interactiveButtons.some(b => b.trim() !== '') ? 'text-[#00a884] bg-[#2a3942]' : 'text-[#8696a0] hover:bg-[#2a3942] hover:text-[#e9edef]'}`} title="Interactive Buttons">
+                            <button type="button" onClick={() => setShowButtonsPanel(!showButtonsPanel)} className={`p-2 rounded-full transition-colors ${showButtonsPanel || interactiveButtons.some(b => b.trim() !== '') ? 'text-[#00a884] bg-[#2a3942]' : 'text-[#8696a0] hover:bg-[#2a3942] hover:text-[#e9edef]'}`} title="Interactive Buttons" aria-label="Toggle Interactive Buttons Panel" aria-expanded={showButtonsPanel}>
                                 <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M4 6h16v4H4zm0 8h16v4H4z"/></svg>
                             </button>
                         </>
                     )}
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 rounded-full text-[#8696a0] hover:bg-[#2a3942] hover:text-[#e9edef] transition-colors" title="Attach Media">
+                    <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 rounded-full text-[#8696a0] hover:bg-[#2a3942] hover:text-[#e9edef] transition-colors" title="Attach Media" aria-label="Attach Media File">
                         <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M1.992 11.997l8.485-8.485a5.5 5.5 0 017.779 7.778l-9.9 9.9a3.5 3.5 0 01-4.95-4.95l8.485-8.485a1.5 1.5 0 012.121 2.121l-7.424 7.425-1.415-1.414 7.425-7.425a3.5 3.5 0 00-4.95-4.95l-8.485 8.485a5.5 5.5 0 007.778 7.778l9.9-9.9a7.5 7.5 0 00-10.607-10.607l-8.485 8.485z"/></svg>
                     </button>
-                    <button type="button" onClick={() => setShowReminderModal(true)} className="p-2 rounded-full text-[#8696a0] hover:bg-[#2a3942] hover:text-[#e9edef] transition-colors" title="Set Scheduled Action / Reminder">
+                    <button type="button" onClick={() => setShowReminderModal(true)} className="p-2 rounded-full text-[#8696a0] hover:bg-[#2a3942] hover:text-[#e9edef] transition-colors" title="Set Scheduled Action / Reminder" aria-label="Set Scheduled Action or Reminder">
                         <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7V7z"/></svg>
                     </button>
                 </div>
@@ -594,7 +594,7 @@ export default function Composer({ conversation, onSent, approvedTemplates }) {
                                 <span className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
                                 <span>{formatTime(recordingTime)}</span>
                             </div>
-                            <button type="button" onClick={cancelRecording} className="text-[#8696a0] hover:text-red-400 text-sm font-medium transition-colors">
+                            <button type="button" onClick={cancelRecording} className="text-[#8696a0] hover:text-red-400 text-sm font-medium transition-colors" aria-label="Cancel recording">
                                 Cancel
                             </button>
                         </div>
@@ -604,7 +604,7 @@ export default function Composer({ conversation, onSent, approvedTemplates }) {
                                 <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
                                 <span>Voice note ready</span>
                             </div>
-                            <button type="button" onClick={cancelRecording} className="text-[#8696a0] hover:text-red-400 text-sm font-medium transition-colors">
+                            <button type="button" onClick={cancelRecording} className="text-[#8696a0] hover:text-red-400 text-sm font-medium transition-colors" aria-label="Delete voice note">
                                 🗑
                             </button>
                         </div>
@@ -615,6 +615,7 @@ export default function Composer({ conversation, onSent, approvedTemplates }) {
                             onChange={(e) => setContent(e.target.value)}
                             onKeyDown={handleKeyDown}
                             placeholder={selectedImage ? "Add a caption..." : "Type a message"}
+                            aria-label="Type message content"
                             className="flex-1 w-full bg-transparent px-4 py-3 text-sm text-[#e9edef] outline-none placeholder-[#8696a0]"
                         />
                     )}
@@ -623,11 +624,11 @@ export default function Composer({ conversation, onSent, approvedTemplates }) {
                 {/* Right action: Mic OR Send Button */}
                 <div>
                     {!content.trim() && !selectedImage && !audioBlob && !isRecording ? (
-                        <button type="button" onClick={startRecording} className="h-10 w-10 flex items-center justify-center rounded-full bg-[#00a884] text-[#111b21] hover:bg-[#00a884]/90 shadow-md transition-transform active:scale-95 shrink-0" title="Record Voice Note">
+                        <button type="button" onClick={startRecording} className="h-10 w-10 flex items-center justify-center rounded-full bg-[#00a884] text-[#111b21] hover:bg-[#00a884]/90 shadow-md transition-transform active:scale-95 shrink-0" title="Record Voice Note" aria-label="Record voice note">
                             <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
                         </button>
                     ) : (
-                        <button type="submit" disabled={sending} className="h-10 w-10 flex items-center justify-center rounded-full bg-[#00a884] text-[#111b21] hover:bg-[#00a884]/90 shadow-md transition-transform active:scale-95 shrink-0">
+                        <button type="submit" disabled={sending} aria-label={isRecording ? "Stop recording and send" : "Send message"} className="h-10 w-10 flex items-center justify-center rounded-full bg-[#00a884] text-[#111b21] hover:bg-[#00a884]/90 shadow-md transition-transform active:scale-95 shrink-0">
                             {sending ? (
                                 <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
                             ) : isRecording ? (

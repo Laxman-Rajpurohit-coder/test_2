@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, usePage } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 
 /**
  * Render the application shell with responsive navigation and the main content area.
@@ -68,31 +68,31 @@ export default function AppLayout({ children, header }) {
 
     return (
         <div className="min-h-screen bg-[#f4f6f9] text-gray-800 flex font-sans antialiased">
+            <Head>
+                <meta name="robots" content="noindex, nofollow" />
+            </Head>
             {/* Sidebar Desktop */}
             <aside className="w-64 bg-white border-r border-gray-200/80 flex flex-col hidden md:flex fixed inset-y-0 z-50 shadow-sm">
                 {/* Brand Logo Header */}
                 <div className="h-16 flex items-center justify-between px-6 border-b border-gray-100">
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-[#00a884] flex items-center justify-center text-white font-extrabold text-lg shadow-md shadow-emerald-500/20">
+                        <div className="w-8 h-8 rounded-lg bg-[#00a884] flex items-center justify-center text-white font-extrabold text-base shadow-sm">
                             W
                         </div>
                         <span className="font-extrabold text-lg tracking-tight text-gray-900">MSG91<span className="text-[#00a884]">WA</span></span>
                     </div>
-                    <span className="text-[10px] uppercase tracking-wider bg-emerald-50 text-[#00a884] px-2 py-0.5 rounded-full font-bold border border-emerald-200/50">
-                        PRO
-                    </span>
                 </div>
 
-                {/* Main Navigation Links */}
-                <nav className="flex-1 px-3 py-5 space-y-1.5 overflow-y-auto custom-scrollbar">
+                {/* Navigation Links */}
+                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
                     {navigation.map((item) => (
                         <Link
                             key={item.name}
                             href={item.href}
-                            className={`group flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${
+                            className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold transition ${
                                 item.active
-                                    ? 'bg-[#00a884] text-white shadow-md shadow-emerald-500/20'
-                                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                                    ? 'bg-[#00a884] text-white shadow-sm shadow-[#00a884]/20'
+                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                             }`}
                         >
                             <div className="flex items-center gap-3">
@@ -100,33 +100,26 @@ export default function AppLayout({ children, header }) {
                                 <span>{item.name}</span>
                             </div>
                             {item.badge && (
-                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                                    item.active ? 'bg-white/20 text-white' : 'bg-emerald-100 text-[#00a884]'
+                                <span className={`text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-md ${
+                                    item.active ? 'bg-white/20 text-white' : 'bg-emerald-50 text-[#00a884]'
                                 }`}>
                                     {item.badge}
                                 </span>
                             )}
-                            {item.hasSub && (
-                                <span className="text-xs text-gray-400 group-hover:text-gray-600">›</span>
-                            )}
                         </Link>
                     ))}
-                </nav>
+                </div>
 
-                {/* Bottom User Card */}
+                {/* Footer User Info & Logout */}
                 <div className="p-4 border-t border-gray-100">
-                    <div className="flex items-center justify-between bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
-                        <Link
-                            href={route('profile.edit')}
-                            className="flex items-center gap-2.5 overflow-hidden group hover:opacity-80 transition"
-                            title="Edit Profile"
-                        >
-                            <div className="w-8 h-8 rounded-full bg-emerald-100 text-[#00a884] font-bold text-xs flex items-center justify-center border border-emerald-200 shrink-0 group-hover:bg-[#00a884] group-hover:text-white transition">
-                                {auth?.user?.tenant?.name ? auth.user.tenant.name.substring(0, 2).toUpperCase() : userName.substring(0, 2).toUpperCase()}
+                    <div className="flex items-center justify-between p-2 rounded-xl bg-gray-50/80 border border-gray-100">
+                        <Link href={route('profile.edit')} className="flex items-center gap-3 overflow-hidden group">
+                            <div className="w-8 h-8 rounded-full bg-emerald-100 text-[#00a884] flex items-center justify-center font-bold text-xs shrink-0 group-hover:bg-[#00a884] group-hover:text-white transition">
+                                {userName.charAt(0).toUpperCase()}
                             </div>
-                            <div className="truncate">
-                                <div className="text-xs font-bold text-gray-900 truncate" title={auth?.user?.tenant?.name || userName}>
-                                    {auth?.user?.tenant?.name || userName}
+                            <div className="overflow-hidden">
+                                <div className="text-xs font-bold text-gray-900 truncate group-hover:text-[#00a884] transition" title={userName}>
+                                    {userName}
                                 </div>
                                 <div className="text-[10px] text-gray-500 truncate font-medium" title={userName}>
                                     {userName}
@@ -138,6 +131,7 @@ export default function AppLayout({ children, header }) {
                                 href={route('profile.edit')}
                                 className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-200/60 transition"
                                 title="Profile Settings"
+                                aria-label="Profile Settings"
                             >
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -151,6 +145,7 @@ export default function AppLayout({ children, header }) {
                                 onClick={() => localStorage.removeItem('is_logged_in')}
                                 className="p-1.5 text-gray-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
                                 title="Log Out"
+                                aria-label="Log Out"
                             >
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1m0-10V5" />
@@ -165,7 +160,7 @@ export default function AppLayout({ children, header }) {
             <div className="md:hidden fixed top-0 inset-x-0 h-16 bg-white border-b border-gray-200/80 flex items-center justify-between px-4 z-40">
                 <div className="flex items-center gap-2">
                     {currentPath !== '/dashboard' && (
-                        <Link href="/dashboard" className="p-1 -ml-1 text-gray-600 hover:bg-gray-100 rounded-lg" title="Back to Main Menu">
+                        <Link href="/dashboard" className="p-1 -ml-1 text-gray-600 hover:bg-gray-100 rounded-lg" title="Back to Main Menu" aria-label="Back to Main Menu">
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
                             </svg>
@@ -178,8 +173,11 @@ export default function AppLayout({ children, header }) {
                 </div>
 
                 <button
+                    type="button"
                     onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                     className="p-2 rounded-lg text-gray-600 hover:bg-gray-100"
+                    aria-label="Toggle navigation menu"
+                    aria-expanded={mobileMenuOpen}
                 >
                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />

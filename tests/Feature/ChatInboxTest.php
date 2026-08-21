@@ -68,10 +68,9 @@ class ChatInboxTest extends TestCase
         $response->assertJsonFragment(['unread_count' => 3]);
         
         // Ensure the latest message preview is loaded
-        $responseData = $response->json();
+        $responseData = $response->json('data');
         $this->assertCount(1, $responseData);
-        $this->assertNotEmpty($responseData[0]['messages']);
-        $this->assertEquals('Hello preview', json_decode($responseData[0]['messages'][0]['content'])->text);
+        $this->assertEquals('Hello preview', $responseData[0]['preview']);
     }
 
     public function test_it_marks_conversation_as_read_and_resets_unread_count_to_zero()

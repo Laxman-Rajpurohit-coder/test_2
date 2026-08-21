@@ -20,6 +20,7 @@ class Conversation extends Model
         'is_human_escalated',
         'ai_fallback_count',
         'unread_count',
+        'is_favorite',
         'channel',
         'channel_psid',
         'assigned_user_id',
@@ -30,6 +31,7 @@ class Conversation extends Model
         'last_message_at'          => 'datetime',
         'last_customer_message_at' => 'datetime',
         'is_human_escalated'       => 'boolean',
+        'is_favorite'              => 'boolean',
         'ai_fallback_count'        => 'integer',
     ];
 

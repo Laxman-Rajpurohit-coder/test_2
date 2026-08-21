@@ -90,6 +90,7 @@ Route::middleware(['auth:web,admin', \App\Http\Middleware\BlockImpersonationWrit
     Route::get('/chat/{channel}', [ChatController::class, 'view'])->name('chat.channel')->where('channel', 'whatsapp|facebook|instagram|all');
     Route::get('/api/conversations', [ChatController::class, 'index'])->name('api.conversations.index');
     Route::post('/api/conversations/{id}/read', [ChatController::class, 'markAsRead'])->name('api.conversations.read');
+    Route::post('/api/conversations/{id}/favorite', [ChatController::class, 'toggleFavorite'])->name('api.conversations.favorite');
     Route::get('/api/conversations/{id}/messages', [ChatController::class, 'show'])->name('api.conversations.show');
     Route::post('/api/conversations/{id}/messages', [ChatController::class, 'store']);
     Route::post('/api/conversations/{id}/media', [ChatController::class, 'storeMedia']);

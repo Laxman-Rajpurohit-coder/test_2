@@ -70,13 +70,13 @@ class TeamManagementTest extends TestCase
         // Owner sees both
         $response = $this->actingAs($owner)->get('/api/conversations');
         $response->assertStatus(200);
-        $this->assertCount(2, $response->json());
+        $this->assertCount(2, $response->json('data'));
 
         // Member sees only assigned
         $response = $this->actingAs($member)->get('/api/conversations');
         $response->assertStatus(200);
-        $this->assertCount(1, $response->json());
-        $this->assertEquals($convAssigned->id, $response->json()[0]['id']);
+        $this->assertCount(1, $response->json('data'));
+        $this->assertEquals($convAssigned->id, $response->json('data')[0]['id']);
     }
 
     public function test_member_send_restriction()

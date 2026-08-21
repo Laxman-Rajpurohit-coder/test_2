@@ -236,12 +236,6 @@ export default function Thread({ conversation, onBack, approvedTemplates }) {
         };
     }, [conversation?.id]);
 
-    useEffect(() => {
-        if (!isInitialLoad) {
-            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-        }
-    }, [messages, isInitialLoad]);
-
     const resolveMediaUrl = (rawUrl) => {
         if (!rawUrl) return '';
         
@@ -294,9 +288,11 @@ export default function Thread({ conversation, onBack, approvedTemplates }) {
                 <header className="flex h-[60px] items-center justify-between border-b border-[#222d34] bg-[#202c33] px-4 z-10 flex-shrink-0">
                     <div className="flex items-center gap-3">
                         <button 
+                            type="button"
                             onClick={onBack} 
                             className="md:hidden text-[#8696a0] hover:text-[#e9edef] transition-colors p-1 -ml-2"
                             title="Back to Conversations"
+                            aria-label="Back to Conversations"
                         >
                             <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
                                 <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
@@ -321,6 +317,26 @@ export default function Thread({ conversation, onBack, approvedTemplates }) {
                                 <h3 className="font-medium text-sm text-[#e9edef]">
                                     {conversation?.customer_name || (conversation?.customer_number && !conversation?.customer_number.startsWith('fb_') ? `+${conversation.customer_number}` : conversation?.customer_number)}
                                 </h3>
+                                {onToggleFavorite && (
+                                    <button
+                                        type="button"
+                                        onClick={() => onToggleFavorite(conversation.id)}
+                                        className={`p-1 rounded-full hover:bg-[#2a3942] transition-colors ${
+                                            conversation?.is_favorite ? 'text-amber-400' : 'text-[#8696a0] hover:text-amber-400'
+                                        }`}
+                                        title={conversation?.is_favorite ? "Remove from favorites" : "Mark as favorite"}
+                                        aria-label={conversation?.is_favorite ? "Remove from favorites" : "Mark as favorite"}
+                                        aria-pressed={!!conversation?.is_favorite}
+                                    >
+                                        <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                                            {conversation?.is_favorite ? (
+                                                <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+                                            ) : (
+                                                <path d="M22 9.24l-7.19-.62L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.63-7.03L22 9.24zM12 15.4l-3.76 2.27 1-4.28-3.32-2.88 4.38-.38L12 6.1l1.71 4.04 4.38.38-3.32 2.88 1 4.28L12 15.4z"/>
+                                            )}
+                                        </svg>
+                                    </button>
+                                )}
                                 <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${
                                     conversation?.channel === 'facebook'
                                         ? 'bg-[#1877f2]/20 text-[#1877f2] border border-[#1877f2]/40'
@@ -336,24 +352,17 @@ export default function Thread({ conversation, onBack, approvedTemplates }) {
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-5 text-[#8696a0]">
-                        <button title="Search" className="hover:text-[#e9edef] transition-colors">
-                            <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
-                                <path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-                            </svg>
-                        </button>
+                    <div className="flex items-center gap-4 text-[#8696a0]">
                         <button 
+                            type="button"
                             onClick={() => setShowMobileDetails(!showMobileDetails)} 
-                            className={`md:hidden p-1 rounded transition-colors ${showMobileDetails ? 'text-[#00a884] bg-[#2a3942]' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                            className={`md:hidden p-1.5 rounded transition-colors ${showMobileDetails ? 'text-[#00a884] bg-[#2a3942]' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
                             title="Toggle Reminders & Issues"
+                            aria-label="Toggle Reminders and Tasks Panel"
+                            aria-expanded={showMobileDetails}
                         >
                             <svg className="w-5.5 h-5.5 fill-current" viewBox="0 0 24 24">
                                 <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
-                            </svg>
-                        </button>
-                        <button title="Menu" className="hover:text-[#e9edef] transition-colors">
-                            <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
-                                <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
                             </svg>
                         </button>
                     </div>

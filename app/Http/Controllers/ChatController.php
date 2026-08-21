@@ -70,14 +70,15 @@ class ChatController extends Controller
     }
 
     /**
-     * Retrieves conversations ordered by the most recent message.
+     * Retrieves cursor-paginated conversations with a lightweight DTO payload.
      *
-     * @param Request $request Request data that may include a tenant number filter.
-     * @return \Illuminate\Http\JsonResponse The matching conversations as JSON.
+     * @param Request $request Request filters: channel, tenant_number_id, search, unread_only, favorite_only, cursor, limit.
+     * @return \Illuminate\Http\JsonResponse
      */
     public function index(Request $request)
     {
         $query = Conversation::orderBy('last_message_at', 'desc')
+            ->orderBy('id', 'desc')
             ->with(['latestMessage']);
 
         if ($request->filled('tenant_number_id')) {
@@ -86,6 +87,22 @@ class ChatController extends Controller
 
         if ($request->filled('channel') && in_array($request->input('channel'), ['whatsapp', 'facebook', 'instagram'])) {
             $query->where('channel', $request->input('channel'));
+        }
+
+        if ($request->boolean('unread_only')) {
+            $query->where('unread_count', '>', 0);
+        }
+
+        if ($request->boolean('favorite_only')) {
+            $query->where('is_favorite', true);
+        }
+
+        if ($request->filled('search')) {
+            $search = trim($request->input('search'));
+            $query->where(function ($q) use ($search) {
+                $q->where('customer_name', 'like', "%{$search}%")
+                  ->orWhere('customer_number', 'like', "%{$search}%");
+            });
         }
 
         if (auth()->check() && method_exists(auth()->user(), 'isMember') && auth()->user()->isMember()) {
@@ -101,13 +118,73 @@ class ChatController extends Controller
             });
         }
 
-        $conversations = $query->get()->map(function ($conv) {
-            $conv->setRelation('messages', $conv->latestMessage ? collect([$conv->latestMessage]) : collect());
-            unset($conv->latestMessage);
-            return $conv;
+        $limit = min(max((int) $request->input('limit', 40), 1), 100);
+        $paginator = $query->cursorPaginate($limit);
+
+        $data = $paginator->getCollection()->map(function ($conv) {
+            $lastMsg = $conv->latestMessage;
+            $preview = 'No messages';
+            if ($lastMsg) {
+                $rawContent = $lastMsg->content;
+                $preview = '📷 Media';
+                if (is_array($rawContent)) {
+                    $preview = $rawContent['text'] ?? ($rawContent['caption'] ?? $preview);
+                } elseif (is_string($rawContent)) {
+                    if (str_starts_with(trim($rawContent), '{') || str_starts_with(trim($rawContent), '[')) {
+                        $decoded = json_decode($rawContent, true);
+                        if (is_array($decoded)) {
+                            if (!empty($decoded['text']) && is_string($decoded['text']) && (str_starts_with(trim($decoded['text']), '{') || str_starts_with(trim($decoded['text']), '['))) {
+                                $innerDecoded = json_decode($decoded['text'], true);
+                                $preview = $innerDecoded['text'] ?? ($decoded['text'] ?? $preview);
+                            } else {
+                                $preview = $decoded['text'] ?? ($decoded['caption'] ?? $preview);
+                            }
+                        } else {
+                            $preview = $rawContent;
+                        }
+                    } else {
+                        $preview = $rawContent;
+                    }
+                }
+            }
+
+            return [
+                'id'                     => $conv->id,
+                'customer_name'          => $conv->customer_name,
+                'customer_number'        => $conv->customer_number,
+                'channel'                => $conv->channel,
+                'unread_count'           => (int) $conv->unread_count,
+                'is_favorite'            => (bool) $conv->is_favorite,
+                'last_message_at'        => $conv->last_message_at?->toIso8601String(),
+                'preview'                => $preview,
+                'last_message_direction' => $lastMsg?->direction,
+                'last_message_status'    => $lastMsg?->status,
+                'tenant_number_id'       => $conv->tenant_number_id,
+            ];
         });
-            
-        return response()->json($conversations);
+
+        return response()->json([
+            'data'        => $data,
+            'next_cursor' => $paginator->nextCursor()?->encode(),
+            'prev_cursor' => $paginator->previousCursor()?->encode(),
+            'has_more'    => $paginator->hasMorePages(),
+        ]);
+    }
+
+    /**
+     * Toggles the favorite status of a conversation.
+     */
+    public function toggleFavorite($id)
+    {
+        $tenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
+        $conversation = Conversation::where('tenant_id', $tenantId)->findOrFail($id);
+        $conversation->is_favorite = !$conversation->is_favorite;
+        $conversation->save();
+
+        return response()->json([
+            'success'     => true,
+            'is_favorite' => (bool) $conversation->is_favorite,
+        ]);
     }
 
     /**
