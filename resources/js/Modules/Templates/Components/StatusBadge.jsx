@@ -4,12 +4,12 @@ export default function StatusBadge({ status }) {
     const getStatusColors = (status) => {
         switch (status?.toLowerCase()) {
             case 'approved':
-                return 'bg-emerald-100 text-emerald-900 border-emerald-300';
+                return 'bg-green-100 text-green-800 border-green-200';
             case 'rejected':
-                return 'bg-rose-100 text-rose-900 border-rose-300';
+                return 'bg-red-100 text-red-800 border-red-200';
             case 'pending':
             default:
-                return 'bg-amber-100 text-amber-950 border-amber-300';
+                return 'bg-yellow-100 text-yellow-800 border-yellow-200';
         }
     };
 

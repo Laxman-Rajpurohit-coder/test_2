@@ -96,12 +96,12 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
     };
 
     const pieData = [
-        { name: 'Delivered', value: deliveryStatus.delivered, color: '#047857' },
-        { name: 'Read', value: deliveryStatus.read, color: '#0369a1' },
-        { name: 'Sent', value: deliveryStatus.sent, color: '#1d4ed8' },
-        { name: 'Queued', value: deliveryStatus.queued, color: '#b45309' },
-        { name: 'Failed', value: deliveryStatus.failed, color: '#b91c1c' },
-        { name: 'Received', value: deliveryStatus.received, color: '#6d28d9' },
+        { name: 'Delivered', value: deliveryStatus.delivered, color: '#10b981' },
+        { name: 'Read', value: deliveryStatus.read, color: '#06b6d4' },
+        { name: 'Sent', value: deliveryStatus.sent, color: '#3b82f6' },
+        { name: 'Queued', value: deliveryStatus.queued, color: '#f59e0b' },
+        { name: 'Failed', value: deliveryStatus.failed, color: '#ef4444' },
+        { name: 'Received', value: deliveryStatus.received, color: '#8b5cf6' },
     ].filter(item => item.value > 0);
 
     return (
@@ -127,7 +127,7 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
                     <div className="flex flex-wrap items-center gap-3">
                         <Link
                             href="/chat"
-                            className="px-4 py-2.5 bg-[#00a884] hover:bg-[#008f70] text-[#111b21] rounded-xl text-xs font-black transition shadow-lg shadow-emerald-500/20"
+                            className="px-4 py-2.5 bg-[#00a884] hover:bg-[#008f70] text-white rounded-xl text-xs font-bold transition shadow-lg shadow-emerald-500/20"
                         >
                             Open Live Inbox 💬
                         </Link>
@@ -150,7 +150,7 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
                 <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-2">
                         <span className="text-base">📅</span>
-                        <span className="text-xs font-bold text-gray-900">Filter Date Range</span>
+                        <span className="text-xs font-bold text-gray-800">Filter Date Range</span>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
@@ -158,7 +158,7 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
                             <button
                                 onClick={() => setPreset(7, '7D')}
                                 className={`px-3 py-1 text-xs font-bold rounded-lg transition ${
-                                    activePreset === '7D' ? 'bg-[#047857] text-white shadow-sm' : 'text-gray-700 hover:text-gray-900'
+                                    activePreset === '7D' ? 'bg-[#00a884] text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
                                 }`}
                             >
                                 7 Days
@@ -166,7 +166,7 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
                             <button
                                 onClick={() => setPreset(14, '14D')}
                                 className={`px-3 py-1 text-xs font-bold rounded-lg transition ${
-                                    activePreset === '14D' ? 'bg-[#047857] text-white shadow-sm' : 'text-gray-700 hover:text-gray-900'
+                                    activePreset === '14D' ? 'bg-[#00a884] text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
                                 }`}
                             >
                                 14 Days
@@ -174,7 +174,7 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
                             <button
                                 onClick={() => setPreset(30, '30D')}
                                 className={`px-3 py-1 text-xs font-bold rounded-lg transition ${
-                                    activePreset === '30D' ? 'bg-[#047857] text-white shadow-sm' : 'text-gray-700 hover:text-gray-900'
+                                    activePreset === '30D' ? 'bg-[#00a884] text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
                                 }`}
                             >
                                 30 Days
@@ -186,18 +186,18 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
                                 type="date"
                                 value={dateFrom}
                                 onChange={(e) => setDateFrom(e.target.value)}
-                                className="bg-gray-50 text-gray-900 border border-gray-300 rounded-lg px-2.5 py-1 text-xs focus:ring-[#047857]"
+                                className="bg-gray-50 text-gray-800 border border-gray-200 rounded-lg px-2.5 py-1 text-xs focus:ring-[#00a884]"
                             />
-                            <span className="text-gray-600 font-medium">to</span>
+                            <span className="text-gray-400 font-medium">to</span>
                             <input
                                 type="date"
                                 value={dateTo}
                                 onChange={(e) => setDateTo(e.target.value)}
-                                className="bg-gray-50 text-gray-900 border border-gray-300 rounded-lg px-2.5 py-1 text-xs focus:ring-[#047857]"
+                                className="bg-gray-50 text-gray-800 border border-gray-200 rounded-lg px-2.5 py-1 text-xs focus:ring-[#00a884]"
                             />
                             <button
                                 onClick={() => applyFilters(dateFrom, dateTo, 'custom')}
-                                className="bg-[#047857] hover:bg-[#065f46] text-white px-3.5 py-1 rounded-lg text-xs font-bold transition shadow-sm"
+                                className="bg-[#00a884] hover:bg-[#008f70] text-white px-3.5 py-1 rounded-lg text-xs font-bold transition shadow-sm"
                             >
                                 Apply
                             </button>
@@ -211,20 +211,20 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
                         <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
                             <span>📋</span> Active Customer Task Sheet
                         </h2>
-                        <div className="flex items-center gap-1.5 bg-gray-100 px-2 py-1 rounded-lg border border-gray-200">
-                            <span className="text-[10px] text-gray-700 font-bold uppercase tracking-wider">Reminders Active</span>
+                        <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-lg border border-gray-100">
+                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Reminders Active</span>
                         </div>
                     </div>
 
                     {tasks.length === 0 ? (
-                        <div className="py-8 text-center text-xs text-gray-600">
+                        <div className="py-8 text-center text-xs text-gray-400">
                             No active reminders or customer issues logged. Create reminders from the Chat Details panel.
                         </div>
                     ) : (
                         <div className="w-full overflow-x-auto custom-scrollbar">
                             <table className="w-full text-left text-xs border-collapse min-w-[700px]">
                                 <thead>
-                                    <tr className="border-b border-gray-200 text-gray-700 font-bold uppercase tracking-wider">
+                                    <tr className="border-b border-gray-100 text-gray-400 font-bold uppercase tracking-wider">
                                         <th className="pb-3 pt-1 pl-2 min-w-[140px]">Customer</th>
                                         <th className="pb-3 pt-1 min-w-[200px]">Task Title & Details</th>
                                         <th className="pb-3 pt-1 min-w-[140px]">Due Date</th>
@@ -232,7 +232,7 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
                                         <th className="pb-3 pt-1 pr-2 min-w-[120px] text-right">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100">
+                                <tbody className="divide-y divide-gray-50">
                                     {tasks.map((task) => {
                                         const isOverdue = task.due_at && new Date(task.due_at) <= new Date() && task.status !== 'resolved';
                                         return (
@@ -241,39 +241,39 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
                                                     {task.contact?.phone_number ? (
                                                         <Link
                                                             href={`/chat`}
-                                                            className="text-[#047857] hover:text-[#065f46] hover:underline"
+                                                            className="text-[#00a884] hover:underline"
                                                         >
                                                             +{task.contact.phone_number}
                                                         </Link>
                                                     ) : (
-                                                        <span className="text-gray-600">No contact linked</span>
+                                                        <span className="text-gray-400">No contact linked</span>
                                                     )}
                                                 </td>
                                                 <td className="py-3.5 max-w-xs">
                                                     <div className="font-bold text-gray-900">{task.title}</div>
                                                     {task.description && (
-                                                        <div className="text-[11px] text-gray-600 mt-0.5 truncate" title={task.description}>
+                                                        <div className="text-[11px] text-gray-500 mt-0.5 truncate" title={task.description}>
                                                             {task.description}
                                                         </div>
                                                     )}
                                                 </td>
                                                 <td className="py-3.5">
                                                     {task.due_at ? (
-                                                        <span className={`font-semibold ${isOverdue ? 'text-rose-900 font-bold bg-rose-100 px-2 py-0.5 rounded border border-rose-300' : 'text-gray-700'}`}>
+                                                        <span className={`font-semibold ${isOverdue ? 'text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-200' : 'text-gray-600'}`}>
                                                             {new Date(task.due_at).toLocaleString()}
                                                             {isOverdue && ' (Overdue)'}
                                                         </span>
                                                     ) : (
-                                                        <span className="text-gray-600">No due date</span>
+                                                        <span className="text-gray-400">No due date</span>
                                                     )}
                                                 </td>
                                                 <td className="py-3.5">
                                                     <span className={`text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase ${
                                                         task.status === 'resolved' 
-                                                            ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' 
+                                                            ? 'bg-emerald-100 text-emerald-800' 
                                                             : task.status === 'in_progress' 
-                                                            ? 'bg-amber-100 text-amber-950 border border-amber-300' 
-                                                            : 'bg-blue-100 text-blue-950 border border-blue-300'
+                                                            ? 'bg-amber-100 text-amber-800' 
+                                                            : 'bg-blue-100 text-blue-800'
                                                     }`}>
                                                         {task.status.replace('_', ' ')}
                                                     </span>
@@ -282,7 +282,7 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
                                                     {task.status !== 'resolved' && (
                                                         <button
                                                             onClick={() => router.patch(route('tasks.status', task.id), { status: 'resolved' }, { preserveScroll: true })}
-                                                            className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold rounded-lg border border-emerald-200 transition"
+                                                            className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-lg border border-emerald-200 transition"
                                                             title="Resolve Task"
                                                         >
                                                             ✓ Resolve
@@ -291,7 +291,7 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
                                                     {task.status === 'open' && (
                                                         <button
                                                             onClick={() => router.patch(route('tasks.status', task.id), { status: 'in_progress' }, { preserveScroll: true })}
-                                                            className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold rounded-lg border border-amber-200 transition"
+                                                            className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold rounded-lg border border-amber-200 transition"
                                                             title="Mark In Progress"
                                                         >
                                                             In Progress
@@ -303,7 +303,7 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
                                                                 router.delete(route('tasks.destroy', task.id), { preserveScroll: true });
                                                             }
                                                         }}
-                                                        className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-800 font-bold rounded-lg border border-rose-200 transition"
+                                                        className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-lg border border-rose-200 transition"
                                                         title="Delete Reminder"
                                                     >
                                                         ✕
@@ -322,46 +322,46 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                     <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center justify-between">
                         <div>
-                            <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Total Conversations</span>
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Total Conversations</span>
                             <div className="text-3xl font-extrabold text-gray-900 mt-1">{totals.conversations}</div>
-                            <Link href="/chat" className="text-[11px] text-[#047857] hover:text-[#065f46] font-bold mt-2 inline-block hover:underline">Manage Inbox →</Link>
+                            <Link href="/chat" className="text-[11px] text-[#00a884] font-bold mt-2 inline-block hover:underline">Manage Inbox →</Link>
                         </div>
-                        <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center text-xl font-bold border border-purple-200/60">
+                        <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl font-bold border border-purple-200/60">
                             💬
                         </div>
                     </div>
 
                     <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center justify-between">
                         <div>
-                            <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Messages Processed</span>
-                            <div className="text-3xl font-extrabold text-[#047857] mt-1">{totals.total_messages}</div>
-                            <span className="text-[11px] text-gray-600 font-semibold mt-2 inline-block">In: {totals.inbound_messages} | Out: {totals.outbound_messages}</span>
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Messages Processed</span>
+                            <div className="text-3xl font-extrabold text-[#00a884] mt-1">{totals.total_messages}</div>
+                            <span className="text-[11px] text-gray-400 font-semibold mt-2 inline-block">In: {totals.inbound_messages} | Out: {totals.outbound_messages}</span>
                         </div>
-                        <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center text-xl font-bold border border-blue-200/60">
+                        <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl font-bold border border-blue-200/60">
                             ⚡
                         </div>
                     </div>
 
                     <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center justify-between">
                         <div>
-                            <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Active Bot Rules</span>
-                            <div className="text-3xl font-extrabold text-purple-800 mt-1">{totals.active_triggers ?? 0}</div>
-                            <Link href="/bot-triggers" className="text-[11px] text-purple-800 font-bold mt-2 inline-block hover:underline">Manage Triggers →</Link>
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Active Bot Rules</span>
+                            <div className="text-3xl font-extrabold text-purple-600 mt-1">{totals.active_triggers ?? 0}</div>
+                            <Link href="/bot-triggers" className="text-[11px] text-purple-600 font-bold mt-2 inline-block hover:underline">Manage Triggers →</Link>
                         </div>
-                        <div className="w-12 h-12 rounded-xl bg-rose-50 text-rose-700 flex items-center justify-center text-xl font-bold border border-rose-200/60">
+                        <div className="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl font-bold border border-rose-200/60">
                             🤖
                         </div>
                     </div>
 
                     <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center justify-between">
                         <div>
-                            <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Avg Response Time</span>
-                            <div className="text-3xl font-extrabold text-amber-700 mt-1">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Avg Response Time</span>
+                            <div className="text-3xl font-extrabold text-amber-600 mt-1">
                                 {avgFirstResponse !== null ? `${avgFirstResponse}m` : 'N/A'}
                             </div>
-                            <span className="text-[11px] text-gray-600 font-semibold mt-2 inline-block">Automated Speed</span>
+                            <span className="text-[11px] text-gray-400 font-semibold mt-2 inline-block">Automated Speed</span>
                         </div>
-                        <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center text-xl font-bold border border-amber-200/60">
+                        <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl font-bold border border-amber-200/60">
                             ⏱️
                         </div>
                     </div>
@@ -380,24 +380,24 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
                                     <AreaChart data={messagesPerDay} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                                         <defs>
                                             <linearGradient id="colorInbound" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#047857" stopOpacity={0.8}/>
-                                                <stop offset="95%" stopColor="#047857" stopOpacity={0}/>
+                                                <stop offset="5%" stopColor="#00a884" stopOpacity={0.8}/>
+                                                <stop offset="95%" stopColor="#00a884" stopOpacity={0}/>
                                             </linearGradient>
                                             <linearGradient id="colorOutbound" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#6d28d9" stopOpacity={0.8}/>
-                                                <stop offset="95%" stopColor="#6d28d9" stopOpacity={0}/>
+                                                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8}/>
+                                                <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
                                             </linearGradient>
                                         </defs>
-                                        <XAxis dataKey="date" stroke="#4b5563" strokeWidth={0.5} tick={{ fontSize: 12 }} />
-                                        <YAxis stroke="#4b5563" strokeWidth={0.5} tick={{ fontSize: 12 }} />
-                                        <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e5e7eb', borderRadius: '12px', shadow: '0 10px 15px -3px rgba(0,0,0,0.1)', color: '#111827' }} />
+                                        <XAxis dataKey="date" stroke="#9ca3af" strokeWidth={0.5} tick={{ fontSize: 12 }} />
+                                        <YAxis stroke="#9ca3af" strokeWidth={0.5} tick={{ fontSize: 12 }} />
+                                        <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e5e7eb', borderRadius: '12px', shadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
                                         <Legend />
-                                        <Area type="monotone" dataKey="inbound" name="Inbound Messages" stroke="#047857" fillOpacity={1} fill="url(#colorInbound)" />
-                                        <Area type="monotone" dataKey="outbound" name="Outbound Messages" stroke="#6d28d9" fillOpacity={1} fill="url(#colorOutbound)" />
+                                        <Area type="monotone" dataKey="inbound" name="Inbound Messages" stroke="#00a884" fillOpacity={1} fill="url(#colorInbound)" />
+                                        <Area type="monotone" dataKey="outbound" name="Outbound Messages" stroke="#6366f1" fillOpacity={1} fill="url(#colorOutbound)" />
                                     </AreaChart>
                                 </ResponsiveContainer>
                             ) : (
-                                <div className="flex h-full items-center justify-center text-gray-600 text-xs font-semibold">No message activity recorded in this date range.</div>
+                                <div className="flex h-full items-center justify-center text-gray-400 text-xs font-semibold">No message activity recorded in this date range.</div>
                             )}
                         </div>
                     </div>
@@ -408,14 +408,14 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
                             <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
                                 <span>⚡</span> Live Stream
                             </h2>
-                            <Link href="/chat" className="text-xs font-bold text-[#047857] hover:text-[#065f46] hover:underline">
+                            <Link href="/chat" className="text-xs font-bold text-[#00a884] hover:underline">
                                 View Inbox →
                             </Link>
                         </div>
 
                         <div className="divide-y divide-gray-100">
                             {recentMessages.length === 0 ? (
-                                <div className="py-8 text-center text-xs text-gray-600">
+                                <div className="py-8 text-center text-xs text-gray-400">
                                     No live messages recorded.
                                 </div>
                             ) : (
@@ -423,19 +423,19 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
                                     <div key={msg.id} className="py-2.5 flex items-center justify-between gap-3 hover:bg-gray-50/50 px-2 rounded-xl transition">
                                         <div className="flex items-center gap-2.5 overflow-hidden">
                                             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                                                msg.direction === 'inbound' ? 'bg-blue-50 text-blue-700 border border-blue-200/60' : 'bg-emerald-50 text-[#047857] border border-emerald-200/60'
+                                                msg.direction === 'inbound' ? 'bg-blue-50 text-blue-600 border border-blue-200/60' : 'bg-emerald-50 text-[#00a884] border border-emerald-200/60'
                                             }`}>
                                                 {msg.direction === 'inbound' ? '📥' : '📤'}
                                             </div>
                                             <div className="truncate">
                                                 <div className="text-xs font-bold text-gray-900 truncate">+{msg.customer_number}</div>
-                                                <p className="text-[11px] text-gray-600 truncate mt-0.5">{msg.text}</p>
+                                                <p className="text-[11px] text-gray-500 truncate mt-0.5">{msg.text}</p>
                                             </div>
                                         </div>
 
                                         <div className="text-right shrink-0">
-                                            <span className="text-[9px] font-semibold text-gray-600 block">{msg.time}</span>
-                                            <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                            <span className="text-[9px] font-semibold text-gray-400 block">{msg.time}</span>
+                                            <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
                                                 {msg.status}
                                             </span>
                                         </div>
@@ -454,10 +454,10 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
                         <div className="h-64 w-full">
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={busiestHours}>
-                                    <XAxis dataKey="hour" stroke="#4b5563" tick={{ fontSize: 10 }} />
-                                    <YAxis stroke="#4b5563" tick={{ fontSize: 10 }} />
-                                    <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e5e7eb', borderRadius: '12px', color: '#111827' }} />
-                                    <Bar dataKey="count" name="Messages" fill="#047857" radius={[4, 4, 0, 0]} />
+                                    <XAxis dataKey="hour" stroke="#9ca3af" tick={{ fontSize: 10 }} />
+                                    <YAxis stroke="#9ca3af" tick={{ fontSize: 10 }} />
+                                    <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e5e7eb', borderRadius: '12px' }} />
+                                    <Bar dataKey="count" name="Messages" fill="#00a884" radius={[4, 4, 0, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
@@ -475,12 +475,12 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
                                                 <Cell key={`cell-${index}`} fill={entry.color} />
                                             ))}
                                         </Pie>
-                                        <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e5e7eb', borderRadius: '12px', color: '#111827' }} />
+                                        <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e5e7eb', borderRadius: '12px' }} />
                                         <Legend />
                                     </PieChart>
                                 </ResponsiveContainer>
                             ) : (
-                                <div className="flex h-full items-center justify-center text-gray-600 text-xs font-semibold">No status data available.</div>
+                                <div className="flex h-full items-center justify-center text-gray-400 text-xs font-semibold">No status data available.</div>
                             )}
                         </div>
                     </div>
@@ -490,21 +490,21 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
                 <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs">
                     <h2 className="text-base font-bold text-gray-900 mb-4">📁 Content Type Distribution</h2>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                            <span className="text-xs text-gray-700 font-semibold">Text Messages</span>
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                            <span className="text-xs text-gray-500 font-semibold">Text Messages</span>
                             <div className="text-2xl font-bold text-gray-900 mt-1">{typeBreakdown.text}</div>
                         </div>
-                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                            <span className="text-xs text-gray-700 font-semibold">Photos / Images</span>
-                            <div className="text-2xl font-bold text-cyan-800 mt-1">{typeBreakdown.image}</div>
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                            <span className="text-xs text-gray-500 font-semibold">Photos / Images</span>
+                            <div className="text-2xl font-bold text-cyan-600 mt-1">{typeBreakdown.image}</div>
                         </div>
-                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                            <span className="text-xs text-gray-700 font-semibold">Voice Notes (Audio)</span>
-                            <div className="text-2xl font-bold text-amber-800 mt-1">{typeBreakdown.audio}</div>
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                            <span className="text-xs text-gray-500 font-semibold">Voice Notes (Audio)</span>
+                            <div className="text-2xl font-bold text-amber-600 mt-1">{typeBreakdown.audio}</div>
                         </div>
-                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                            <span className="text-xs text-gray-700 font-semibold">Templates</span>
-                            <div className="text-2xl font-bold text-pink-800 mt-1">{typeBreakdown.template}</div>
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                            <span className="text-xs text-gray-500 font-semibold">Templates</span>
+                            <div className="text-2xl font-bold text-pink-600 mt-1">{typeBreakdown.template}</div>
                         </div>
                     </div>
                 </div>
