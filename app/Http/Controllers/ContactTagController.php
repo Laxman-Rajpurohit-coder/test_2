@@ -3,14 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\ContactTag;
+use App\Services\TenantResolverService;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
 
 class ContactTagController extends Controller
 {
     public function index()
     {
-        $tags = ContactTag::where('tenant_id', auth()->user()->tenant_id)
+        $tenantId = app(TenantResolverService::class)->getActiveTenantId();
+        $tags = ContactTag::where('tenant_id', $tenantId)
             ->withCount('contacts')
             ->orderBy('name')
             ->get();
@@ -24,7 +25,7 @@ class ContactTagController extends Controller
             'name' => 'required|string|max:255'
         ]);
 
-        $tenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
+        $tenantId = app(TenantResolverService::class)->getActiveTenantId();
 
         $tag = ContactTag::firstOrCreate([
             'tenant_id' => $tenantId,
@@ -44,7 +45,8 @@ class ContactTagController extends Controller
             'name' => 'required|string|max:255'
         ]);
 
-        $tag = ContactTag::where('tenant_id', auth()->user()->tenant_id)->findOrFail($id);
+        $tenantId = app(TenantResolverService::class)->getActiveTenantId();
+        $tag = ContactTag::where('tenant_id', $tenantId)->findOrFail($id);
         $tag->update(['name' => $request->name]);
 
         return response()->json($tag);
@@ -52,7 +54,8 @@ class ContactTagController extends Controller
 
     public function destroy(string $id)
     {
-        $tag = ContactTag::where('tenant_id', auth()->user()->tenant_id)->findOrFail($id);
+        $tenantId = app(TenantResolverService::class)->getActiveTenantId();
+        $tag = ContactTag::where('tenant_id', $tenantId)->findOrFail($id);
         $tag->delete();
 
         return response()->json(['message' => 'Tag deleted']);

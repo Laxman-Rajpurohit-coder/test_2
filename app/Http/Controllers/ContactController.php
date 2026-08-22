@@ -29,7 +29,7 @@ class ContactController extends Controller
 
         $teamMembers = [];
         $user = auth()->user();
-        $isOwnerOrAdmin = (method_exists($user, 'isOwner') && $user->isOwner()) || $user instanceof \App\Models\AdminUser;
+        $isOwnerOrAdmin = $user && (($user->role ?? null) === 'owner' || (method_exists($user, 'isOwner') && $user->isOwner()) || $user instanceof \App\Models\AdminUser);
         
         if ($isOwnerOrAdmin) {
             $teamMembers = \App\Models\User::where('tenant_id', $tenantId)
@@ -42,24 +42,34 @@ class ContactController extends Controller
             ->where('status', 'approved')
             ->get();
         
-        $isPostgres = \Illuminate\Support\Facades\DB::connection()->getDriverName() === 'pgsql';
-        if ($isPostgres) {
-            $customFieldKeys = \Illuminate\Support\Facades\DB::table('contacts')
-                ->where('tenant_id', $tenantId)
-                ->whereNotNull('custom_fields')
-                ->selectRaw('distinct jsonb_object_keys(custom_fields) as key')
-                ->pluck('key')
-                ->toArray();
-        } else {
-            $customFieldKeys = \App\Models\Contact::where('tenant_id', $tenantId)
-                ->whereNotNull('custom_fields')
-                ->pluck('custom_fields')
-                ->flatMap(function ($fields) {
-                    return is_array($fields) ? array_keys($fields) : [];
-                })
-                ->unique()
-                ->values()
-                ->toArray();
+        $customFieldKeys = [];
+        try {
+            $isPostgres = \Illuminate\Support\Facades\DB::connection()->getDriverName() === 'pgsql';
+            if ($isPostgres) {
+                $customFieldKeys = \Illuminate\Support\Facades\DB::table('contacts')
+                    ->where('tenant_id', $tenantId)
+                    ->whereNotNull('custom_fields')
+                    ->whereRaw("jsonb_typeof(custom_fields::jsonb) = 'object'")
+                    ->selectRaw('distinct jsonb_object_keys(custom_fields::jsonb) as key')
+                    ->pluck('key')
+                    ->toArray();
+            } else {
+                $customFieldKeys = \App\Models\Contact::where('tenant_id', $tenantId)
+                    ->whereNotNull('custom_fields')
+                    ->pluck('custom_fields')
+                    ->flatMap(function ($fields) {
+                        if (is_string($fields)) {
+                            $fields = json_decode($fields, true);
+                        }
+                        return is_array($fields) ? array_keys($fields) : [];
+                    })
+                    ->unique()
+                    ->values()
+                    ->toArray();
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed to query custom field keys: ' . $e->getMessage());
+            $customFieldKeys = [];
         }
 
         $availableContactFields = array_merge(['name', 'phone_number', 'email'], $customFieldKeys);
