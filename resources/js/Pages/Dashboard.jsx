@@ -8,28 +8,28 @@ export default function Dashboard({ metrics = {}, recentMessages = [] }) {
             name: 'Total Conversations',
             value: metrics.total_conversations || 0,
             icon: '💬',
-            bg: 'bg-emerald-50 text-[#00a884] border-emerald-200/60',
+            bg: 'bg-emerald-50 text-[#047857] border-emerald-200/60',
             trend: 'Active Threads',
         },
         {
             name: 'Total Messages Transferred',
             value: metrics.total_messages || 0,
             icon: '⚡',
-            bg: 'bg-blue-50 text-blue-600 border-blue-200/60',
+            bg: 'bg-blue-50 text-blue-700 border-blue-200/60',
             trend: `${metrics.inbound_count || 0} In / ${metrics.outbound_count || 0} Out`,
         },
         {
             name: 'Active Bot Triggers',
             value: metrics.active_triggers || 0,
             icon: '🤖',
-            bg: 'bg-purple-50 text-purple-600 border-purple-200/60',
+            bg: 'bg-purple-50 text-purple-700 border-purple-200/60',
             trend: 'Auto-Responders Active',
         },
         {
             name: 'System Health',
             value: '100%',
             icon: '🛡️',
-            bg: 'bg-emerald-50 text-emerald-700 border-emerald-200/60',
+            bg: 'bg-emerald-50 text-emerald-800 border-emerald-200/60',
             trend: 'Redis & Queue Online',
         },
     ];
@@ -57,7 +57,7 @@ export default function Dashboard({ metrics = {}, recentMessages = [] }) {
                     <div className="flex flex-wrap items-center gap-3">
                         <Link
                             href="/chat"
-                            className="px-4 py-2.5 bg-[#00a884] hover:bg-[#008f70] text-white rounded-xl text-xs font-bold transition shadow-lg shadow-emerald-500/20"
+                            className="px-4 py-2.5 bg-[#00a884] hover:bg-[#008f70] text-[#111b21] rounded-xl text-xs font-black transition shadow-lg shadow-emerald-500/20"
                         >
                             Open Live Inbox 💬
                         </Link>
@@ -78,14 +78,14 @@ export default function Dashboard({ metrics = {}, recentMessages = [] }) {
                             className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs hover:shadow-md transition duration-200 group"
                         >
                             <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{stat.name}</span>
+                                <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">{stat.name}</span>
                                 <span className={`w-9 h-9 rounded-xl flex items-center justify-center text-base border font-bold ${stat.bg}`}>
                                     {stat.icon}
                                 </span>
                             </div>
                             <div className="mt-3 flex items-baseline justify-between">
                                 <span className="text-2xl font-black text-gray-900 tracking-tight">{stat.value}</span>
-                                <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-md border border-gray-100">
+                                <span className="text-[10px] font-bold text-gray-600 bg-gray-50 px-2 py-0.5 rounded-md border border-gray-200">
                                     {stat.trend}
                                 </span>
                             </div>
@@ -101,14 +101,14 @@ export default function Dashboard({ metrics = {}, recentMessages = [] }) {
                             <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
                                 <span>⚡</span> Live Message Stream
                             </h2>
-                            <Link href="/chat" className="text-xs font-bold text-[#00a884] hover:underline">
+                            <Link href="/chat" className="text-xs font-bold text-[#047857] hover:text-[#065f46] hover:underline">
                                 View All Conversations →
                             </Link>
                         </div>
 
                         <div className="divide-y divide-gray-100">
                             {recentMessages.length === 0 ? (
-                                <div className="py-8 text-center text-xs text-gray-400">
+                                <div className="py-8 text-center text-xs text-gray-600">
                                     No messages processed yet. Incoming WhatsApp messages will appear here live.
                                 </div>
                             ) : (
@@ -116,26 +116,26 @@ export default function Dashboard({ metrics = {}, recentMessages = [] }) {
                                     <div key={msg.id} className="py-3 flex items-center justify-between gap-4 hover:bg-gray-50/50 px-2 rounded-xl transition">
                                         <div className="flex items-center gap-3 overflow-hidden">
                                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                                                msg.direction === 'inbound' ? 'bg-blue-50 text-blue-600 border border-blue-200/60' : 'bg-emerald-50 text-[#00a884] border border-emerald-200/60'
+                                                msg.direction === 'inbound' ? 'bg-blue-50 text-blue-700 border border-blue-200/60' : 'bg-emerald-50 text-[#047857] border border-emerald-200/60'
                                             }`}>
                                                 {msg.direction === 'inbound' ? '📥' : '📤'}
                                             </div>
                                             <div className="truncate">
                                                 <div className="text-xs font-bold text-gray-900 flex items-center gap-2">
                                                     <span>+{msg.customer_number}</span>
-                                                    <span className={`text-[9px] px-2 py-0.2 rounded-full font-extrabold uppercase ${
-                                                        msg.direction === 'inbound' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
+                                                    <span className={`text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase ${
+                                                        msg.direction === 'inbound' ? 'bg-blue-100 text-blue-900 border border-blue-200' : 'bg-emerald-100 text-emerald-900 border border-emerald-200'
                                                     }`}>
                                                         {msg.direction}
                                                     </span>
                                                 </div>
-                                                <p className="text-xs text-gray-500 truncate mt-0.5">{msg.text}</p>
+                                                <p className="text-xs text-gray-600 truncate mt-0.5">{msg.text}</p>
                                             </div>
                                         </div>
 
                                         <div className="text-right shrink-0">
-                                            <span className="text-[10px] font-semibold text-gray-400 block">{msg.time}</span>
-                                            <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                                            <span className="text-[10px] font-semibold text-gray-600 block">{msg.time}</span>
+                                            <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded">
                                                 {msg.status}
                                             </span>
                                         </div>
@@ -158,11 +158,11 @@ export default function Dashboard({ metrics = {}, recentMessages = [] }) {
                                     <div className="flex items-center gap-3">
                                         <span className="text-lg">💬</span>
                                         <div>
-                                            <div className="text-xs font-bold text-gray-900 group-hover:text-[#00a884]">Live Chat Inbox</div>
-                                            <div className="text-[10px] text-gray-500">Reply to WhatsApp customers</div>
+                                            <div className="text-xs font-bold text-gray-900 group-hover:text-[#047857]">Live Chat Inbox</div>
+                                            <div className="text-[10px] text-gray-600">Reply to WhatsApp customers</div>
                                         </div>
                                     </div>
-                                    <span className="text-xs text-gray-400 group-hover:text-[#00a884]">→</span>
+                                    <span className="text-xs text-gray-600 group-hover:text-[#047857]">→</span>
                                 </Link>
 
                                 <Link
@@ -172,11 +172,11 @@ export default function Dashboard({ metrics = {}, recentMessages = [] }) {
                                     <div className="flex items-center gap-3">
                                         <span className="text-lg">🤖</span>
                                         <div>
-                                            <div className="text-xs font-bold text-gray-900 group-hover:text-[#00a884]">Bot Auto-Responder</div>
-                                            <div className="text-[10px] text-gray-500">Configure keyword triggers</div>
+                                            <div className="text-xs font-bold text-gray-900 group-hover:text-[#047857]">Bot Auto-Responder</div>
+                                            <div className="text-[10px] text-gray-600">Configure keyword triggers</div>
                                         </div>
                                     </div>
-                                    <span className="text-xs text-gray-400 group-hover:text-[#00a884]">→</span>
+                                    <span className="text-xs text-gray-600 group-hover:text-[#047857]">→</span>
                                 </Link>
 
                                 <Link
@@ -186,11 +186,11 @@ export default function Dashboard({ metrics = {}, recentMessages = [] }) {
                                     <div className="flex items-center gap-3">
                                         <span className="text-lg">🔑</span>
                                         <div>
-                                            <div className="text-xs font-bold text-gray-900 group-hover:text-[#00a884]">Tenant API Settings</div>
-                                            <div className="text-[10px] text-gray-500">MSG91 & AI Credentials</div>
+                                            <div className="text-xs font-bold text-gray-900 group-hover:text-[#047857]">Tenant API Settings</div>
+                                            <div className="text-[10px] text-gray-600">MSG91 & AI Credentials</div>
                                         </div>
                                     </div>
-                                    <span className="text-xs text-gray-400 group-hover:text-[#00a884]">→</span>
+                                    <span className="text-xs text-gray-600 group-hover:text-[#047857]">→</span>
                                 </Link>
                             </div>
                         </div>
@@ -198,11 +198,11 @@ export default function Dashboard({ metrics = {}, recentMessages = [] }) {
                         {/* System Status Box */}
                         <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl border border-emerald-200/60 p-5 space-y-2">
                             <div className="flex items-center justify-between">
-                                <span className="text-xs font-extrabold text-[#00a884] uppercase tracking-wider">Infrastructure</span>
-                                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                <span className="text-xs font-extrabold text-[#047857] uppercase tracking-wider">Infrastructure</span>
+                                <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
                             </div>
                             <h3 className="text-sm font-bold text-gray-900">PostgreSQL & Redis Online</h3>
-                            <p className="text-[11px] text-gray-600">
+                            <p className="text-[11px] text-gray-700">
                                 Webhook delivery queue and real-time WebSockets are running smoothly.
                             </p>
                         </div>

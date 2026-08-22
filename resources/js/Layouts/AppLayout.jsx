@@ -70,6 +70,7 @@ export default function AppLayout({ children, header }) {
         <div className="min-h-screen bg-[#f4f6f9] text-gray-800 flex font-sans antialiased">
             <Head>
                 <meta name="robots" content="noindex, nofollow" />
+                <meta name="description" content="Secure multi-tenant WhatsApp Business messaging, live inbox, and automation platform." />
             </Head>
             {/* Sidebar Desktop */}
             <aside className="w-64 bg-white border-r border-gray-200/80 flex flex-col hidden md:flex fixed inset-y-0 z-50 shadow-sm">

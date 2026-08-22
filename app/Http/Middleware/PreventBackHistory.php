@@ -40,10 +40,6 @@ class PreventBackHistory
             $response->headers->remove('Expires');
             $response->headers->set('Expires', 'Thu, 01 Jan 1970 00:00:00 GMT', true);
             $response->headers->set('Vary', 'Cookie', true);
-
-            // Clear-Site-Data: "cache" actively evicts the page from bfcache
-            // in Chrome 96+, Firefox 94+, and Safari 16.4+
-            $response->headers->set('Clear-Site-Data', '"cache"', true);
         }
 
         return $response;

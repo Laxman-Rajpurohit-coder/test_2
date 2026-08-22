@@ -14,7 +14,10 @@ export default function Welcome({ auth }) {
 
     return (
         <>
-            <Head title="Welcome | MSG91 WhatsApp SaaS" />
+            <Head title="Welcome | MSG91 WhatsApp SaaS">
+                <meta name="robots" content="index, follow" />
+                <meta name="description" content="All-in-one multi-tenant WhatsApp Business platform with live team inbox, automated bot triggers, and analytics." />
+            </Head>
             
             <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-indigo-500 selection:text-white overflow-hidden">
                 {/* Abstract Background Effects */}

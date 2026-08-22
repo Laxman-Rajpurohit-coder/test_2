@@ -23,7 +23,10 @@ export default function Login({ status, canResetPassword }) {
 
     return (
         <GuestLayout>
-            <Head title="Log in" />
+            <Head title="Log in">
+                <meta name="robots" content="noindex, follow" />
+                <meta name="description" content="Sign in to your WhatsApp Business automation dashboard." />
+            </Head>
 
             {status && (
                 <div className="mb-4 text-sm font-medium text-green-600">
