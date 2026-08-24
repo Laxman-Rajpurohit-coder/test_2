@@ -72,4 +72,40 @@ class ContactControllerTest extends TestCase
         $delResponse = $this->actingAs($userA)->deleteJson("/contact-tags/{$tagB->id}");
         $delResponse->assertStatus(404);
     }
+
+    public function test_bulk_tag_applies_tags_to_all_selected_contacts()
+    {
+        $tenant = Tenant::factory()->create([
+            'features' => ['contacts_bulk_messaging' => true]
+        ]);
+        $user = User::factory()->create(['tenant_id' => $tenant->id, 'role' => 'owner']);
+        app(\App\Services\TenantResolverService::class)->setActiveTenantId($tenant->id);
+
+        $tag = ContactTag::create(['tenant_id' => $tenant->id, 'name' => 'BARMER']);
+
+        $contactIds = [];
+        for ($i = 1; $i <= 10; $i++) {
+            $c = Contact::create([
+                'tenant_id' => $tenant->id,
+                'name' => "Batch Contact {$i}",
+                'phone_number' => "91900000000{$i}",
+            ]);
+            $contactIds[] = $c->id;
+        }
+
+        $response = $this->actingAs($user)->post(route('contacts.bulk-tag'), [
+            'contact_ids' => $contactIds,
+            'tag_ids' => [$tag->id],
+            'mode' => 'add'
+        ]);
+
+        $response->assertSessionHas('success');
+
+        foreach ($contactIds as $cId) {
+            $this->assertDatabaseHas('contact_contact_tag', [
+                'contact_id' => $cId,
+                'contact_tag_id' => $tag->id,
+            ]);
+        }
+    }
 }

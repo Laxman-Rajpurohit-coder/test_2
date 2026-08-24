@@ -215,28 +215,52 @@ class ContactController extends Controller
         
         $tenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
 
+        $uniqueTagIds = array_unique($validated['tag_ids']);
+        $uniqueContactIds = array_unique($validated['contact_ids']);
+
         // Enforce tenant ownership of tag IDs to prevent cross-tenant tag assignment
         $validTagIds = \App\Models\ContactTag::where('tenant_id', $tenantId)
-            ->whereIn('id', $validated['tag_ids'])
+            ->whereIn('id', $uniqueTagIds)
             ->pluck('id')
             ->toArray();
 
-        if (count($validTagIds) !== count(array_unique($validated['tag_ids']))) {
+        if (count($validTagIds) !== count($uniqueTagIds)) {
             abort(403, 'Unauthorized tag selection.');
         }
-        
-        $contacts = Contact::where('tenant_id', $tenantId)
-            ->whereIn('id', $validated['contact_ids'])
-            ->get();
-            
+
+        // Filter contact IDs to strictly those belonging to active tenant
+        $validContactIds = Contact::where('tenant_id', $tenantId)
+            ->whereIn('id', $uniqueContactIds)
+            ->pluck('id')
+            ->toArray();
+
         $mode = $validated['mode'] ?? 'add';
-            
-        foreach ($contacts as $contact) {
-            if ($mode === 'remove') {
-                $contact->contactTags()->detach($validTagIds);
-            } else {
-                $contact->contactTags()->syncWithoutDetaching($validTagIds);
-            }
+
+        if (!empty($validContactIds) && !empty($validTagIds)) {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($validContactIds, $validTagIds, $mode) {
+                if ($mode === 'remove') {
+                    \Illuminate\Support\Facades\DB::table('contact_contact_tag')
+                        ->whereIn('contact_id', $validContactIds)
+                        ->whereIn('contact_tag_id', $validTagIds)
+                        ->delete();
+                } else {
+                    $rowsToInsert = [];
+                    foreach ($validContactIds as $contactId) {
+                        foreach ($validTagIds as $tagId) {
+                            $rowsToInsert[] = [
+                                'contact_id' => $contactId,
+                                'contact_tag_id' => $tagId,
+                            ];
+                        }
+                    }
+                    
+                    // Insert in chunks of 500 rows to prevent query payload limits
+                    foreach (array_chunk($rowsToInsert, 500) as $chunk) {
+                        \Illuminate\Support\Facades\DB::table('contact_contact_tag')
+                            ->insertOrIgnore($chunk);
+                    }
+                }
+            });
         }
         
         $message = $mode === 'remove' ? 'Tags removed successfully.' : 'Contacts tagged successfully.';
