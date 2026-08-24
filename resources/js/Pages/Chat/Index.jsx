@@ -195,25 +195,49 @@ export default function ChatIndex({ auth, tenantNumbers, approvedTemplates, curr
                     }
                 } catch (err) {}
 
-                // In-place update in React state: move to top & update preview
+                // In-place update in React state: move to top & update preview with strict deduplication
                 setConversations(prev => {
-                    const existsIndex = prev.findIndex(c => c.id === convId);
+                    const targetPhone = (msg.customer_number || '').replace(/\D/g, '');
+                    const existsIndex = prev.findIndex(c => 
+                        (convId && c.id === convId) ||
+                        (targetPhone && c.customer_number && c.customer_number.replace(/\D/g, '') === targetPhone)
+                    );
+
+                    const formattedPhone = msg.customer_number 
+                        ? (msg.customer_number.startsWith('+') ? msg.customer_number : `+${msg.customer_number}`) 
+                        : '';
+                    const fallbackName = formattedPhone || 'New Contact';
+                    const displayName = (msg.customer_name && msg.customer_name !== 'New Contact') 
+                        ? msg.customer_name 
+                        : fallbackName;
+
                     if (existsIndex >= 0) {
+                        const existing = prev[existsIndex];
                         const updatedConv = {
-                            ...prev[existsIndex],
+                            ...existing,
+                            customer_name: (existing.customer_name && existing.customer_name !== 'New Contact') ? existing.customer_name : displayName,
+                            customer_number: msg.customer_number || existing.customer_number,
                             preview: previewText,
                             last_message_at: new Date().toISOString(),
                             last_message_direction: msg.direction,
                             last_message_status: msg.status || 'delivered',
-                            unread_count: isActive ? 0 : (isInbound ? (prev[existsIndex].unread_count || 0) + 1 : prev[existsIndex].unread_count),
+                            unread_count: isActive ? 0 : (isInbound ? (existing.unread_count || 0) + 1 : existing.unread_count),
                         };
-                        const filtered = prev.filter(c => c.id !== convId);
+                        const filtered = prev.filter((c, idx) => 
+                            idx !== existsIndex &&
+                            c.id !== convId &&
+                            (!targetPhone || (c.customer_number || '').replace(/\D/g, '') !== targetPhone)
+                        );
                         return [updatedConv, ...filtered];
                     } else {
-                        // New conversation not in current page, prepend minimal DTO
+                        // New conversation not in current page, prepend minimal DTO with strict deduplication
+                        const filtered = prev.filter(c => 
+                            c.id !== convId &&
+                            (!targetPhone || (c.customer_number || '').replace(/\D/g, '') !== targetPhone)
+                        );
                         const newConv = {
                             id: convId,
-                            customer_name: msg.customer_name || msg.customer_number || 'New Contact',
+                            customer_name: displayName,
                             customer_number: msg.customer_number || '',
                             channel: msg.channel || currentChannel,
                             unread_count: isActive ? 0 : (isInbound ? 1 : 0),
@@ -224,7 +248,7 @@ export default function ChatIndex({ auth, tenantNumbers, approvedTemplates, curr
                             last_message_status: msg.status || 'delivered',
                             tenant_number_id: msg.tenant_number_id || null,
                         };
-                        return [newConv, ...prev];
+                        return [newConv, ...filtered];
                     }
                 });
 

@@ -492,18 +492,22 @@ export default function ContactsIndex({ contacts, teamMembers = [], allTags = []
                                     </td>
                                     <td className="px-6 py-4 text-sm">
                                         <div className="flex flex-wrap gap-1">
-                                            {contact.contact_tags && contact.contact_tags.length > 0 ? contact.contact_tags.map(tag => (
-                                                <span key={tag.id} className="group inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 transition-colors hover:bg-purple-200">
-                                                    <span>{tag.name}</span>
-                                                    <button
-                                                        onClick={() => handleRemoveTag(contact.id, tag.id)}
-                                                        className="text-purple-400 hover:text-purple-900 focus:outline-none transition-colors opacity-0 group-hover:opacity-100"
-                                                        title="Remove tag"
-                                                    >
-                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                                                    </button>
-                                                </span>
-                                            )) : '-'}
+                                            {(() => {
+                                                const tags = contact.contact_tags || contact.contactTags || [];
+                                                if (tags.length === 0) return <span className="text-gray-400">-</span>;
+                                                return tags.map(tag => (
+                                                    <span key={tag.id} className="group inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 transition-colors hover:bg-purple-200">
+                                                        <span>{tag.name}</span>
+                                                        <button
+                                                            onClick={() => handleRemoveTag(contact.id, tag.id)}
+                                                            className="text-purple-400 hover:text-purple-900 focus:outline-none transition-colors opacity-0 group-hover:opacity-100"
+                                                            title="Remove tag"
+                                                        >
+                                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                                        </button>
+                                                    </span>
+                                                ));
+                                            })()}
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">

@@ -28,6 +28,15 @@ export default function Sidebar({
     const [isSelectMode, setIsSelectMode] = useState(false);
     const [selectedConversations, setSelectedConversations] = useState([]);
 
+    const uniqueConversations = (conversations || []).filter((conv, index, self) => {
+        const rawNumber = (conv.customer_number || '').replace(/\D/g, '');
+        const firstIdx = self.findIndex(c => 
+            (conv.id && c.id === conv.id) ||
+            (rawNumber && c.customer_number && c.customer_number.replace(/\D/g, '') === rawNumber)
+        );
+        return firstIdx === index;
+    });
+
     const formatTimestamp = (dateStr) => {
         if (!dateStr) return '';
         try {
@@ -230,7 +239,7 @@ export default function Sidebar({
                 onScroll={handleScroll}
                 className="flex-1 overflow-y-auto custom-scrollbar border-r border-[#222d34]"
             >
-                {conversations.length === 0 ? (
+                {uniqueConversations.length === 0 ? (
                     <div className="text-center text-xs text-[#8696a0] py-16 px-4 font-medium">
                         {showFavoritesOnly 
                             ? 'No favorite conversations found' 
@@ -241,7 +250,7 @@ export default function Sidebar({
                             : `No ${currentChannel === 'all' ? '' : currentChannel} conversations yet`}
                     </div>
                 ) : (
-                    conversations.map(conv => {
+                    uniqueConversations.map(conv => {
                         const isActive = activeConversation?.id === conv.id;
                         const isSelected = selectedConversations.includes(conv.id);
                         return (
@@ -298,6 +307,9 @@ export default function Sidebar({
                                             <h4 className="font-medium text-sm text-[#e9edef] truncate">
                                                 {conv.customer_name || (conv.customer_number && !conv.customer_number.startsWith('fb_') ? `+${conv.customer_number}` : conv.customer_number)}
                                             </h4>
+                                            {conv.is_favorite && (
+                                                <span className="text-amber-400 text-xs shrink-0" title="Favorite">★</span>
+                                            )}
                                         </div>
                                         <div className="flex items-center gap-1.5 shrink-0">
                                             {/* Star toggle button */}

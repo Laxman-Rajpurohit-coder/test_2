@@ -182,6 +182,33 @@ export default function Thread({ conversation, onBack, approvedTemplates, onTogg
         }
     };
 
+    const getDateLabel = (dateStr) => {
+        if (!dateStr) return '';
+        try {
+            const strVal = String(dateStr).trim().replace(' ', 'T');
+            const isoStr = strVal.endsWith('Z') ? strVal : strVal + 'Z';
+            const d = new Date(isoStr);
+            if (isNaN(d.getTime())) return '';
+
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+
+            const msgDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+            if (msgDate.getTime() === today.getTime()) {
+                return 'Today';
+            } else if (msgDate.getTime() === yesterday.getTime()) {
+                return 'Yesterday';
+            } else {
+                return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+            }
+        } catch (e) {
+            return '';
+        }
+    };
+
     const fetchMessages = (cursor = null) => {
         if (!conversation?.id) return;
         let url = `/api/conversations/${conversation.id}/messages`;
@@ -378,26 +405,23 @@ export default function Thread({ conversation, onBack, approvedTemplates, onTogg
                         </div>
                     )}
 
-                    {/* Today Divider Pill */}
-                    {messages.length > 0 && (
-                        <div className="flex justify-center my-3">
-                            <span className="rounded-md bg-[#182229] px-3 py-1 text-[11px] text-[#8696a0] font-medium uppercase tracking-wider shadow border border-[#222d34]">
-                                Today
-                            </span>
-                        </div>
-                    )}
+                    {messages.map((msg, index) => {
+                        const currentDateLabel = getDateLabel(msg.created_at);
+                        const prevDateLabel = index > 0 ? getDateLabel(messages[index - 1].created_at) : null;
+                        const showDateDivider = currentDateLabel && (index === 0 || currentDateLabel !== prevDateLabel);
 
-                    {messages.map((msg) => {
                         const isOutbound = msg.direction === 'outbound';
                         const formattedTime = formatTimestamp(msg.created_at);
                         const content = parseMessageContent(msg.content);
 
                         const isMedia = ['image', 'audio', 'document', 'video'].includes(content.type);
 
+                        let messageElement = null;
+
                         if (isMedia) {
                             const displayUrl = resolveMediaUrl(content.url);
-                            return (
-                                <div key={msg.id} className={`flex ${isOutbound ? 'justify-end' : 'justify-start'} mb-2`}>
+                            messageElement = (
+                                <div className={`flex ${isOutbound ? 'justify-end' : 'justify-start'} mb-2`}>
                                     <div className="flex flex-col gap-1 w-[300px] max-w-full">
                                         {content.type === 'image' ? (
                                             <img 
@@ -517,8 +541,8 @@ export default function Thread({ conversation, onBack, approvedTemplates, onTogg
                         const isButtonReply = content.type === 'button_reply' || Boolean(content.button_text);
 
                         if (msg.is_internal) {
-                            return (
-                                <div key={msg.id} className="flex justify-center mb-2">
+                            messageElement = (
+                                <div className="flex justify-center mb-2">
                                     <div className="max-w-[85%] sm:max-w-[70%] rounded-xl bg-[#2b2115] border border-amber-600/30 px-4 py-2.5 text-xs text-amber-200 shadow-sm flex items-start gap-2">
                                         <span className="text-sm shrink-0">🛡️</span>
                                         <div>
@@ -529,11 +553,9 @@ export default function Thread({ conversation, onBack, approvedTemplates, onTogg
                                     </div>
                                 </div>
                             );
-                        }
-
-                        if (!isOutbound) {
-                            return (
-                                <div key={msg.id} className="flex justify-start mb-1">
+                        } else if (!isOutbound) {
+                            messageElement = (
+                                <div className="flex justify-start mb-1">
                                     <div className="relative max-w-[85%] sm:max-w-[75%] lg:max-w-[65%] rounded-lg rounded-tl-none bg-[#202c33] px-3 py-1.5 text-sm text-[#e9edef] shadow-sm">
                                         {isButtonReply ? (
                                             <div className="space-y-1 mr-14">
@@ -563,45 +585,58 @@ export default function Thread({ conversation, onBack, approvedTemplates, onTogg
                                     </div>
                                 </div>
                             );
+                        } else {
+                            messageElement = (
+                                <div className="flex justify-end mb-1">
+                                    <div className="relative max-w-[85%] sm:max-w-[75%] lg:max-w-[65%] rounded-lg rounded-tr-none bg-[#005c4b] px-3 py-1.5 text-sm text-[#e9edef] shadow-sm">
+                                        <span className="mr-16 leading-relaxed break-words block">{displayText || 'Message'}</span>
+                                        
+                                        {/* Template Buttons */}
+                                        {templateButtons.length > 0 && (
+                                            <div className="mt-2 pt-2 border-t border-[#01705b] flex flex-col gap-1.5 w-full pb-4">
+                                                {templateButtons.map((btn, i) => (
+                                                    <div key={i} className="text-center py-1.5 px-3 bg-[#01705b] rounded text-[#e9edef] font-semibold text-xs border border-[#02856c] flex items-center justify-center gap-1.5">
+                                                        <span>{btn.type === 'PHONE_NUMBER' ? '📞' : btn.type === 'URL' ? '🌐' : '🔘'}</span>
+                                                        <span>{btn.text || btn.label || btn.phone_number || btn.url || 'Button'}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Interactive Buttons */}
+                                        {content.type === 'interactive' && content.interactive?.action?.buttons && (
+                                            <div className="mt-2 flex flex-col gap-1 w-full pb-4">
+                                                {content.interactive.action.buttons.map((btn, i) => (
+                                                    <div key={i} className="text-center py-1.5 px-3 bg-[#01705b] rounded text-[#e9edef] font-medium text-xs border border-[#02856c]">
+                                                        {btn.reply?.title || 'Button'}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        
+                                        <div className="absolute bottom-1 right-2 flex items-center gap-1 text-[11px] text-[#8696a0]">
+                                            <span>{formattedTime}</span>
+                                            {msg.status === 'sent' && <span className="text-[#8696a0] font-bold">✓</span>}
+                                            {msg.status === 'delivered' && <span className="text-[#8696a0] font-bold">✓✓</span>}
+                                            {msg.status === 'read' && <span className="text-[#53bdeb] font-bold">✓✓</span>}
+                                            {msg.status === 'queued' && <span className="text-[#8696a0] animate-pulse">🕒</span>}
+                                            {msg.status === 'failed' && <span className="text-red-400 font-bold" title={msg.failure_reason || 'Send failed'}>!</span>}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
                         }
 
                         return (
-                            <div key={msg.id} className="flex justify-end mb-1">
-                                <div className="relative max-w-[85%] sm:max-w-[75%] lg:max-w-[65%] rounded-lg rounded-tr-none bg-[#005c4b] px-3 py-1.5 text-sm text-[#e9edef] shadow-sm">
-                                    <span className="mr-16 leading-relaxed break-words block">{displayText || 'Message'}</span>
-                                    
-                                    {/* Template Buttons */}
-                                    {templateButtons.length > 0 && (
-                                        <div className="mt-2 pt-2 border-t border-[#01705b] flex flex-col gap-1.5 w-full pb-4">
-                                            {templateButtons.map((btn, i) => (
-                                                <div key={i} className="text-center py-1.5 px-3 bg-[#01705b] rounded text-[#e9edef] font-semibold text-xs border border-[#02856c] flex items-center justify-center gap-1.5">
-                                                    <span>{btn.type === 'PHONE_NUMBER' ? '📞' : btn.type === 'URL' ? '🌐' : '🔘'}</span>
-                                                    <span>{btn.text || btn.label || btn.phone_number || btn.url || 'Button'}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {/* Interactive Buttons */}
-                                    {content.type === 'interactive' && content.interactive?.action?.buttons && (
-                                        <div className="mt-2 flex flex-col gap-1 w-full pb-4">
-                                            {content.interactive.action.buttons.map((btn, i) => (
-                                                <div key={i} className="text-center py-1.5 px-3 bg-[#01705b] rounded text-[#e9edef] font-medium text-xs border border-[#02856c]">
-                                                    {btn.reply?.title || 'Button'}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                    
-                                    <div className="absolute bottom-1 right-2 flex items-center gap-1 text-[11px] text-[#8696a0]">
-                                        <span>{formattedTime}</span>
-                                        {msg.status === 'sent' && <span className="text-[#8696a0] font-bold">✓</span>}
-                                        {msg.status === 'delivered' && <span className="text-[#8696a0] font-bold">✓✓</span>}
-                                        {msg.status === 'read' && <span className="text-[#53bdeb] font-bold">✓✓</span>}
-                                        {msg.status === 'queued' && <span className="text-[#8696a0] animate-pulse">🕒</span>}
-                                        {msg.status === 'failed' && <span className="text-red-400 font-bold" title={msg.failure_reason || 'Send failed'}>!</span>}
+                            <div key={msg.id || index}>
+                                {showDateDivider && (
+                                    <div className="flex justify-center my-3">
+                                        <span className="rounded-md bg-[#182229] px-3 py-1 text-[11px] text-[#8696a0] font-medium uppercase tracking-wider shadow border border-[#222d34]">
+                                            {currentDateLabel}
+                                        </span>
                                     </div>
-                                </div>
+                                )}
+                                {messageElement}
                             </div>
                         );
                     })}
