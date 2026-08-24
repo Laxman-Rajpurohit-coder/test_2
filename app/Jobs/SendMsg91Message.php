@@ -117,7 +117,23 @@ class SendMsg91Message implements ShouldQueue
         }
 
         $updatedMessage = DB::table('messages')->find($this->messageId);
-        
+
+        // Enrich broadcast with customer_name and customer_number from conversation
+        // DB::table()->find() returns only message-table columns — the frontend needs these
+        // to properly display the conversation entry without falling back to 'New Contact'
+        if ($updatedMessage) {
+            $conv = DB::table('conversations')
+                ->where('id', $this->conversationId)
+                ->select('customer_name', 'customer_number', 'channel', 'tenant_number_id')
+                ->first();
+            if ($conv) {
+                $updatedMessage->customer_name   = $conv->customer_name;
+                $updatedMessage->customer_number = $conv->customer_number;
+                $updatedMessage->channel         = $conv->channel;
+                $updatedMessage->tenant_number_id = $conv->tenant_number_id;
+            }
+        }
+
         try {
             broadcast(new MessageReceived($this->conversationId, $updatedMessage))->toOthers();
         } catch (\Throwable $e) {
@@ -144,6 +160,19 @@ class SendMsg91Message implements ShouldQueue
             ]);
 
         $updatedMessage = DB::table('messages')->find($this->messageId);
+
+        if ($updatedMessage) {
+            $conv = DB::table('conversations')
+                ->where('id', $this->conversationId)
+                ->select('customer_name', 'customer_number', 'channel', 'tenant_number_id')
+                ->first();
+            if ($conv) {
+                $updatedMessage->customer_name    = $conv->customer_name;
+                $updatedMessage->customer_number  = $conv->customer_number;
+                $updatedMessage->channel          = $conv->channel;
+                $updatedMessage->tenant_number_id = $conv->tenant_number_id;
+            }
+        }
 
         try {
             broadcast(new MessageReceived($this->conversationId, $updatedMessage))->toOthers();

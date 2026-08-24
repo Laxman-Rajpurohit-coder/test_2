@@ -402,6 +402,23 @@ class ProcessMsg91Webhook implements ShouldQueue
             // Broadcast real-time websocket payload (Non-blocking guard)
             if ($targetMessageId) {
                 $broadcastMessage = DB::table('messages')->find($targetMessageId);
+
+                // Enrich broadcast with customer_name/customer_number from conversation.
+                // DB::table()->find() only returns message-table columns; the frontend needs
+                // these fields to display the conversation without falling back to 'New Contact'.
+                if ($broadcastMessage) {
+                    $conv = DB::table('conversations')
+                        ->where('id', $conversationId)
+                        ->select('customer_name', 'customer_number', 'channel', 'tenant_number_id')
+                        ->first();
+                    if ($conv) {
+                        $broadcastMessage->customer_name    = $conv->customer_name ?? $customerName;
+                        $broadcastMessage->customer_number  = $conv->customer_number ?? $customerNumber;
+                        $broadcastMessage->channel          = $conv->channel;
+                        $broadcastMessage->tenant_number_id = $conv->tenant_number_id;
+                    }
+                }
+
                 try {
                     broadcast(new MessageReceived($conversationId, $broadcastMessage))->toOthers();
                 } catch (\Throwable $e) {
