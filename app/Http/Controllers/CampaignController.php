@@ -16,11 +16,16 @@ class CampaignController extends Controller
 {
     public function index()
     {
-        $campaigns = Campaign::where('is_quick_send', false)
+        $tenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
+
+        $campaigns = Campaign::where('tenant_id', $tenantId)
+            ->where('is_quick_send', false)
             ->withCount('recipients')
             ->orderBy('created_at', 'desc')
             ->paginate(20);
-        $approvedTemplates = WhatsappTemplate::where('status', 'approved')
+
+        $approvedTemplates = WhatsappTemplate::where('tenant_id', $tenantId)
+            ->where('status', 'approved')
             ->select('id', 'name', 'language', 'category')
             ->get();
             
