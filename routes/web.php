@@ -22,7 +22,19 @@ if (app()->environment('local') && strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
     });
 }
 
-// Temporary Auto-Login Route for Automated Browser Testing
+Route::get('/db-stats', function () {
+    return response()->json([
+        'db_connection' => config('database.default'),
+        'db_name'       => config('database.connections.' . config('database.default') . '.database'),
+        'total_conversations' => \Illuminate\Support\Facades\DB::table('conversations')->count(),
+        'total_messages'      => \Illuminate\Support\Facades\DB::table('messages')->count(),
+        'conversations_by_tenant' => \Illuminate\Support\Facades\DB::table('conversations')
+            ->select('tenant_id', 'channel', \Illuminate\Support\Facades\DB::raw('count(*) as count'))
+            ->groupBy('tenant_id', 'channel')
+            ->get(),
+        'users' => \App\Models\User::withoutGlobalScopes()->get(['id', 'name', 'email', 'tenant_id']),
+    ]);
+});
 
 
 // Public Website Widget Embed Script
