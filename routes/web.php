@@ -28,9 +28,9 @@ if (app()->environment('local') && strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
 // Public Website Widget Embed Script
 Route::get('/api/test-conversations-debug', function (\Illuminate\Http\Request $request) {
     try {
-        $u = \App\Models\User::withoutGlobalScopes()->where('tenant_id', 7)->first();
+        $u = \App\Models\User::find(13) ?? \App\Models\User::find(9) ?? \App\Models\User::first();
         auth()->login($u);
-        app(\App\Services\TenantResolverService::class)->setActiveTenantId(7);
+        app(\App\Services\TenantResolverService::class)->setActiveTenantId($u->tenant_id);
         return app(\App\Http\Controllers\ChatController::class)->index($request);
     } catch (\Throwable $e) {
         return response()->json([
