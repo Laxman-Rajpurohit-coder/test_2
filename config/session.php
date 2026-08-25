@@ -18,16 +18,7 @@ return [
     |
     */
 
-    'driver' => (function() {
-        $driver = env('SESSION_DRIVER', 'database');
-        if ($driver === 'redis') {
-            $host = parse_url(env('REDIS_URL', ''), PHP_URL_HOST) ?: env('REDIS_HOST', env('REDISHOST', '127.0.0.1'));
-            if (empty($host) || str_contains($host, 'railway.internal') || (@gethostbyname($host) === $host && !filter_var($host, FILTER_VALIDATE_IP))) {
-                return 'database';
-            }
-        }
-        return $driver;
-    })(),
+    'driver' => env('SESSION_DRIVER', 'redis'),
 
     /*
     |--------------------------------------------------------------------------
