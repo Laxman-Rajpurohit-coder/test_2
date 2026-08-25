@@ -384,7 +384,7 @@ export default function ChatIndex({ auth, tenantNumbers, approvedTemplates, curr
         <AppLayout>
             <Head title={`${currentTab.label} - Live Inbox`} />
 
-            <div className="flex flex-col h-[calc(100vh-112px)] w-full overflow-hidden bg-[#0c1317] font-sans antialiased text-[#e9edef] rounded-2xl border border-gray-200/80 shadow-sm">
+            <div className="flex flex-col h-[calc(100dvh-4.5rem)] md:h-[calc(100vh-5.5rem)] w-full overflow-hidden bg-[#0c1317] font-sans antialiased text-[#e9edef] rounded-none md:rounded-2xl border-0 md:border border-gray-200/80 shadow-none md:shadow-sm">
                 {/* DEDICATED TOP-LEVEL CHANNEL SELECTOR BAR */}
                 <div className="flex items-center justify-between px-4 py-2.5 bg-[#111b21] border-b border-[#222d34] flex-shrink-0">
                     {/* Left: Platform Tabs */}

@@ -329,16 +329,51 @@ class ContactController extends Controller
     public function show(Request $request, $id)
     {
         $tenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
+        
+        // Clean phone digits if $id is numeric/phone string
+        $cleanPhone = preg_replace('/\D/', '', $id);
+        if (strlen($cleanPhone) === 10) {
+            $cleanPhone = '91' . $cleanPhone;
+        }
+
         $contact = Contact::where('tenant_id', $tenantId)
             ->with(['contactTags', 'assignedUser', 'contactGroups'])
-            ->findOrFail($id);
-            
+            ->where(function ($q) use ($id, $cleanPhone) {
+                $q->where('id', $id)
+                  ->orWhere('phone_number', $id)
+                  ->orWhere('phone_number', '+' . $id);
+                if ($cleanPhone) {
+                    $q->orWhere('phone_number', $cleanPhone)
+                      ->orWhere('phone_number', '+' . $cleanPhone);
+                }
+            })->first();
+
+        // If no contact exists yet, auto-create a contact record for this phone number
+        if (!$contact && $cleanPhone) {
+            $contact = Contact::create([
+                'tenant_id' => $tenantId,
+                'name' => '+' . $cleanPhone,
+                'phone_number' => '+' . $cleanPhone,
+            ]);
+            $contact->load(['contactTags', 'assignedUser', 'contactGroups']);
+        }
+
+        if (!$contact) {
+            abort(404, 'Contact not found.');
+        }
+
         if ($request->wantsJson() && !$request->header('X-Inertia')) {
             return response()->json($contact);
         }
 
+        $normDigits = preg_replace('/\D/', '', $contact->phone_number);
+
         $conversation = \App\Models\Conversation::where('tenant_id', $tenantId)
-            ->where('customer_number', $contact->phone_number)
+            ->where(function($q) use ($contact, $normDigits) {
+                $q->where('customer_number', $contact->phone_number)
+                  ->orWhere('customer_number', $normDigits)
+                  ->orWhere('customer_number', '+' . $normDigits);
+            })
             ->first();
 
         $messages = [];
@@ -356,7 +391,7 @@ class ContactController extends Controller
 
         $teamMembers = [];
         $user = auth()->user();
-        $isOwnerOrAdmin = (method_exists($user, 'isOwner') && $user->isOwner()) || $user instanceof \App\Models\AdminUser;
+        $isOwnerOrAdmin = $user && (($user->role ?? null) === 'owner' || (method_exists($user, 'isOwner') && $user->isOwner()) || $user instanceof \App\Models\AdminUser);
         if ($isOwnerOrAdmin) {
             $teamMembers = \App\Models\User::where('tenant_id', $tenantId)
                 ->orderBy('name')

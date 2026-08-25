@@ -73,6 +73,7 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
 
     Route::post('/impersonate/{tenant}', [\App\Http\Controllers\Admin\ImpersonationController::class, 'start'])->name('impersonate.start');
     Route::post('/impersonate-stop', [\App\Http\Controllers\Admin\ImpersonationController::class, 'stop'])->name('impersonate.stop');
+    Route::post('/billing-settings', [\App\Http\Controllers\Admin\TenantController::class, 'updateBillingSettings'])->name('billing.update');
 });
 
 Route::middleware(['auth:web,admin', \App\Http\Middleware\BlockImpersonationWrites::class])->group(function () {
@@ -150,6 +151,7 @@ Route::middleware(['auth:web,admin', \App\Http\Middleware\BlockImpersonationWrit
 
     // Message Logs Route
     Route::get('/logs', [\App\Http\Controllers\MessageLogController::class, 'index'])->name('logs.index');
+    Route::post('/settings/billing', [\App\Http\Controllers\MessageLogController::class, 'updateBillingSettings'])->name('settings.billing.update');
 
     // Flow Builder Routes are registered by the FlowBuilder module directly.
 
