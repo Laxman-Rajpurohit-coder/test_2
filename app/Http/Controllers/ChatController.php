@@ -86,8 +86,15 @@ class ChatController extends Controller
             $query->where('tenant_number_id', $request->input('tenant_number_id'));
         }
 
-        if ($request->filled('channel') && in_array($request->input('channel'), ['whatsapp', 'facebook', 'instagram'])) {
-            $query->where('channel', $request->input('channel'));
+        if ($request->filled('channel')) {
+            $ch = $request->input('channel');
+            if ($ch === 'whatsapp') {
+                $query->where(function ($q) {
+                    $q->where('channel', 'whatsapp')->orWhereNull('channel');
+                });
+            } elseif (in_array($ch, ['facebook', 'instagram'], true)) {
+                $query->where('channel', $ch);
+            }
         }
 
         if ($request->boolean('unread_only')) {
