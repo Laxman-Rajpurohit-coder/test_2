@@ -78,7 +78,7 @@ class SecurityHeadersTest extends TestCase
         $this->assertStringContainsString("style-src 'self' 'unsafe-inline' https://fonts.bunny.net", $csp);
         $this->assertStringContainsString("font-src 'self' https://fonts.bunny.net data:", $csp);
         $this->assertStringContainsString("img-src 'self' data: blob: https:", $csp);
-        $this->assertStringContainsString("media-src 'self' data: blob:", $csp);
+        $this->assertStringContainsString("media-src 'self' data: blob: https:", $csp);
         $this->assertStringContainsString("connect-src 'self' ws: wss:", $csp);
         $this->assertStringContainsString("frame-ancestors 'none'", $csp);
 

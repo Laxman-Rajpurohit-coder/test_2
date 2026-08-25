@@ -201,47 +201,20 @@ class ProcessMsg91Webhook implements ShouldQueue
                     $text = $effectiveBtnText;
                 }
             }
-            // 2. If MSG91 delivered a Media URL directly
-            elseif (!empty($url) && is_string($url) && str_starts_with($url, 'http')) {
-                $type = 'image';
-                if (str_contains(strtolower($rawType), 'audio') || str_contains(strtolower($rawType), 'voice') || str_contains(strtolower($url), '.mp3') || str_contains(strtolower($url), '.ogg') || str_contains(strtolower($url), '.webm')) {
-                    $type = 'audio';
-                } elseif (str_contains(strtolower($rawType), 'image') || str_contains(strtolower($rawType), 'photo') || str_contains(strtolower($url), '.jpg') || str_contains(strtolower($url), '.png') || str_contains(strtolower($url), '.jpeg')) {
-                    $type = 'image';
-                }
-
-                $contentData = [
-                    'type' => $type,
-                    'url' => $url,
-                    'caption' => is_string($caption) ? $caption : '',
-                ];
+            // 2. Try comprehensive media extraction from all possible MSG91 payload locations
+            elseif ($extractedMedia = $this->extractMediaFromPayload($this->payload)) {
+                $contentData = $extractedMedia;
             } 
             // 3. If MSG91 delivered Text content
             elseif (!empty($text) && is_string($text) && strlen(trim($text)) > 0 && $text !== '{{text}}') {
                 $contentData = ['type' => 'text', 'text' => trim($text)];
             }
-            // 4. Fallback for nested content structure
+            // 4. Fallback text content if no text or media URL could be extracted
             else {
-                $rawContent = $this->payload['content'] ?? [];
-                if (isset($rawContent['image']) || isset($this->payload['image'])) {
-                    $node = $rawContent['image'] ?? $this->payload['image'];
-                    $contentData = [
-                        'type' => 'image',
-                        'url' => is_array($node) ? ($node['link'] ?? $node['url'] ?? '') : (string)$node,
-                        'caption' => is_array($node) ? ($node['caption'] ?? '') : '',
-                    ];
-                } elseif (isset($rawContent['audio']) || isset($this->payload['audio'])) {
-                    $node = $rawContent['audio'] ?? $this->payload['audio'];
-                    $contentData = [
-                        'type' => 'audio',
-                        'url' => is_array($node) ? ($node['link'] ?? $node['url'] ?? '') : (string)$node,
-                    ];
-                } else {
-                    $contentData = [
-                        'type' => 'text',
-                        'text' => '📷 Received Media / Voice Note'
-                    ];
-                }
+                $contentData = [
+                    'type' => 'text',
+                    'text' => is_string($text) && !empty(trim($text)) ? trim($text) : 'Media message'
+                ];
             }
 
             $requestId = $this->payload['requestId'] ?? null;
@@ -317,6 +290,15 @@ class ProcessMsg91Webhook implements ShouldQueue
                     }
                 }
             } else {
+                // Outbound status event callbacks (direction !== 0 or status eventName) MUST NOT create new chat message records if no existing message matches!
+                $eventNameLower = strtolower($this->payload['eventName'] ?? '');
+                $isStatusCallback = $direction !== 0 || in_array($eventNameLower, ['failed', 'delivered', 'read', 'submitted']);
+
+                if ($isStatusCallback) {
+                    Log::warning("ProcessMsg91Webhook: Received status callback '{$eventNameLower}' for unmatched outbound message (wamid: {$wamid}, requestId: {$requestId}). Skipping insert.");
+                    return;
+                }
+
                 try {
                     $targetMessageId = Str::uuid()->toString();
                     DB::table('messages')->insert([
@@ -443,5 +425,87 @@ class ProcessMsg91Webhook implements ShouldQueue
             // Rethrow the exception so the queue worker marks the job as failed and sends it to the DLQ (failed_jobs)
             throw $e;
         }
+    }
+
+    /**
+     * Comprehensive Media Extraction Helper for MSG91 Inbound & Outbound Webhook Payloads
+     */
+    protected function extractMediaFromPayload(array $payload): ?array
+    {
+        if (isset($payload['content']) && is_string($payload['content']) && str_starts_with(trim($payload['content']), '{')) {
+            $decoded = json_decode(trim($payload['content']), true);
+            if (is_array($decoded)) {
+                $payload['content'] = $decoded;
+            }
+        }
+
+        $possibleNodes = [
+            $payload['image'] ?? null,
+            $payload['audio'] ?? null,
+            $payload['video'] ?? null,
+            $payload['document'] ?? null,
+            $payload['voice'] ?? null,
+            $payload['sticker'] ?? null,
+            $payload['media'] ?? null,
+            $payload['content']['image'] ?? null,
+            $payload['content']['audio'] ?? null,
+            $payload['content']['video'] ?? null,
+            $payload['content']['document'] ?? null,
+            $payload['content']['voice'] ?? null,
+            $payload['content']['sticker'] ?? null,
+            $payload['content']['media'] ?? null,
+        ];
+
+        foreach ($possibleNodes as $node) {
+            if (is_string($node) && str_starts_with(trim($node), 'http')) {
+                return $this->buildMediaContentData(trim($node), $payload['caption'] ?? '', $payload['contentType'] ?? $payload['type'] ?? '');
+            }
+            if (is_array($node)) {
+                $foundUrl = $node['link'] ?? $node['url'] ?? $node['file_url'] ?? $node['attachment_url'] ?? $node['media_url'] ?? null;
+                if (!empty($foundUrl) && is_string($foundUrl) && str_starts_with(trim($foundUrl), 'http')) {
+                    $caption = $node['caption'] ?? $payload['caption'] ?? '';
+                    $type = $node['type'] ?? $payload['contentType'] ?? $payload['type'] ?? '';
+                    return $this->buildMediaContentData(trim($foundUrl), $caption, $type);
+                }
+            }
+        }
+
+        // Direct URL keys
+        $directKeys = ['url', 'file', 'file_url', 'media_url', 'mediaUrl', 'attachment_url', 'link'];
+        foreach ($directKeys as $key) {
+            $val = $payload[$key] ?? $payload['content'][$key] ?? null;
+            if (!empty($val) && is_string($val) && str_starts_with(trim($val), 'http')) {
+                return $this->buildMediaContentData(trim($val), $payload['caption'] ?? '', $payload['contentType'] ?? $payload['type'] ?? '');
+            }
+        }
+
+        // Check if text itself is a media URL
+        $text = $payload['text'] ?? $payload['content']['text'] ?? null;
+        if (is_string($text) && str_starts_with(trim($text), 'http')) {
+            return $this->buildMediaContentData(trim($text), $payload['caption'] ?? '', $payload['contentType'] ?? $payload['type'] ?? '');
+        }
+
+        return null;
+    }
+
+    protected function buildMediaContentData(string $url, string $caption = '', string $rawType = ''): array
+    {
+        $urlLower = strtolower($url);
+        $rawTypeLower = strtolower($rawType);
+
+        $type = 'image';
+        if (str_contains($rawTypeLower, 'audio') || str_contains($rawTypeLower, 'voice') || preg_match('/\.(mp3|ogg|wav|webm|m4a)$/i', $urlLower)) {
+            $type = 'audio';
+        } elseif (str_contains($rawTypeLower, 'video') || preg_match('/\.(mp4|mov|avi|mkv)$/i', $urlLower)) {
+            $type = 'video';
+        } elseif (str_contains($rawTypeLower, 'document') || str_contains($rawTypeLower, 'pdf') || preg_match('/\.(pdf|doc|docx|xls|xlsx|zip)$/i', $urlLower)) {
+            $type = 'document';
+        }
+
+        return [
+            'type' => $type,
+            'url' => $url,
+            'caption' => is_string($caption) ? $caption : '',
+        ];
     }
 }

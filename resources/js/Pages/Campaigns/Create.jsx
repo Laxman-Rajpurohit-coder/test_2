@@ -465,6 +465,7 @@ export default function Create({ auth, approvedTemplates = [], groups = [], tags
                                                 onChange={e => setMediaType(e.target.value)}
                                                 className="w-full text-xs rounded-xl border-gray-200"
                                             >
+                                                <option value="none">🚫 None (Text Only)</option>
                                                 <option value="image">📷 Image</option>
                                                 <option value="video">🎥 Video</option>
                                                 <option value="document">📄 Document</option>

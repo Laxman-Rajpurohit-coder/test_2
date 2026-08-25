@@ -13,22 +13,31 @@ const CustomAudioPlayer = ({ src }) => {
     const [isPlaying, setIsPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
     const [duration, setDuration] = useState(0);
+    const [hasError, setHasError] = useState(false);
 
     const togglePlay = () => {
-        if (!audioRef.current) return;
+        if (!audioRef.current || hasError) return;
         if (isPlaying) {
             audioRef.current.pause();
+            setIsPlaying(false);
         } else {
-            audioRef.current.play().catch(console.error);
+            const playPromise = audioRef.current.play();
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    setIsPlaying(true);
+                }).catch(err => {
+                    console.error("Audio playback error:", err);
+                    setIsPlaying(false);
+                });
+            }
         }
-        setIsPlaying(!isPlaying);
     };
 
     const handleTimeUpdate = () => {
         if (!audioRef.current) return;
         const current = audioRef.current.currentTime;
         const dur = audioRef.current.duration;
-        if (dur && dur !== Infinity) {
+        if (dur && !isNaN(dur) && dur !== Infinity) {
             setProgress((current / dur) * 100);
             setDuration(dur);
         }
@@ -36,15 +45,18 @@ const CustomAudioPlayer = ({ src }) => {
 
     const handleLoadedMetadata = () => {
         if (!audioRef.current) return;
-        if (audioRef.current.duration === Infinity || isNaN(audioRef.current.duration)) {
+        const dur = audioRef.current.duration;
+        if (dur && !isNaN(dur) && dur !== Infinity) {
+            setDuration(dur);
+        } else {
             audioRef.current.currentTime = 1e101;
             audioRef.current.ontimeupdate = () => {
                 audioRef.current.ontimeupdate = null;
                 audioRef.current.currentTime = 0;
-                setDuration(audioRef.current.duration);
+                if (audioRef.current.duration && !isNaN(audioRef.current.duration)) {
+                    setDuration(audioRef.current.duration);
+                }
             };
-        } else {
-            setDuration(audioRef.current.duration);
         }
     };
 
@@ -58,21 +70,34 @@ const CustomAudioPlayer = ({ src }) => {
     };
 
     const formatTime = (time) => {
-        if (!time || isNaN(time)) return '0:00';
+        if (!time || isNaN(time) || time === Infinity) return '0:00';
         const m = Math.floor(time / 60);
         const s = Math.floor(time % 60);
         return `${m}:${s.toString().padStart(2, '0')}`;
     };
 
+    if (hasError) {
+        return (
+            <div className="flex items-center gap-2 text-xs text-amber-400 font-medium p-1">
+                <span>⚠️</span>
+                <span>Audio file unavailable</span>
+            </div>
+        );
+    }
+
     return (
         <div className="flex items-center gap-3 w-full bg-transparent">
-            <button onClick={togglePlay} className="w-8 h-8 flex-shrink-0 flex items-center justify-center text-[#8696a0] hover:text-[#e9edef] transition-colors focus:outline-none">
+            <button 
+                type="button"
+                onClick={togglePlay} 
+                className="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-[#00a884] text-white rounded-full hover:opacity-90 transition-opacity focus:outline-none shadow-sm"
+            >
                 {isPlaying ? (
-                    <svg viewBox="0 0 24 24" className="w-6 h-6 fill-current">
+                    <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
                         <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
                     </svg>
                 ) : (
-                    <svg viewBox="0 0 24 24" className="w-6 h-6 fill-current">
+                    <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current ml-0.5">
                         <path d="M8 5v14l11-7z"/>
                     </svg>
                 )}
@@ -87,18 +112,22 @@ const CustomAudioPlayer = ({ src }) => {
                         style={{ width: `${progress}%` }}
                     />
                 </div>
-                <div className="text-[11px] text-[#8696a0] mt-1 font-medium">
-                    {formatTime(audioRef.current?.currentTime || 0)} / {formatTime(duration)}
+                <div className="text-[11px] text-[#8696a0] mt-1 font-medium flex justify-between">
+                    <span>{formatTime(audioRef.current?.currentTime || 0)}</span>
+                    <span>{formatTime(duration)}</span>
                 </div>
             </div>
             <audio 
                 ref={audioRef}
                 src={src}
+                referrerPolicy="no-referrer"
+                preload="auto"
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
+                onCanPlayThrough={handleLoadedMetadata}
                 onEnded={() => { setIsPlaying(false); setProgress(0); }}
+                onError={() => setHasError(true)}
                 className="hidden"
-                preload="metadata"
             />
         </div>
     );
@@ -108,8 +137,14 @@ export default function Thread({ conversation, onBack, approvedTemplates, onTogg
     const [messages, setMessages] = useState([]);
     const [nextCursor, setNextCursor] = useState(null);
     const messagesEndRef = useRef(null);
+    const containerRef = useRef(null);
     const [isInitialLoad, setIsInitialLoad] = useState(true);
     const [modalImage, setModalImage] = useState(null);
+
+    // Scroll-to-bottom and Scrolled-up states
+    const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+    const [unreadBelowCount, setUnreadBelowCount] = useState(0);
+    const isUserScrolledUpRef = useRef(false);
 
     // Tasks & Reminders State
     const [tasks, setTasks] = useState([]);
@@ -118,6 +153,33 @@ export default function Thread({ conversation, onBack, approvedTemplates, onTogg
     const [taskDue, setTaskDue] = useState('');
     const [isSavingTask, setIsSavingTask] = useState(false);
     const [showMobileDetails, setShowMobileDetails] = useState(false);
+
+    const scrollToBottom = (behavior = 'auto') => {
+        if (containerRef.current) {
+            containerRef.current.scrollTo({
+                top: containerRef.current.scrollHeight,
+                behavior: behavior,
+            });
+        } else if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior });
+        }
+        setShowScrollToBottom(false);
+        setUnreadBelowCount(0);
+        isUserScrolledUpRef.current = false;
+    };
+
+    const handleStreamScroll = (e) => {
+        const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+        const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+        const isUp = distanceFromBottom > 120;
+        
+        setShowScrollToBottom(isUp);
+        isUserScrolledUpRef.current = isUp;
+        
+        if (!isUp) {
+            setUnreadBelowCount(0);
+        }
+    };
 
     const fetchTasks = () => {
         if (!conversation?.id) return;
@@ -214,12 +276,23 @@ export default function Thread({ conversation, onBack, approvedTemplates, onTogg
         let url = `/api/conversations/${conversation.id}/messages`;
         if (cursor) url += `?cursor=${cursor}`;
 
+        const oldScrollHeight = containerRef.current ? containerRef.current.scrollHeight : 0;
+
         window.axios.get(url).then(res => {
             if (cursor) {
                 setMessages(prev => [...(res.data?.data || []), ...prev]);
+                setTimeout(() => {
+                    if (containerRef.current) {
+                        const newScrollHeight = containerRef.current.scrollHeight;
+                        containerRef.current.scrollTop = newScrollHeight - oldScrollHeight;
+                    }
+                }, 50);
             } else {
                 setMessages(res.data?.data || []);
-                setIsInitialLoad(false);
+                setTimeout(() => {
+                    scrollToBottom('auto');
+                    setIsInitialLoad(false);
+                }, 50);
             }
             setNextCursor(res.data?.next_cursor || null);
         }).catch(err => {
@@ -232,11 +305,26 @@ export default function Thread({ conversation, onBack, approvedTemplates, onTogg
         setMessages([]);
         setNextCursor(null);
         setIsInitialLoad(true);
+        setShowScrollToBottom(false);
+        setUnreadBelowCount(0);
+        isUserScrolledUpRef.current = false;
         fetchMessages();
 
-        // Fast 15-second polling fallback ensuring backup sync when WS is idle
         const pollInterval = setInterval(() => {
-            fetchMessages();
+            if (!conversation?.id) return;
+            window.axios.get(`/api/conversations/${conversation.id}/messages`).then(res => {
+                const fetched = res.data?.data || [];
+                setMessages(prev => {
+                    if (fetched.length > prev.length) {
+                        if (!isUserScrolledUpRef.current) {
+                            setTimeout(() => scrollToBottom('smooth'), 100);
+                        } else {
+                            setUnreadBelowCount(cnt => cnt + (fetched.length - prev.length));
+                        }
+                    }
+                    return fetched;
+                });
+            }).catch(console.error);
         }, 15000);
 
         const channel = window.Echo.channel(`conversations.${conversation.id}`);
@@ -252,6 +340,12 @@ export default function Thread({ conversation, onBack, approvedTemplates, onTogg
                     }
                     return [...prev, e.message];
                 });
+
+                if (!isUserScrolledUpRef.current || e.message.direction === 'outbound') {
+                    setTimeout(() => scrollToBottom('smooth'), 100);
+                } else {
+                    setUnreadBelowCount(count => count + 1);
+                }
             } else {
                 fetchMessages();
             }
@@ -264,47 +358,120 @@ export default function Thread({ conversation, onBack, approvedTemplates, onTogg
     }, [conversation?.id]);
 
     const resolveMediaUrl = (rawUrl) => {
-        if (!rawUrl) return '';
-        
-        // If it's a full HTTP URL from an external provider (MSG91/WhatsApp), DO NOT truncate it!
-        if (typeof rawUrl === 'string' && rawUrl.startsWith('http')) {
-            const isExternal = !rawUrl.includes('localhost') 
-                            && !rawUrl.includes('127.0.0.1')
-                            && !rawUrl.includes(window.location.hostname);
-                            
-            if (isExternal) {
-                return rawUrl;
-            }
-        }
-
-        // It's a local or dev URL. Rewrite it to use the current origin so media loads even if app.url was wrong.
-        if (typeof rawUrl === 'string' && rawUrl.includes('/storage/')) {
+        if (!rawUrl || typeof rawUrl !== 'string') return '';
+        if (rawUrl.includes('/storage/')) {
             const pathPart = rawUrl.substring(rawUrl.indexOf('/storage/'));
             return window.location.origin + pathPart;
         }
-        if (typeof rawUrl === 'string' && !rawUrl.startsWith('http')) {
+        if (!rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
             return `${window.location.origin}/storage/${rawUrl.replace(/^\/+/, '')}`;
         }
         return rawUrl;
     };
 
-    const parseMessageContent = (rawContent) => {
-        let contentData = {};
-        try {
-            if (typeof rawContent === 'string') {
-                contentData = JSON.parse(rawContent);
-                if (typeof contentData === 'string') {
-                    contentData = JSON.parse(contentData);
-                }
-            } else if (typeof rawContent === 'object' && rawContent !== null) {
-                contentData = rawContent;
-            } else {
-                contentData = { type: 'text', text: String(rawContent || '') };
-            }
-        } catch (e) {
-            contentData = { type: 'text', text: String(rawContent || '') };
+    const normalizePhone = (phone) => {
+        if (!phone) return '';
+        let digits = String(phone).replace(/\D/g, '');
+        if (digits.length === 10) {
+            digits = '91' + digits;
         }
-        return contentData;
+        return digits;
+    };
+
+    const getDisplayName = (conv) => {
+        const isWhatsApp = !conv?.channel || conv?.channel === 'whatsapp';
+        if (isWhatsApp) {
+            if (conv?.customer_number) {
+                const norm = normalizePhone(conv.customer_number);
+                return `+${norm}`;
+            }
+            return 'Unknown Contact';
+        }
+        if (conv?.customer_name && conv.customer_name !== 'New Contact' && conv.customer_name !== 'Unknown') {
+            return conv.customer_name;
+        }
+        if (conv?.customer_number) {
+            return conv.customer_number.startsWith('+') ? conv.customer_number : `+${conv.customer_number}`;
+        }
+        return 'Unknown Contact';
+    };
+
+    const getAvatarInitials = (conv) => {
+        const name = getDisplayName(conv);
+        const digits = name.replace(/\D/g, '');
+        if (digits.length >= 2) {
+            return digits.substring(digits.length - 2);
+        }
+        return name.substring(0, 2).toUpperCase();
+    };
+
+    const normalizeMediaObject = (obj) => {
+        if (!obj || typeof obj !== 'object') {
+            return { type: 'text', text: String(obj || '') };
+        }
+
+        const nestedUrl = obj.image?.link || obj.image?.url || 
+                          obj.audio?.link || obj.audio?.url || 
+                          obj.video?.link || obj.video?.url || 
+                          obj.document?.link || obj.document?.url || 
+                          obj.file?.link || obj.file?.url ||
+                          obj.media?.link || obj.media?.url || null;
+
+        const mediaUrl = obj.url || obj.attachment_url || obj.link || obj.file_url || obj.media_url || obj.mediaUrl || nestedUrl;
+        let type = obj.type || (obj.image ? 'image' : obj.audio ? 'audio' : obj.video ? 'video' : obj.document ? 'document' : 'text');
+
+        if (mediaUrl && (type === 'text' || !type || type === 'media')) {
+            const urlLower = String(mediaUrl).toLowerCase();
+            if (urlLower.match(/\.(mp3|ogg|wav|webm|m4a)$/i) || urlLower.includes('/audio')) {
+                type = 'audio';
+            } else if (urlLower.match(/\.(mp4|mov|avi|mkv)$/i) || urlLower.includes('/video')) {
+                type = 'video';
+            } else if (urlLower.match(/\.(pdf|doc|docx|xls|xlsx|zip)$/i) || urlLower.includes('/document')) {
+                type = 'document';
+            } else {
+                type = 'image';
+            }
+        }
+
+        const extractedCaption = obj.caption || obj.image?.caption || obj.video?.caption || obj.document?.caption || obj.text || obj.body || '';
+        const extractedFilename = obj.filename || obj.document?.filename || obj.file?.filename || '';
+
+        return {
+            ...obj,
+            type: type,
+            url: mediaUrl || '',
+            text: extractedCaption,
+            caption: extractedCaption,
+            filename: extractedFilename,
+        };
+    };
+
+    const parseMessageContent = (rawContent) => {
+        if (!rawContent) return { type: 'text', text: '' };
+        let current = rawContent;
+        if (typeof current === 'string') {
+            current = current.trim();
+            let maxDepth = 4;
+            while (maxDepth-- > 0 && typeof current === 'string' && (current.startsWith('{') || current.startsWith('['))) {
+                try {
+                    const decoded = JSON.parse(current);
+                    if (decoded && typeof decoded === 'object') {
+                        current = decoded;
+                        if (current.text && typeof current.text === 'string' && (current.text.trim().startsWith('{') || current.text.trim().startsWith('['))) {
+                            current = current.text.trim();
+                            continue;
+                        }
+                    }
+                    break;
+                } catch (e) {
+                    break;
+                }
+            }
+        }
+        if (typeof current === 'string') {
+            return { type: 'text', text: current };
+        }
+        return normalizeMediaObject(current);
     };
 
     return (
@@ -327,7 +494,7 @@ export default function Thread({ conversation, onBack, approvedTemplates, onTogg
                         </button>
                         <div className="relative">
                             <div className="h-10 w-10 rounded-full bg-[#374248] flex items-center justify-center text-[#e9edef] font-medium text-sm">
-                                {conversation?.customer_name ? conversation.customer_name.substring(0, 2).toUpperCase() : (conversation?.customer_number ? conversation.customer_number.substring(0, 2) : '??')}
+                                {getAvatarInitials(conversation)}
                             </div>
                             <span className={`absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px] font-bold text-white shadow ring-1 ring-[#202c33] ${
                                 conversation?.channel === 'facebook'
@@ -396,7 +563,11 @@ export default function Thread({ conversation, onBack, approvedTemplates, onTogg
                 </header>
 
                 {/* Message Stream Area */}
-                <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-2 bg-[radial-gradient(#202c33_1px,transparent_1px)] [background-size:16px_16px] custom-scrollbar">
+                <div 
+                    ref={containerRef}
+                    onScroll={handleStreamScroll}
+                    className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-2 bg-[radial-gradient(#202c33_1px,transparent_1px)] [background-size:16px_16px] custom-scrollbar relative"
+                >
                     {nextCursor && (
                         <div className="text-center pb-4">
                             <button onClick={() => fetchMessages(nextCursor)} className="px-3 py-1 rounded-md bg-[#182229] text-xs font-medium text-[#8696a0] hover:text-[#e9edef] border border-[#222d34] shadow transition-colors">
@@ -424,15 +595,28 @@ export default function Thread({ conversation, onBack, approvedTemplates, onTogg
                                 <div className={`flex ${isOutbound ? 'justify-end' : 'justify-start'} mb-2`}>
                                     <div className="flex flex-col gap-1 w-[300px] max-w-full">
                                         {content.type === 'image' ? (
-                                            <img 
-                                                src={displayUrl} 
-                                                alt="Photo" 
-                                                onClick={() => setModalImage(displayUrl)}
-                                                className="rounded-xl object-cover max-h-[260px] w-full cursor-pointer hover:opacity-90 transition-opacity border border-[#222d34] shadow-md" 
-                                            />
+                                            <div className="relative w-full">
+                                                <img 
+                                                    src={displayUrl} 
+                                                    alt="Photo" 
+                                                    referrerPolicy="no-referrer"
+                                                    onClick={() => setModalImage(displayUrl)}
+                                                    onError={(e) => {
+                                                        e.currentTarget.style.display = 'none';
+                                                        if (e.currentTarget.nextSibling) {
+                                                            e.currentTarget.nextSibling.style.display = 'flex';
+                                                        }
+                                                    }}
+                                                    className="rounded-xl object-cover max-h-[260px] w-full cursor-pointer hover:opacity-90 transition-opacity border border-[#222d34] shadow-md" 
+                                                />
+                                                <div className="hidden bg-[#111b21] p-3 rounded-xl border border-[#222d34] shadow-md w-full items-center gap-2 text-xs text-amber-400 font-medium">
+                                                    <span>⚠️</span>
+                                                    <span>Image file unavailable (404)</span>
+                                                </div>
+                                            </div>
                                         ) : content.type === 'video' ? (
                                             <div className="bg-[#111b21] rounded-xl overflow-hidden border border-[#222d34] shadow-md w-full">
-                                                <video src={displayUrl} controls className="max-h-[260px] w-full" />
+                                                <video src={displayUrl} controls referrerPolicy="no-referrer" className="max-h-[260px] w-full" />
                                             </div>
                                         ) : content.type === 'document' ? (
                                             <div className="bg-[#111b21] p-3 rounded-xl border border-[#222d34] shadow-md w-full flex items-center gap-3">
@@ -478,38 +662,48 @@ export default function Thread({ conversation, onBack, approvedTemplates, onTogg
                         // Resolves actual template text or full body text
                         const getDisplayText = () => {
                             if (content.type === 'template') {
-                                // 1. Show stored text if it contains actual template body (not just a placeholder)
                                 const storedText = content.text || content.body || '';
                                 const trimmedStored = typeof storedText === 'string' ? storedText.trim() : '';
-                                
-                                // Accept the stored text unless it's ONLY a placeholder like "📋 Template: name"
-                                const isPlaceholder = /^(📋\s*)?Template:\s*.+$/i.test(trimmedStored) && !trimmedStored.includes(' ') === false;
-                                const isJustPlaceholder = trimmedStored === `📋 Template: ${content.template_name}` 
-                                    || trimmedStored === `Template: ${content.template_name}`;
-                                
-                                if (trimmedStored && !isJustPlaceholder) {
+
+                                const isPlaceholder = !trimmedStored ||
+                                    trimmedStored.startsWith('Template:') ||
+                                    trimmedStored.startsWith('📋 Template:') ||
+                                    trimmedStored === 'WhatsApp Template';
+
+                                if (trimmedStored && !isPlaceholder) {
                                     return trimmedStored;
                                 }
 
-                                // 2. Fallback: look up the template body from approvedTemplates
-                                if (content.template_name && Array.isArray(approvedTemplates)) {
-                                    const found = approvedTemplates.find(t => t.name === content.template_name);
+                                const templateName = content.template_name || (trimmedStored.replace(/^(📋\s*)?Template:\s*/i, '').trim());
+                                if (templateName && Array.isArray(approvedTemplates)) {
+                                    const found = approvedTemplates.find(t => t.name === templateName || t.slug === templateName);
                                     if (found && found.components) {
                                         try {
                                             const components = typeof found.components === 'string' ? JSON.parse(found.components) : found.components;
-                                            const bodyObj = components.find(c => c.type === 'BODY' || c.type === 'body');
+                                            const bodyObj = components.find(c => (c.type || '').toUpperCase() === 'BODY');
                                             if (bodyObj && bodyObj.text) {
-                                                return bodyObj.text;
+                                                let text = bodyObj.text;
+                                                if (content.template_components && Array.isArray(content.template_components)) {
+                                                    const bodyComp = content.template_components.find(c => (c.type || '').toLowerCase() === 'body');
+                                                    if (bodyComp && Array.isArray(bodyComp.parameters)) {
+                                                        bodyComp.parameters.forEach((param, idx) => {
+                                                            const placeholder = `{{${idx + 1}}}`;
+                                                            if (param.text) {
+                                                                text = text.replace(placeholder, param.text);
+                                                            }
+                                                        });
+                                                    }
+                                                }
+                                                return text;
                                             }
                                         } catch (e) {}
                                     }
                                 }
 
-                                // 3. Last resort: show the placeholder
-                                return `📋 Template: ${content.template_name || 'WhatsApp Template'}`;
+                                return trimmedStored || `📋 Template: ${templateName || 'WhatsApp Template'}`;
                             }
 
-                            const rawText = content.text !== undefined ? content.text : (content.body !== undefined ? content.body : (typeof content === 'string' ? content : ''));
+                            const rawText = (content.text && String(content.text).trim() !== '') ? content.text : (content.body || content.caption || (typeof content === 'string' ? content : ''));
                             const textStr = String(rawText || '');
                             return textStr.trim() !== '' ? textStr : (content.caption || '');
                         };
@@ -540,7 +734,9 @@ export default function Thread({ conversation, onBack, approvedTemplates, onTogg
                         const displayText = getDisplayText();
                         const isButtonReply = content.type === 'button_reply' || Boolean(content.button_text);
 
-                        if (msg.is_internal) {
+                        if (isMedia) {
+                            // Handled above
+                        } else if (msg.is_internal) {
                             messageElement = (
                                 <div className="flex justify-center mb-2">
                                     <div className="max-w-[85%] sm:max-w-[70%] rounded-xl bg-[#2b2115] border border-amber-600/30 px-4 py-2.5 text-xs text-amber-200 shadow-sm flex items-start gap-2">
@@ -643,6 +839,26 @@ export default function Thread({ conversation, onBack, approvedTemplates, onTogg
                     <div ref={messagesEndRef} className="h-2" />
                 </div>
 
+                {/* Floating Scroll to Bottom Button */}
+                {showScrollToBottom && (
+                    <button
+                        type="button"
+                        onClick={() => scrollToBottom('smooth')}
+                        className="absolute bottom-20 right-6 z-30 w-10 h-10 rounded-full bg-[#202c33] hover:bg-[#2a3942] text-[#8696a0] hover:text-[#e9edef] border border-[#2d3a42] shadow-2xl flex items-center justify-center transition-all duration-200 group"
+                        title="Scroll to latest messages"
+                        aria-label="Scroll to latest messages"
+                    >
+                        <svg className="w-5 h-5 fill-current transform group-hover:translate-y-0.5 transition-transform" viewBox="0 0 24 24">
+                            <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+                        </svg>
+                        {unreadBelowCount > 0 && (
+                            <span className="absolute -top-1.5 -right-1.5 bg-[#00a884] text-[#111b21] text-[10px] font-extrabold px-1.5 py-0.5 rounded-full shadow-md animate-pulse">
+                                {unreadBelowCount}
+                            </span>
+                        )}
+                    </button>
+                )}
+
                 {/* Photo Lightbox Modal */}
                 {modalImage && (
                     <div 
@@ -669,6 +885,7 @@ export default function Thread({ conversation, onBack, approvedTemplates, onTogg
                             } else {
                                 fetchMessages();
                             }
+                            setTimeout(() => scrollToBottom('smooth'), 100);
                         }} />
                     )}
                 </div>

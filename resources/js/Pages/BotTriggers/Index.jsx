@@ -7,6 +7,7 @@ export default function BotTriggersIndex({ triggers }) {
     const [editingTrigger, setEditingTrigger] = useState(null);
 
     const { data, setData, post, put, processing, errors, reset } = useForm({
+        trigger_type: 'keyword',
         keyword: '',
         match_type: 'contains',
         response_type: 'text',
@@ -25,6 +26,7 @@ export default function BotTriggersIndex({ triggers }) {
         setEditingTrigger(trigger);
         const payload = trigger.response_payload || {};
         setData({
+            trigger_type: trigger.trigger_type || 'keyword',
             keyword: trigger.keyword,
             match_type: trigger.match_type,
             response_type: trigger.response_type,
@@ -189,20 +191,44 @@ export default function BotTriggersIndex({ triggers }) {
 
                             <form onSubmit={handleSubmit} className="space-y-4">
                                 <div>
-                                    <label htmlFor="trigger_keyword" className="block text-xs font-bold text-gray-700 mb-1">Keyword</label>
-                                    <input
-                                        type="text"
-                                        id="trigger_keyword"
-                                        name="keyword"
-                                        autoComplete="off"
-                                        value={data.keyword}
-                                        onChange={(e) => setData('keyword', e.target.value)}
-                                        placeholder="e.g. HELP, PRICING, MENU"
-                                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
-                                        required
-                                    />
-                                    {errors.keyword && <p className="text-rose-500 text-[10px] mt-1">{errors.keyword}</p>}
+                                    <label htmlFor="trigger_type" className="block text-xs font-bold text-gray-700 mb-1">Trigger Event / Rule Type</label>
+                                    <select
+                                        id="trigger_type"
+                                        name="trigger_type"
+                                        value={data.trigger_type}
+                                        onChange={(e) => {
+                                            const tType = e.target.value;
+                                            setData({
+                                                ...data,
+                                                trigger_type: tType,
+                                                keyword: tType !== 'keyword' ? tType : '',
+                                            });
+                                        }}
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none font-semibold text-gray-800"
+                                    >
+                                        <option value="keyword">🔑 Keyword Trigger (Specific word/phrase)</option>
+                                        <option value="first_message">👋 First Message (Welcome greeting for new customer)</option>
+                                        <option value="fallback">🛡️ Fallback (Catch-all when no keyword matches)</option>
+                                    </select>
                                 </div>
+
+                                {data.trigger_type === 'keyword' && (
+                                    <div>
+                                        <label htmlFor="trigger_keyword" className="block text-xs font-bold text-gray-700 mb-1">Keyword</label>
+                                        <input
+                                            type="text"
+                                            id="trigger_keyword"
+                                            name="keyword"
+                                            autoComplete="off"
+                                            value={data.keyword}
+                                            onChange={(e) => setData('keyword', e.target.value)}
+                                            placeholder="e.g. HELP, PRICING, MENU"
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-[#00a884]/20 focus:border-[#00a884] outline-none"
+                                            required={data.trigger_type === 'keyword'}
+                                        />
+                                        {errors.keyword && <p className="text-rose-500 text-[10px] mt-1">{errors.keyword}</p>}
+                                    </div>
+                                )}
 
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>

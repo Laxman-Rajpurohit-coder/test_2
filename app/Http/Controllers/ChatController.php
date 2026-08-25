@@ -125,26 +125,23 @@ class ChatController extends Controller
             $lastMsg = $conv->latestMessage;
             $preview = 'No messages';
             if ($lastMsg) {
-                $rawContent = $lastMsg->content;
-                $preview = '📷 Media';
-                if (is_array($rawContent)) {
-                    $preview = $rawContent['text'] ?? ($rawContent['caption'] ?? $preview);
-                } elseif (is_string($rawContent)) {
-                    if (str_starts_with(trim($rawContent), '{') || str_starts_with(trim($rawContent), '[')) {
-                        $decoded = json_decode($rawContent, true);
-                        if (is_array($decoded)) {
-                            if (!empty($decoded['text']) && is_string($decoded['text']) && (str_starts_with(trim($decoded['text']), '{') || str_starts_with(trim($decoded['text']), '['))) {
-                                $innerDecoded = json_decode($decoded['text'], true);
-                                $preview = $innerDecoded['text'] ?? ($decoded['text'] ?? $preview);
-                            } else {
-                                $preview = $decoded['text'] ?? ($decoded['caption'] ?? $preview);
-                            }
-                        } else {
-                            $preview = $rawContent;
-                        }
-                    } else {
-                        $preview = $rawContent;
-                    }
+                $unwrapped = $this->unwrapMessageContent($lastMsg->content);
+                $type = $unwrapped['type'] ?? 'text';
+
+                if ($type === 'image') {
+                    $preview = '📷 Image' . (!empty($unwrapped['caption']) ? ': ' . $unwrapped['caption'] : '');
+                } elseif ($type === 'audio') {
+                    $preview = '🎵 Audio Voice Note';
+                } elseif ($type === 'video') {
+                    $preview = '🎥 Video';
+                } elseif ($type === 'document') {
+                    $preview = '📄 Document';
+                } elseif (!empty($unwrapped['text'])) {
+                    $preview = $unwrapped['text'];
+                } elseif (!empty($unwrapped['caption'])) {
+                    $preview = $unwrapped['caption'];
+                } else {
+                    $preview = is_string($lastMsg->content) ? $lastMsg->content : '📷 Media';
                 }
             }
 
@@ -223,6 +220,14 @@ class ChatController extends Controller
         $hasNextPage = $messages->count() > $limit;
         $returnData = $hasNextPage ? $messages->slice(0, $limit) : $messages;
 
+        $returnData = $returnData->map(function ($msg) {
+            if (is_string($msg->content)) {
+                $unwrapped = $this->unwrapMessageContent($msg->content);
+                $msg->content = json_encode($unwrapped);
+            }
+            return $msg;
+        });
+
         $nextCursor = null;
         if ($hasNextPage) {
             $lastRecord = $returnData->last();
@@ -274,7 +279,13 @@ class ChatController extends Controller
 
 
         // Enforce 24-Hour Session Guard Rail for free-text messages
-        if ($request->input('type') === 'text' && !Cache::has('session:' . $conversation->customer_number)) {
+        $normPhone = preg_replace('/[^0-9]/', '', $conversation->customer_number);
+        if (strlen($normPhone) === 10) $normPhone = '91' . $normPhone;
+        $hasSession = Cache::has('session:' . $conversation->customer_number)
+                   || Cache::has('session:' . $normPhone)
+                   || Cache::has('session:+' . $normPhone);
+
+        if ($request->input('type') === 'text' && !$hasSession) {
             return response()->json([
                 'error' => 'The 24-hour customer session window has expired. You must receive an inbound message or send a WhatsApp Template message.'
             ], 422);
@@ -402,7 +413,13 @@ class ChatController extends Controller
 
 
         // Enforce 24-Hour Session Guard Rail
-        if (!Cache::has('session:' . $conversation->customer_number)) {
+        $normPhone = preg_replace('/[^0-9]/', '', $conversation->customer_number);
+        if (strlen($normPhone) === 10) $normPhone = '91' . $normPhone;
+        $hasSession = Cache::has('session:' . $conversation->customer_number)
+                   || Cache::has('session:' . $normPhone)
+                   || Cache::has('session:+' . $normPhone);
+
+        if (!$hasSession) {
             return response()->json([
                 'error' => 'The 24-hour customer session window has expired. You must receive an inbound message first.'
             ], 422);
@@ -541,5 +558,74 @@ class ChatController extends Controller
         }
 
         return response()->json(['success' => true, 'message' => 'Conversations deleted successfully.']);
+    }
+
+    /**
+     * Unwraps multi-level JSON stringified message content into a clean associative array.
+     */
+    protected function unwrapMessageContent($content): array
+    {
+        if (is_array($content)) {
+            return $this->normalizeContentArray($content);
+        }
+
+        if (!is_string($content)) {
+            return ['type' => 'text', 'text' => ''];
+        }
+
+        $current = trim($content);
+        $maxDepth = 4;
+        while ($maxDepth-- > 0 && is_string($current) && (str_starts_with($current, '{') || str_starts_with($current, '['))) {
+            $decoded = json_decode($current, true);
+            if (!is_array($decoded)) {
+                break;
+            }
+            if (isset($decoded['type']) && $decoded['type'] === 'text' && !empty($decoded['text']) && is_string($decoded['text']) && (str_starts_with(trim($decoded['text']), '{') || str_starts_with(trim($decoded['text']), '['))) {
+                $current = trim($decoded['text']);
+                continue;
+            }
+            return $this->normalizeContentArray($decoded);
+        }
+
+        if (is_string($current)) {
+            return ['type' => 'text', 'text' => $current];
+        }
+
+        return ['type' => 'text', 'text' => ''];
+    }
+
+    protected function normalizeContentArray(array $arr): array
+    {
+        $mediaUrl = $arr['url'] ?? $arr['attachment_url'] ?? $arr['link'] ?? $arr['file_url'] ?? $arr['media_url'] ?? $arr['mediaUrl'] ?? null;
+        $type = $arr['type'] ?? (isset($arr['template']) ? 'template' : 'text');
+
+        if ($type === 'template' || isset($arr['template'])) {
+            $templateName = $arr['template']['name'] ?? $arr['template_name'] ?? 'WhatsApp Template';
+            return [
+                'type'          => 'template',
+                'text'          => "📋 Template: {$templateName}",
+                'template_name' => $templateName,
+            ];
+        }
+
+        if ($mediaUrl) {
+            return [
+                'type'    => $type !== 'text' ? $type : 'image',
+                'url'     => $mediaUrl,
+                'caption' => $arr['caption'] ?? $arr['text'] ?? '',
+            ];
+        }
+
+        $textVal = $arr['text'] ?? $arr['body'] ?? '';
+        if (is_array($textVal)) {
+            $textVal = json_encode($textVal);
+        }
+
+        return [
+            'type' => $type,
+            'url' => is_string($mediaUrl) ? $mediaUrl : ($arr['url'] ?? ''),
+            'text' => is_string($arr['text'] ?? null) ? $arr['text'] : ($arr['caption'] ?? ''),
+            'caption' => is_string($arr['caption'] ?? null) ? $arr['caption'] : '',
+        ];
     }
 }

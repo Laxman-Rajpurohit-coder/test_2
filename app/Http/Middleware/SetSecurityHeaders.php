@@ -26,14 +26,23 @@ class SetSecurityHeaders
     {
         $response = $next($request);
 
+        $scriptSrc = "script-src 'self' 'unsafe-inline'";
+        $connectSrc = "connect-src 'self' ws: wss:";
+
+        // Allow local Vite dev server origins (http://localhost:*, http://[::1]:*, etc.) strictly in local environment
+        if (app()->isLocal()) {
+            $scriptSrc .= " http://localhost:* http://127.0.0.1:* http://[::1]:*";
+            $connectSrc .= " http://localhost:* http://127.0.0.1:* http://[::1]:* ws://localhost:* ws://127.0.0.1:* ws://[::1]:*";
+        }
+
         $csp = implode('; ', [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline'",
+            $scriptSrc,
             "style-src 'self' 'unsafe-inline' https://fonts.bunny.net",
             "font-src 'self' https://fonts.bunny.net data:",
             "img-src 'self' data: blob: https:",
-            "media-src 'self' data: blob:",
-            "connect-src 'self' ws: wss:",
+            "media-src 'self' data: blob: https:",
+            $connectSrc,
             "frame-ancestors 'none'",
             "base-uri 'self'",
             "form-action 'self'",

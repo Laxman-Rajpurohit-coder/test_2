@@ -28,13 +28,68 @@ export default function Sidebar({
     const [isSelectMode, setIsSelectMode] = useState(false);
     const [selectedConversations, setSelectedConversations] = useState([]);
 
+    const normalizePhone = (phone) => {
+        if (!phone) return '';
+        let digits = String(phone).replace(/\D/g, '');
+        if (digits.length === 10) {
+            digits = '91' + digits;
+        }
+        return digits;
+    };
+
+    const formatSidebarPreview = (preview) => {
+        if (!preview) return 'Active thread';
+        if (typeof preview === 'string' && (preview.trim().startsWith('{') || preview.trim().startsWith('['))) {
+            try {
+                const parsed = JSON.parse(preview.trim());
+                if (parsed && typeof parsed === 'object') {
+                    return parsed.text || parsed.body || parsed.caption || 'Active thread';
+                }
+            } catch (e) {}
+        }
+        return preview;
+    };
+
+    const getDisplayName = (conv) => {
+        const isWhatsApp = !conv?.channel || conv?.channel === 'whatsapp' || currentChannel === 'whatsapp';
+        if (isWhatsApp) {
+            if (conv?.customer_number) {
+                const norm = normalizePhone(conv.customer_number);
+                return `+${norm}`;
+            }
+            return 'Unknown Contact';
+        }
+        if (conv?.customer_name && conv.customer_name !== 'New Contact' && conv.customer_name !== 'Unknown') {
+            return conv.customer_name;
+        }
+        if (conv?.customer_number) {
+            return conv.customer_number.startsWith('+') ? conv.customer_number : `+${conv.customer_number}`;
+        }
+        return 'Unknown Contact';
+    };
+
+    const getAvatarInitials = (conv) => {
+        const name = getDisplayName(conv);
+        const digits = name.replace(/\D/g, '');
+        if (digits.length >= 2) {
+            return digits.substring(digits.length - 2);
+        }
+        return name.substring(0, 2).toUpperCase();
+    };
+
     const uniqueConversations = (conversations || []).filter((conv, index, self) => {
-        const rawNumber = (conv.customer_number || '').replace(/\D/g, '');
+        const rawNumber = normalizePhone(conv.customer_number);
         const firstIdx = self.findIndex(c => 
             (conv.id && c.id === conv.id) ||
-            (rawNumber && c.customer_number && c.customer_number.replace(/\D/g, '') === rawNumber)
+            (rawNumber && normalizePhone(c.customer_number) === rawNumber)
         );
         return firstIdx === index;
+    });
+
+    const filteredConversations = uniqueConversations.filter(conv => {
+        if (showFavoritesOnly && !conv.is_favorite) return false;
+        if (showUnreadOnly && (!conv.unread_count || conv.unread_count <= 0)) return false;
+        return true;
     });
 
     const formatTimestamp = (dateStr) => {
@@ -239,7 +294,7 @@ export default function Sidebar({
                 onScroll={handleScroll}
                 className="flex-1 overflow-y-auto custom-scrollbar border-r border-[#222d34]"
             >
-                {uniqueConversations.length === 0 ? (
+                {filteredConversations.length === 0 ? (
                     <div className="text-center text-xs text-[#8696a0] py-16 px-4 font-medium">
                         {showFavoritesOnly 
                             ? 'No favorite conversations found' 
@@ -250,7 +305,7 @@ export default function Sidebar({
                             : `No ${currentChannel === 'all' ? '' : currentChannel} conversations yet`}
                     </div>
                 ) : (
-                    uniqueConversations.map(conv => {
+                    filteredConversations.map(conv => {
                         const isActive = activeConversation?.id === conv.id;
                         const isSelected = selectedConversations.includes(conv.id);
                         return (
@@ -287,7 +342,7 @@ export default function Sidebar({
                                 {/* Customer Avatar with Channel Badge */}
                                 <div className="relative flex-shrink-0">
                                     <div className="h-12 w-12 rounded-full bg-[#374248] flex items-center justify-center text-[#e9edef] font-medium text-base">
-                                        {conv.customer_name ? conv.customer_name.substring(0, 2).toUpperCase() : (conv.customer_number ? conv.customer_number.substring(0, 2) : '??')}
+                                        {getAvatarInitials(conv)}
                                     </div>
                                     <span className={`absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-black text-white shadow ring-1 ring-[#111b21] ${
                                         conv.channel === 'facebook'
@@ -305,7 +360,7 @@ export default function Sidebar({
                                     <div className="flex justify-between items-baseline gap-2">
                                         <div className="flex items-center gap-1.5 min-w-0">
                                             <h4 className="font-medium text-sm text-[#e9edef] truncate">
-                                                {conv.customer_name || (conv.customer_number && !conv.customer_number.startsWith('fb_') ? `+${conv.customer_number}` : conv.customer_number)}
+                                                {getDisplayName(conv)}
                                             </h4>
                                             {conv.is_favorite && (
                                                 <span className="text-amber-400 text-xs shrink-0" title="Favorite">★</span>
@@ -346,7 +401,7 @@ export default function Sidebar({
                                     <div className="flex justify-between items-center mt-1 gap-2">
                                         <p className="text-xs text-[#9ca3af] truncate max-w-[200px]">
                                             {conv.last_message_direction === 'outbound' ? 'You: ' : ''}
-                                            {conv.preview || 'Active thread'}
+                                            {formatSidebarPreview(conv.preview)}
                                         </p>
                                         {conv.unread_count > 0 && !isActive && (
                                             <span className="flex min-w-[20px] h-5 px-1 items-center justify-center rounded-full bg-[#00a884] text-[11px] font-bold text-[#111b21] shrink-0">

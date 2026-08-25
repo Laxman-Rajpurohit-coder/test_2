@@ -83,42 +83,8 @@ class FallbackInteractiveResponder implements BotResponderInterface
             }
         }
 
-        // Default safety-net interactive fallback menu
-        $defaultButtons = [
-            ['type' => 'reply', 'reply' => ['id' => 'talk_to_agent', 'title' => 'Talk to Agent']],
-            ['type' => 'reply', 'reply' => ['id' => 'check_balance', 'title' => 'Check Balance']],
-            ['type' => 'reply', 'reply' => ['id' => 'support', 'title' => 'Support / Help']],
-        ];
-
-        $defaultText = "नमस्ते {$resolvedName}! हमें आपका संदेश प्राप्त हुआ। कृपया नीचे दिए गए विकल्पों में से चुनें या अपना प्रश्न टाइप करें:";
-
-        $data = [
-            'interactive_type' => 'button',
-            'text'             => $defaultText,
-            'buttons'          => $defaultButtons,
-        ];
-
-        $msg91Payload = Msg91PayloadBuilder::build(
-            $context->customerNumber,
-            'interactive',
-            $data,
-            $integratedNumber
-        );
-
-        $contentStruct = [
-            'type'    => 'interactive',
-            'text'    => $defaultText,
-            'buttons' => $defaultButtons,
-        ];
-
-        OutboundReplyService::send(
-            $context->conversationId,
-            $context->tenantId,
-            $contentStruct,
-            $msg91Payload
-        );
-
-        Log::info("FallbackInteractiveResponder: Sent default fallback interactive menu in conversation {$context->conversationId}.");
-        return true;
+        // If no custom fallback trigger is configured, remain silent and fail gracefully
+        Log::info("FallbackInteractiveResponder: No custom fallback trigger set for tenant {$context->tenantId}. Remaining silent.");
+        return false;
     }
 }

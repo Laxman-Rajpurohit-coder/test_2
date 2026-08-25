@@ -4,6 +4,15 @@ import AppLayout from '@/Layouts/AppLayout';
 import Sidebar from './Sidebar';
 import Thread from './Thread';
 
+const normalizePhone = (phone) => {
+    if (!phone) return '';
+    let digits = String(phone).replace(/\D/g, '');
+    if (digits.length === 10) {
+        digits = '91' + digits;
+    }
+    return digits;
+};
+
 /**
  * High-performance, accessible Chat Inbox with cursor pagination,
  * server-side search, real-time in-place updates, and favorites.
@@ -77,7 +86,13 @@ export default function ChatIndex({ auth, tenantNumbers, approvedTemplates, curr
                 } else {
                     setConversations(prev => {
                         const existingIds = new Set(prev.map(c => c.id));
-                        const uniqueNew = newItems.filter(item => !existingIds.has(item.id));
+                        const existingPhones = new Set(prev.map(c => normalizePhone(c.customer_number)).filter(Boolean));
+                        const uniqueNew = newItems.filter(item => {
+                            if (existingIds.has(item.id)) return false;
+                            const norm = normalizePhone(item.customer_number);
+                            if (norm && existingPhones.has(norm)) return false;
+                            return true;
+                        });
                         return [...prev, ...uniqueNew];
                     });
                 }
@@ -101,7 +116,6 @@ export default function ChatIndex({ auth, tenantNumbers, approvedTemplates, curr
             clearTimeout(searchDebounceRef.current);
         }
         searchDebounceRef.current = setTimeout(() => {
-            // Trigger fetch with new search query
             const params = new URLSearchParams();
             if (selectedNumberId) params.set('tenant_number_id', selectedNumberId);
             if (currentChannel && currentChannel !== 'all') params.set('channel', currentChannel);
@@ -154,7 +168,6 @@ export default function ChatIndex({ auth, tenantNumbers, approvedTemplates, curr
             })
             .catch(err => {
                 console.error('Failed to toggle favorite:', err);
-                // Rollback on error
                 setConversations(prev => prev.map(c => {
                     if (c.id === convId) {
                         return { ...c, is_favorite: !c.is_favorite };
@@ -166,7 +179,6 @@ export default function ChatIndex({ auth, tenantNumbers, approvedTemplates, curr
 
     // Setup Real-time In-place WebSocket listener
     useEffect(() => {
-        // Request Browser Notification Permission on Load
         if ('Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission();
         }
@@ -182,40 +194,63 @@ export default function ChatIndex({ auth, tenantNumbers, approvedTemplates, curr
                 const isInbound = msg.direction === 'inbound';
                 const isActive = window.activeConversationId === convId && document.visibilityState === 'visible';
 
-                // Extract preview string cleanly
+                const targetPhone = normalizePhone(msg.customer_number);
+
                 let previewText = '📷 Media';
                 try {
-                    const parsed = typeof msg.content === 'string' ? JSON.parse(msg.content) : msg.content;
-                    if (parsed && typeof parsed === 'string') {
-                        previewText = JSON.parse(parsed).text || previewText;
-                    } else if (parsed && parsed.text) {
-                        previewText = parsed.text;
-                    } else if (parsed && parsed.type) {
-                        previewText = '📷 ' + parsed.type;
+                    let current = msg.content;
+                    if (typeof current === 'string') {
+                        let maxDepth = 4;
+                        while (maxDepth-- > 0 && typeof current === 'string' && (current.trim().startsWith('{') || current.trim().startsWith('['))) {
+                            const decoded = JSON.parse(current.trim());
+                            if (typeof decoded !== 'object' || decoded === null) break;
+                            current = decoded;
+                            if (current.text && typeof current.text === 'string' && (current.text.trim().startsWith('{') || current.text.trim().startsWith('['))) {
+                                current = current.text.trim();
+                                continue;
+                            }
+                            break;
+                        }
                     }
-                } catch (err) {}
+                    if (typeof current === 'string') {
+                        previewText = current;
+                    } else if (current && typeof current === 'object') {
+                        const mediaUrl = current.url || current.attachment_url || current.link || current.file_url || current.media_url || null;
+                        let type = current.type || 'text';
+                        if (mediaUrl && (type === 'text' || !type)) {
+                            const urlLower = String(mediaUrl).toLowerCase();
+                            if (urlLower.match(/\.(mp3|ogg|wav|webm|m4a)$/i)) type = 'audio';
+                            else if (urlLower.match(/\.(mp4|mov|avi|mkv)$/i)) type = 'video';
+                            else if (urlLower.match(/\.(pdf|doc|docx|xls|xlsx|zip)$/i)) type = 'document';
+                            else type = 'image';
+                        }
 
-                // In-place update in React state: move to top & update preview with strict deduplication
+                        if (type === 'image') previewText = '📷 Image' + (current.caption ? ': ' + current.caption : '');
+                        else if (type === 'audio') previewText = '🎵 Audio Voice Note';
+                        else if (type === 'video') previewText = '🎥 Video';
+                        else if (type === 'document') previewText = '📄 Document';
+                        else previewText = current.text || current.body || current.caption || '📷 Media';
+                    }
+                } catch (err) {
+                    if (typeof msg.content === 'string') previewText = msg.content;
+                }
+
                 setConversations(prev => {
-                    const targetPhone = (msg.customer_number || '').replace(/\D/g, '');
                     const existsIndex = prev.findIndex(c => 
                         (convId && c.id === convId) ||
-                        (targetPhone && c.customer_number && c.customer_number.replace(/\D/g, '') === targetPhone)
+                        (targetPhone && c.customer_number && normalizePhone(c.customer_number) === targetPhone)
                     );
 
-                    const formattedPhone = msg.customer_number 
-                        ? (msg.customer_number.startsWith('+') ? msg.customer_number : `+${msg.customer_number}`) 
-                        : '';
-                    const fallbackName = formattedPhone || 'New Contact';
-                    const displayName = (msg.customer_name && msg.customer_name !== 'New Contact') 
-                        ? msg.customer_name 
-                        : fallbackName;
+                    const channelName = msg.channel || currentChannel;
+                    const isWhatsApp = channelName === 'whatsapp' || !msg.channel;
+                    const formattedPhone = targetPhone ? `+${targetPhone}` : (msg.customer_number ? `+${msg.customer_number}` : '');
+                    const displayName = isWhatsApp ? (formattedPhone || 'New Contact') : (msg.customer_name || formattedPhone || 'New Contact');
 
                     if (existsIndex >= 0) {
                         const existing = prev[existsIndex];
                         const updatedConv = {
                             ...existing,
-                            customer_name: (existing.customer_name && existing.customer_name !== 'New Contact') ? existing.customer_name : displayName,
+                            customer_name: displayName,
                             customer_number: msg.customer_number || existing.customer_number,
                             preview: previewText,
                             last_message_at: new Date().toISOString(),
@@ -226,14 +261,13 @@ export default function ChatIndex({ auth, tenantNumbers, approvedTemplates, curr
                         const filtered = prev.filter((c, idx) => 
                             idx !== existsIndex &&
                             c.id !== convId &&
-                            (!targetPhone || (c.customer_number || '').replace(/\D/g, '') !== targetPhone)
+                            (!targetPhone || (c.customer_number && normalizePhone(c.customer_number) !== targetPhone))
                         );
                         return [updatedConv, ...filtered];
                     } else {
-                        // New conversation not in current page, prepend minimal DTO with strict deduplication
                         const filtered = prev.filter(c => 
                             c.id !== convId &&
-                            (!targetPhone || (c.customer_number || '').replace(/\D/g, '') !== targetPhone)
+                            (!targetPhone || (c.customer_number && normalizePhone(c.customer_number) !== targetPhone))
                         );
                         const newConv = {
                             id: convId,
