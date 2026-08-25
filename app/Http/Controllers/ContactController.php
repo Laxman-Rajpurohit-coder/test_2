@@ -330,32 +330,41 @@ class ContactController extends Controller
     {
         $tenantId = app(\App\Services\TenantResolverService::class)->getActiveTenantId();
         
-        // Clean phone digits if $id is numeric/phone string
-        $cleanPhone = preg_replace('/\D/', '', $id);
-        if (strlen($cleanPhone) === 10) {
-            $cleanPhone = '91' . $cleanPhone;
-        }
+        $isUuid = \Illuminate\Support\Str::isUuid($id);
+        $contact = null;
 
-        $contact = Contact::where('tenant_id', $tenantId)
-            ->with(['contactTags', 'assignedUser', 'contactGroups'])
-            ->where(function ($q) use ($id, $cleanPhone) {
-                $q->where('id', $id)
-                  ->orWhere('phone_number', $id)
-                  ->orWhere('phone_number', '+' . $id);
-                if ($cleanPhone) {
-                    $q->orWhere('phone_number', $cleanPhone)
-                      ->orWhere('phone_number', '+' . $cleanPhone);
-                }
-            })->first();
+        if ($isUuid) {
+            $contact = Contact::where('tenant_id', $tenantId)
+                ->with(['contactTags', 'assignedUser', 'contactGroups'])
+                ->where('id', $id)
+                ->first();
+        } else {
+            // Phone number lookup: query phone_number column only to prevent PostgreSQL UUID type cast error
+            $cleanPhone = preg_replace('/\D/', '', $id);
+            if (strlen($cleanPhone) === 10) {
+                $cleanPhone = '91' . $cleanPhone;
+            }
 
-        // If no contact exists yet, auto-create a contact record for this phone number
-        if (!$contact && $cleanPhone) {
-            $contact = Contact::create([
-                'tenant_id' => $tenantId,
-                'name' => '+' . $cleanPhone,
-                'phone_number' => '+' . $cleanPhone,
-            ]);
-            $contact->load(['contactTags', 'assignedUser', 'contactGroups']);
+            $contact = Contact::where('tenant_id', $tenantId)
+                ->with(['contactTags', 'assignedUser', 'contactGroups'])
+                ->where(function ($q) use ($id, $cleanPhone) {
+                    $q->where('phone_number', $id)
+                      ->orWhere('phone_number', '+' . $id);
+                    if ($cleanPhone) {
+                        $q->orWhere('phone_number', $cleanPhone)
+                          ->orWhere('phone_number', '+' . $cleanPhone);
+                    }
+                })->first();
+
+            // Auto-create contact record if missing for this phone number
+            if (!$contact && $cleanPhone) {
+                $contact = Contact::create([
+                    'tenant_id' => $tenantId,
+                    'name' => '+' . $cleanPhone,
+                    'phone_number' => '+' . $cleanPhone,
+                ]);
+                $contact->load(['contactTags', 'assignedUser', 'contactGroups']);
+            }
         }
 
         if (!$contact) {
