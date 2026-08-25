@@ -11,18 +11,22 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Inertia\Inertia;
 
-// Fail-safe media route fallback for local & Railway production media streaming
-Route::get('/storage/media/{filename}', function ($filename) {
-    $path = storage_path('app/public/media/' . $filename);
-    if (!file_exists($path)) {
+// Universal fail-safe storage route handler for local & Railway production media streaming
+Route::get('/storage/{path}', function ($path) {
+    $fullPath = storage_path('app/public/' . $path);
+    if (!file_exists($fullPath)) {
+        $basename = basename($path);
+        $fullPath = storage_path('app/public/media/' . $basename);
+    }
+    if (!file_exists($fullPath)) {
         abort(404);
     }
-    $mime = mime_content_type($path) ?: 'application/octet-stream';
-    return response()->file($path, [
+    $mime = mime_content_type($fullPath) ?: 'application/octet-stream';
+    return response()->file($fullPath, [
         'Content-Type' => $mime,
         'Cache-Control' => 'public, max-age=31536000',
     ]);
-});
+})->where('path', '.*');
 
 
 
