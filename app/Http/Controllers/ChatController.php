@@ -77,7 +77,8 @@ class ChatController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Conversation::orderBy('last_message_at', 'desc')
+        $query = Conversation::orderBy('is_favorite', 'desc')
+            ->orderBy('last_message_at', 'desc')
             ->orderBy('id', 'desc')
             ->with(['latestMessage']);
 

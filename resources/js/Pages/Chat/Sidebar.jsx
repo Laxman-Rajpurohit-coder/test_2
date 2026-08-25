@@ -92,6 +92,13 @@ export default function Sidebar({
         return true;
     });
 
+    const sortedConversations = [...filteredConversations].sort((a, b) => {
+        if (!!a.is_favorite !== !!b.is_favorite) {
+            return a.is_favorite ? -1 : 1;
+        }
+        return new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0);
+    });
+
     const formatTimestamp = (dateStr) => {
         if (!dateStr) return '';
         try {
@@ -294,7 +301,7 @@ export default function Sidebar({
                 onScroll={handleScroll}
                 className="flex-1 overflow-y-auto custom-scrollbar border-r border-[#222d34]"
             >
-                {filteredConversations.length === 0 ? (
+                {sortedConversations.length === 0 ? (
                     <div className="text-center text-xs text-[#8696a0] py-16 px-4 font-medium">
                         {showFavoritesOnly 
                             ? 'No favorite conversations found' 
@@ -305,7 +312,7 @@ export default function Sidebar({
                             : `No ${currentChannel === 'all' ? '' : currentChannel} conversations yet`}
                     </div>
                 ) : (
-                    filteredConversations.map(conv => {
+                    sortedConversations.map(conv => {
                         const isActive = activeConversation?.id === conv.id;
                         const isSelected = selectedConversations.includes(conv.id);
                         return (
