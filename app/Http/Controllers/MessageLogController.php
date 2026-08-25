@@ -41,11 +41,19 @@ class MessageLogController extends Controller
 
         // Date & Time Range Filter
         if ($request->filled('start_date')) {
-            $query->where('messages.created_at', '>=', $request->start_date);
+            try {
+                $query->where('messages.created_at', '>=', \Carbon\Carbon::parse($request->start_date));
+            } catch (\Throwable $e) {
+                $query->where('messages.created_at', '>=', $request->start_date);
+            }
         }
 
         if ($request->filled('end_date')) {
-            $query->where('messages.created_at', '<=', $request->end_date);
+            try {
+                $query->where('messages.created_at', '<=', \Carbon\Carbon::parse($request->end_date));
+            } catch (\Throwable $e) {
+                $query->where('messages.created_at', '<=', $request->end_date);
+            }
         }
 
         // Content Type Filter
