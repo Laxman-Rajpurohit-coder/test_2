@@ -11,16 +11,18 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Inertia\Inertia;
 
-// Fallback for Windows local development using php artisan serve which struggles with symlinks
-if (app()->environment('local') && strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-    Route::get('/storage/media/{filename}', function ($filename) {
-        $path = storage_path('app/public/media/' . $filename);
-        if (!file_exists($path)) {
-            abort(404);
-        }
-        return response()->file($path);
-    });
-}
+// Fail-safe media route fallback for local & Railway production media streaming
+Route::get('/storage/media/{filename}', function ($filename) {
+    $path = storage_path('app/public/media/' . $filename);
+    if (!file_exists($path)) {
+        abort(404);
+    }
+    $mime = mime_content_type($path) ?: 'application/octet-stream';
+    return response()->file($path, [
+        'Content-Type' => $mime,
+        'Cache-Control' => 'public, max-age=31536000',
+    ]);
+});
 
 
 
