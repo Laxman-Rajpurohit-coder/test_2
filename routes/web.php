@@ -26,6 +26,22 @@ if (app()->environment('local') && strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
 
 
 // Public Website Widget Embed Script
+Route::get('/api/test-conversations-debug', function (\Illuminate\Http\Request $request) {
+    try {
+        $u = \App\Models\User::withoutGlobalScopes()->where('tenant_id', 7)->first();
+        auth()->login($u);
+        app(\App\Services\TenantResolverService::class)->setActiveTenantId(7);
+        return app(\App\Http\Controllers\ChatController::class)->index($request);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'error_class' => get_class($e),
+            'error_message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => explode("\n", $e->getTraceAsString()),
+        ], 500);
+    }
+});
 Route::get('/widget/v1/{tenant_id}.js', [\App\Http\Controllers\WidgetController::class, 'script']);
 
 // Meta (Facebook & Instagram) Webhooks (Public with Rate Limiting)
