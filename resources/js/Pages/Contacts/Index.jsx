@@ -35,7 +35,7 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-export default function ContactsIndex({ contacts, teamMembers = [], allTags = [], approvedTemplates = [], availableContactFields = [] }) {
+export default function ContactsIndex({ contacts, filters = {}, teamMembers = [], allTags = [], approvedTemplates = [], availableContactFields = [] }) {
     const { tenant_features, auth } = usePage().props;
     const isOwner = auth?.user?.role === 'owner';
     const [selectedContacts, setSelectedContacts] = useState([]);
@@ -55,6 +55,13 @@ export default function ContactsIndex({ contacts, teamMembers = [], allTags = []
     const [standaloneTagName, setStandaloneTagName] = useState('');
     const [isCreatingStandaloneTag, setIsCreatingStandaloneTag] = useState(false);
     const [deletingTagId, setDeletingTagId] = useState(null);
+
+    const currentPerPage = filters?.per_page || '50';
+
+    const handlePerPageChange = (e) => {
+        const val = e.target.value;
+        router.get(route('contacts.index'), { ...filters, per_page: val }, { preserveScroll: true, preserveState: true });
+    };
 
     const handleCreateTag = async (e) => {
         e.preventDefault();
@@ -346,11 +353,23 @@ export default function ContactsIndex({ contacts, teamMembers = [], allTags = []
         setTagModalOpen(true);
     };
 
+    const selectAllMatching = () => {
+        router.get(route('contacts.index'), { ...filters, per_page: 'all' }, {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: (page) => {
+                const allList = page.props.contacts?.data || [];
+                setSelectedContacts(allList.map(c => c.id));
+            }
+        });
+    };
+
     return (
         <ErrorBoundary>
         <AppLayout>
             <Head title="Contacts" />
             
+            {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                 <div className="flex items-center">
                     <Link href={route('dashboard')} className="mr-4 p-2 -ml-2 rounded-lg text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors" title="Back to Dashboard">
@@ -360,93 +379,161 @@ export default function ContactsIndex({ contacts, teamMembers = [], allTags = []
                     </Link>
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900">Contacts</h1>
-                        <p className="text-sm text-gray-500 mt-1">Manage your contacts and custom fields.</p>
+                        <p className="text-sm text-gray-500 mt-1">Manage your contacts, tags, and bulk assignments ({contacts?.total ? contacts.total.toLocaleString() : 0} Total).</p>
                     </div>
                 </div>
-                <div className="flex flex-wrap gap-3 items-center">
-                    {selectedContacts.length > 0 && (
-                        <>
-                            <button
-                                onClick={openQuickSend}
-                                className="px-4 py-2 bg-[#25D366] text-white rounded-lg font-bold shadow-sm transition hover:bg-[#1DA851] flex items-center gap-2"
-                            >
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-                                Quick Message ({selectedContacts.length})
-                            </button>
-                            <button
-                                onClick={openTagModal}
-                                className="px-4 py-2 bg-purple-50 text-purple-700 rounded-lg font-bold hover:bg-purple-100 transition border border-purple-200"
-                            >
-                                Tag Contacts
-                            </button>
-                            <button
-                                onClick={handleBulkDelete}
-                                className="px-4 py-2 bg-red-50 text-red-700 rounded-lg font-bold hover:bg-red-100 transition border border-red-200 flex items-center gap-1.5"
-                            >
-                                🗑️ Delete Selected
-                            </button>
-                        </>
-                    )}
-                    {isOwner && selectedContacts.length > 0 && (
-                        <div className="relative">
-                            <button
-                                onClick={() => setAssignDropdownOpen(!assignDropdownOpen)}
-                                className="px-4 py-2 bg-white text-gray-700 rounded-lg font-bold shadow-sm transition border border-gray-200 hover:bg-gray-50 flex items-center gap-2"
-                            >
-                                Assign to...
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-                            </button>
-                            
-                            {assignDropdownOpen && (
-                                <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 z-10 py-1">
-                                    <button 
-                                        onClick={() => handleAssign(null)}
-                                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition"
-                                    >
-                                        <em>Unassign</em>
-                                    </button>
-                                    <div className="border-t border-gray-100 my-1"></div>
-                                    {teamMembers.map(member => (
-                                        <button 
-                                            key={member.id}
-                                            onClick={() => handleAssign(member.id)}
-                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition font-medium"
-                                        >
-                                            {member.name}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
+                
+                {/* Header Action Buttons */}
+                <div className="flex flex-wrap gap-2.5 items-center">
+                    <button
+                        onClick={() => setManageTagsModalOpen(true)}
+                        className="px-3.5 py-2 bg-purple-50 text-purple-700 rounded-lg font-semibold hover:bg-purple-100 transition border border-purple-200 text-xs flex items-center gap-1.5"
+                    >
+                        🏷️ Tags
+                    </button>
+                    <button 
+                        onClick={() => setImportModalOpen(true)}
+                        className="px-3.5 py-2 bg-white text-gray-700 rounded-lg font-semibold shadow-sm transition border border-gray-200 hover:bg-gray-50 text-xs flex items-center gap-1.5"
+                    >
+                        📥 Import CSV
+                    </button>
                     {isOwner && (
                         <button
                             onClick={() => setGlobalAssignModalOpen(true)}
                             className="px-3.5 py-2 bg-indigo-50 text-indigo-700 rounded-lg font-semibold hover:bg-indigo-100 transition border border-indigo-200/80 text-xs"
                         >
-                            Assign All DB Contacts
+                            Assign All DB
                         </button>
                     )}
-                    <button
-                        onClick={() => setManageTagsModalOpen(true)}
-                        className="px-4 py-2 bg-purple-50 text-purple-700 rounded-lg font-bold shadow-sm transition border border-purple-200 hover:bg-purple-100 text-sm flex items-center gap-1.5"
-                    >
-                        🏷️ Manage Tags
-                    </button>
-                    <button 
-                        onClick={() => setImportModalOpen(true)}
-                        className="px-4 py-2 bg-white text-gray-700 rounded-lg font-bold shadow-sm transition border border-gray-200 hover:bg-gray-50 text-sm"
-                    >
-                        Import CSV/Excel
-                    </button>
                     <button 
                         onClick={() => setAddContactModalOpen(true)}
-                        className="px-4 py-2 bg-[#00a884] text-white rounded-lg font-bold hover:bg-[#009071] shadow-sm transition text-sm"
+                        className="px-4 py-2 bg-[#00a884] text-white rounded-lg font-bold hover:bg-[#009071] shadow-sm transition text-xs flex items-center gap-1.5"
                     >
                         + Add Contact
                     </button>
                 </div>
             </div>
+
+            {/* Table Control Bar & Per Page Selector */}
+            <div className="bg-white p-3.5 rounded-xl border border-gray-200/80 shadow-sm mb-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+                {/* Search */}
+                <div className="relative w-full sm:w-80">
+                    <input
+                        type="text"
+                        defaultValue={filters?.search || ''}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                router.get(route('contacts.index'), { ...filters, search: e.target.value, per_page: currentPerPage }, { preserveState: true });
+                            }
+                        }}
+                        placeholder="Filter by name or phone (Press Enter)..."
+                        className="w-full pl-9 pr-4 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-[#00a884] focus:border-[#00a884]"
+                    />
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+                </div>
+
+                {/* Per Page Items Dropdown */}
+                <div className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                    <span>Show per page:</span>
+                    <select 
+                        value={currentPerPage} 
+                        onChange={handlePerPageChange}
+                        className="bg-gray-50 border border-gray-200 rounded-md text-xs font-bold text-gray-900 focus:ring-[#00a884] focus:border-[#00a884] cursor-pointer py-1 pl-2.5 pr-7"
+                    >
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="250">250</option>
+                        <option value="500">500</option>
+                        <option value="1000">1,000</option>
+                        <option value="2000">2,000</option>
+                        <option value="all">⚡ All ({contacts?.total ? contacts.total.toLocaleString() : 'All'})</option>
+                    </select>
+                </div>
+            </div>
+
+            {/* Floating Bulk Action Bar */}
+            {selectedContacts.length > 0 && (
+                <div className="sticky top-4 z-30 mb-4 p-3.5 bg-slate-900 text-white rounded-xl shadow-xl border border-slate-800 flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-center gap-3">
+                        <span className="px-2.5 py-1 bg-emerald-500/20 text-emerald-300 font-bold text-xs rounded-lg border border-emerald-500/30">
+                            {selectedContacts.length.toLocaleString()} Selected
+                        </span>
+                        {contacts?.total > selectedContacts.length && (
+                            <button
+                                onClick={selectAllMatching}
+                                className="text-xs font-bold text-emerald-400 hover:text-emerald-300 underline"
+                            >
+                                ⚡ Select all {contacts.total.toLocaleString()} contacts matching search criteria
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                        <button
+                            onClick={openQuickSend}
+                            className="px-3 py-1.5 bg-[#25D366] text-white rounded-lg text-xs font-bold shadow transition hover:bg-[#1DA851] flex items-center gap-1.5"
+                        >
+                            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                            Quick Message ({selectedContacts.length})
+                        </button>
+                        <button
+                            onClick={openTagModal}
+                            className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-bold hover:bg-purple-700 transition"
+                        >
+                            🏷️ Tag Contacts
+                        </button>
+                        {isOwner && (
+                            <div className="relative">
+                                <button
+                                    onClick={() => setAssignDropdownOpen(!assignDropdownOpen)}
+                                    className="px-3 py-1.5 bg-slate-800 text-slate-200 rounded-lg text-xs font-bold border border-slate-700 hover:bg-slate-700 flex items-center gap-1.5"
+                                >
+                                    👤 Assign To
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                                </button>
+                                
+                                {assignDropdownOpen && (
+                                    <div className="absolute right-0 mt-2 w-56 bg-white text-gray-900 rounded-xl shadow-2xl border border-gray-100 z-50 py-1">
+                                        <button 
+                                            onClick={() => handleAssign(null)}
+                                            className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-50 transition"
+                                        >
+                                            <em>Unassign</em>
+                                        </button>
+                                        <div className="border-t border-gray-100 my-1"></div>
+                                        {teamMembers.map(member => (
+                                            <button 
+                                                key={member.id}
+                                                onClick={() => handleAssign(member.id)}
+                                                className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-50 transition font-medium"
+                                            >
+                                                {member.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        <button
+                            onClick={handleBulkDelete}
+                            className="px-3 py-1.5 bg-rose-600/30 text-rose-300 rounded-lg text-xs font-bold hover:bg-rose-600/50 transition border border-rose-500/30"
+                        >
+                            🗑️ Delete
+                        </button>
+                        <button 
+                            onClick={() => setSelectedContacts([])}
+                            className="p-1.5 text-slate-400 hover:text-white transition ml-1"
+                            title="Clear Selection"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200/60 overflow-x-auto">
                 <table className="w-full min-w-[800px] divide-y divide-gray-200">

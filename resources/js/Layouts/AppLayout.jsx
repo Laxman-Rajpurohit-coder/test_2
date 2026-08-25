@@ -90,6 +90,7 @@ export default function AppLayout({ children, header }) {
                         <Link
                             key={item.name}
                             href={item.href}
+                            prefetch
                             className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold transition ${
                                 item.active
                                     ? 'bg-[#00a884] text-white shadow-sm shadow-[#00a884]/20'

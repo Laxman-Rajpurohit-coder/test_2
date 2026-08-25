@@ -181,23 +181,25 @@ export default function AnalyticsIndex({ metrics, recentMessages: initialRecent 
                             </button>
                         </div>
 
-                        <div className="flex items-center gap-2 text-xs">
-                            <input
-                                type="date"
-                                value={dateFrom}
-                                onChange={(e) => setDateFrom(e.target.value)}
-                                className="bg-gray-50 text-gray-800 border border-gray-200 rounded-lg px-2.5 py-1 text-xs focus:ring-[#00a884]"
-                            />
-                            <span className="text-gray-400 font-medium">to</span>
-                            <input
-                                type="date"
-                                value={dateTo}
-                                onChange={(e) => setDateTo(e.target.value)}
-                                className="bg-gray-50 text-gray-800 border border-gray-200 rounded-lg px-2.5 py-1 text-xs focus:ring-[#00a884]"
-                            />
+                        <div className="flex flex-wrap items-center gap-2 text-xs w-full sm:w-auto">
+                            <div className="flex items-center gap-1.5 flex-1 sm:flex-none min-w-0">
+                                <input
+                                    type="date"
+                                    value={dateFrom}
+                                    onChange={(e) => setDateFrom(e.target.value)}
+                                    className="bg-gray-50 text-gray-800 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:ring-[#00a884] flex-1 sm:flex-none min-w-0"
+                                />
+                                <span className="text-gray-400 font-medium text-xs">to</span>
+                                <input
+                                    type="date"
+                                    value={dateTo}
+                                    onChange={(e) => setDateTo(e.target.value)}
+                                    className="bg-gray-50 text-gray-800 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:ring-[#00a884] flex-1 sm:flex-none min-w-0"
+                                />
+                            </div>
                             <button
                                 onClick={() => applyFilters(dateFrom, dateTo, 'custom')}
-                                className="bg-[#00a884] hover:bg-[#008f70] text-white px-3.5 py-1 rounded-lg text-xs font-bold transition shadow-sm"
+                                className="bg-[#00a884] hover:bg-[#008f70] text-white px-3.5 py-1 rounded-lg text-xs font-bold transition shadow-sm w-full sm:w-auto text-center"
                             >
                                 Apply
                             </button>

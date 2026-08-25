@@ -102,3 +102,22 @@ When pushing to production (Railway, AWS, etc.):
      - `"localhost"` can trigger IPv6 `::1` binding failures on Linux servers.
      - **SOLUTION:** Always explicitly set `REVERB_HOST="127.0.0.1"` in the `.env` file so the PHP backend queue workers can successfully POST broadcast payloads to the local Reverb server. 
      - *Note: `VITE_REVERB_HOST` must still be your public domain (`${APP_URL}`) so external browsers can reach it.*
+
+---
+
+## 5. Recent Production Issues & Solved Technical Rules
+
+### A. PostgreSQL Strict UUID Type Casting Bug (`ContactController@show`)
+- **Symptoms:** DevTools console returned `HTTP 500 Server Error` on `/contacts/{id}` when clicking phone number links in Message Logs.
+- **Root Cause:** PostgreSQL `id` column on `contacts` table is a `UUID` type. Executing `WHERE id = '919413819555' OR phone_number = '919413819555'` caused PostgreSQL to attempt to cast the phone string into a UUID, throwing `SQLSTATE[22P02]: invalid input syntax for type uuid`.
+- **Solution Implemented:** Check `Str::isUuid($id)` first. If `$id` is a 36-character UUID, query `id`. If `$id` is a numeric phone number string, query ONLY `phone_number` string columns.
+
+### B. PostgreSQL JSON Content Type Substring Match Failure (`MessageLogController`)
+- **Symptoms:** Filtering Message Logs by Content Type (`image`, `template`, `text`) returned 0 results on production PostgreSQL.
+- **Root Cause:** PostgreSQL JSON string formatting outputs a space after colons (`"type": "image"` vs `"type":"image"`). Standard `LIKE '%"type":"image"%'` queries failed on PostgreSQL.
+- **Solution Implemented:** Updated queries to use flexible wildcard matching `LIKE '%"type"%"image"%'` to handle both PostgreSQL and MySQL JSON string formatting.
+
+### C. Multi-Tenant Super Admin Scope Abort (`TenantController@index`)
+- **Symptoms:** Super Admin billing views threw `TenantResolverService` security exceptions when calculating tenant-wise usage breakdowns.
+- **Root Cause:** Global `BelongsToTenant` scope on `Message` and `Conversation` models expects a single active tenant ID in session context.
+- **Solution Implemented:** Wrapped Super Admin aggregation queries with `Message::withoutGlobalScopes()` to allow cross-tenant usage aggregation without breaking tenant isolation for standard tenant users.

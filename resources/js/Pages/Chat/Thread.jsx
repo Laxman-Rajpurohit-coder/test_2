@@ -327,33 +327,38 @@ export default function Thread({ conversation, onBack, approvedTemplates, onTogg
             }).catch(console.error);
         }, 15000);
 
-        const channel = window.Echo.channel(`conversations.${conversation.id}`);
-        channel.listen('.message.received', (e) => {
-            if (e.message && typeof e.message === 'object') {
-                if (e.message.direction === 'inbound') {
-                    window.axios.post(`/api/conversations/${conversation.id}/read`).catch(console.error);
-                }
-                setMessages(prev => {
-                    const exists = prev.some(m => m.id === e.message.id);
-                    if (exists) {
-                        return prev.map(m => m.id === e.message.id ? e.message : m);
+        let channel = null;
+        if (typeof window !== 'undefined' && window.Echo) {
+            channel = window.Echo.channel(`conversations.${conversation.id}`);
+            channel.listen('.message.received', (e) => {
+                if (e.message && typeof e.message === 'object') {
+                    if (e.message.direction === 'inbound') {
+                        window.axios.post(`/api/conversations/${conversation.id}/read`).catch(console.error);
                     }
-                    return [...prev, e.message];
-                });
+                    setMessages(prev => {
+                        const exists = prev.some(m => m.id === e.message.id);
+                        if (exists) {
+                            return prev.map(m => m.id === e.message.id ? e.message : m);
+                        }
+                        return [...prev, e.message];
+                    });
 
-                if (!isUserScrolledUpRef.current || e.message.direction === 'outbound') {
-                    setTimeout(() => scrollToBottom('smooth'), 100);
+                    if (!isUserScrolledUpRef.current || e.message.direction === 'outbound') {
+                        setTimeout(() => scrollToBottom('smooth'), 100);
+                    } else {
+                        setUnreadBelowCount(count => count + 1);
+                    }
                 } else {
-                    setUnreadBelowCount(count => count + 1);
+                    fetchMessages();
                 }
-            } else {
-                fetchMessages();
-            }
-        });
+            });
+        }
 
         return () => {
             clearInterval(pollInterval);
-            channel.stopListening('.message.received');
+            if (channel && typeof window !== 'undefined' && window.Echo) {
+                window.Echo.leaveChannel(`conversations.${conversation.id}`);
+            }
         };
     }, [conversation?.id]);
 

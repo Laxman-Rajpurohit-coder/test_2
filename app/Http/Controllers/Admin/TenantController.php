@@ -25,10 +25,13 @@ class TenantController extends Controller
 
         $tenants = Tenant::orderBy('created_at', 'desc')->get()->map(function ($tenant) use ($billing, $unitDivider) {
             try {
+                $conversationIds = \App\Models\Conversation::withoutGlobalScopes()
+                    ->where('tenant_id', $tenant->id)
+                    ->pluck('id');
+
                 $messages = Message::withoutGlobalScopes()
-                    ->whereHas('conversation', function ($q) use ($tenant) {
-                        $q->withoutGlobalScopes()->where('tenant_id', $tenant->id);
-                    })->get(['content']);
+                    ->whereIn('conversation_id', $conversationIds)
+                    ->get(['content']);
 
                 $totalCount = $messages->count();
                 $totalCost = 0.0;

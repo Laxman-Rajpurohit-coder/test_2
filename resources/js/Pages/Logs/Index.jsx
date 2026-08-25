@@ -85,7 +85,25 @@ export default function Index({ logs, filters, billing }) {
                     <p className="text-sm text-gray-500 mt-1">Audit trail, date range filters, and billing calculations for all messages.</p>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                    {/* Per Page Items Selector */}
+                    <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-gray-200 shadow-sm text-xs font-semibold text-gray-700">
+                        <span className="text-gray-500">Show per page:</span>
+                        <select 
+                            value={filters.per_page || '50'} 
+                            onChange={(e) => handleFilterChange('per_page', e.target.value)}
+                            className="bg-transparent border-none text-xs font-bold text-gray-900 focus:ring-0 cursor-pointer py-0 pl-1 pr-6"
+                        >
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="250">250</option>
+                            <option value="500">500</option>
+                            <option value="1000">1,000</option>
+                            <option value="2000">2,000</option>
+                            <option value="all">⚡ All ({logs.total || 'All'})</option>
+                        </select>
+                    </div>
+
                     {/* Search */}
                     <div className="relative">
                         <input

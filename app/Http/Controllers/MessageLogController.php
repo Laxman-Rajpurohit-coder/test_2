@@ -82,7 +82,10 @@ class MessageLogController extends Controller
             });
         }
 
-        $paginatedLogs = $query->orderBy('messages.created_at', 'desc')->paginate(50)->withQueryString();
+        $perPageInput = $request->input('per_page', 50);
+        $perPage = ($perPageInput === 'all' || $perPageInput === 'ALL') ? 5000 : min(max((int)$perPageInput, 10), 5000);
+
+        $paginatedLogs = $query->orderBy('messages.created_at', 'desc')->paginate($perPage)->withQueryString();
 
         // Calculate billing cost and categorization for each message
         $unitDivider = $billing->rate_unit > 0 ? $billing->rate_unit : 1000;
@@ -136,7 +139,7 @@ class MessageLogController extends Controller
 
         return Inertia::render('Logs/Index', [
             'logs' => $paginatedLogs,
-            'filters' => $request->only(['status', 'direction', 'search', 'start_date', 'end_date', 'type']),
+            'filters' => $request->only(['status', 'direction', 'search', 'start_date', 'end_date', 'type', 'per_page']),
             'billing' => $billing,
         ]);
     }

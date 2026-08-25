@@ -24,8 +24,11 @@ class ContactController extends Controller
             });
         }
         
-        // Standard paginated listing for contacts
-        $contacts = $query->with('contactTags')->orderBy('created_at', 'desc')->paginate(50);
+        // Standard paginated listing for contacts with custom per_page support
+        $perPageInput = $request->input('per_page', 50);
+        $perPage = ($perPageInput === 'all' || $perPageInput === 'ALL') ? 5000 : min(max((int)$perPageInput, 10), 5000);
+        
+        $contacts = $query->with('contactTags')->orderBy('created_at', 'desc')->paginate($perPage)->withQueryString();
 
         $teamMembers = [];
         $user = auth()->user();
@@ -76,6 +79,7 @@ class ContactController extends Controller
         
         return Inertia::render('Contacts/Index', [
             'contacts' => $contacts,
+            'filters' => $request->only(['search', 'per_page']),
             'teamMembers' => $teamMembers,
             'allTags' => $allTags,
             'approvedTemplates' => $approvedTemplates,
