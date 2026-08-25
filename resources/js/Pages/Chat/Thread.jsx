@@ -48,15 +48,6 @@ const CustomAudioPlayer = ({ src }) => {
         const dur = audioRef.current.duration;
         if (dur && !isNaN(dur) && dur !== Infinity) {
             setDuration(dur);
-        } else {
-            audioRef.current.currentTime = 1e101;
-            audioRef.current.ontimeupdate = () => {
-                audioRef.current.ontimeupdate = null;
-                audioRef.current.currentTime = 0;
-                if (audioRef.current.duration && !isNaN(audioRef.current.duration)) {
-                    setDuration(audioRef.current.duration);
-                }
-            };
         }
     };
 
