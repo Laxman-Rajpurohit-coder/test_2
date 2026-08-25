@@ -56,16 +56,21 @@ class MessageLogController extends Controller
             }
         }
 
-        // Content Type Filter
+        // Content Type Filter (Robust PostgreSQL + MySQL JSON matching)
         if ($request->filled('type')) {
             $type = $request->type;
             if ($type === 'text') {
                 $query->where(function($q) {
-                    $q->where('messages.content', 'like', '%"type":"text"%')
-                      ->orWhere('messages.content', 'not like', '%"type":%');
+                    $q->where('messages.content', 'like', '%"type"%"text"%')
+                      ->orWhere('messages.content', 'like', '%"type": "text"%')
+                      ->orWhere('messages.content', 'not like', '%"type"%');
                 });
             } else {
-                $query->where('messages.content', 'like', '%"type":"' . $type . '"%');
+                $query->where(function($q) use ($type) {
+                    $q->where('messages.content', 'like', '%"type":"' . $type . '"%')
+                      ->orWhere('messages.content', 'like', '%"type": "' . $type . '"%')
+                      ->orWhere('messages.content', 'like', '%"type"%"' . $type . '"%');
+                });
             }
         }
         
