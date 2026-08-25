@@ -15,7 +15,16 @@ return [
     |
     */
 
-    'default' => env('CACHE_STORE', 'database'),
+    'default' => (function() {
+        $store = env('CACHE_STORE', 'database');
+        if ($store === 'redis') {
+            $host = parse_url(env('REDIS_URL', ''), PHP_URL_HOST) ?: env('REDIS_HOST', '127.0.0.1');
+            if (!empty($host) && @gethostbyname($host) === $host && !filter_var($host, FILTER_VALIDATE_IP)) {
+                return 'database';
+            }
+        }
+        return $store;
+    })(),
 
     /*
     |--------------------------------------------------------------------------
