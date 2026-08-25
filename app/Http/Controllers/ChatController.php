@@ -47,7 +47,7 @@ class ChatController extends Controller
         // Calculate channel stats
         $counts = [
             'all'       => Conversation::count(),
-            'whatsapp'  => Conversation::where('channel', 'whatsapp')->orWhereNull('channel')->count(),
+            'whatsapp'  => Conversation::where(fn($q) => $q->where('channel', 'whatsapp')->orWhereNull('channel'))->count(),
             'facebook'  => Conversation::where('channel', 'facebook')->count(),
             'instagram' => Conversation::where('channel', 'instagram')->count(),
             'whatsapp_unread'  => (int) Conversation::where(fn($q) => $q->where('channel', 'whatsapp')->orWhereNull('channel'))->sum('unread_count'),
