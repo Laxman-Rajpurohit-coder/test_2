@@ -609,14 +609,14 @@ export default function Composer({ conversation, onSent, approvedTemplates }) {
                             </button>
                         </div>
                     ) : (
-                        <input
-                            type="text"
+                        <textarea
+                            rows={1}
                             value={content}
                             onChange={(e) => setContent(e.target.value)}
                             onKeyDown={handleKeyDown}
                             placeholder={selectedImage ? "Add a caption..." : "Type a message"}
                             aria-label="Type message content"
-                            className="flex-1 w-full bg-transparent px-4 py-3 text-sm text-[#e9edef] outline-none placeholder-[#8696a0]"
+                            className="flex-1 w-full bg-transparent px-4 py-2.5 text-sm text-[#e9edef] outline-none placeholder-[#8696a0] resize-none max-h-32 min-h-[40px] custom-scrollbar"
                         />
                     )}
                 </div>

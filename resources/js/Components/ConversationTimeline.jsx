@@ -46,8 +46,21 @@ export default function ConversationTimeline({ messages = [], customerName = 'Cu
                     parsedContent = { text: msg.content };
                 }
 
+                const resolveMediaUrl = (rawUrl) => {
+                    if (!rawUrl || typeof rawUrl !== 'string') return '';
+                    if (rawUrl.includes('/storage/')) {
+                        const pathPart = rawUrl.substring(rawUrl.indexOf('/storage/'));
+                        return window.location.origin + pathPart;
+                    }
+                    if (!rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
+                        return `${window.location.origin}/storage/${rawUrl.replace(/^\/+/, '')}`;
+                    }
+                    return rawUrl;
+                };
+
                 const messageText = parsedContent?.text || parsedContent?.body || (typeof msg.content === 'string' ? msg.content : '');
-                const mediaUrl = parsedContent?.url || msg.attachment_url;
+                const rawMediaUrl = parsedContent?.url || parsedContent?.attachment_url || parsedContent?.link || parsedContent?.media_url || msg.attachment_url;
+                const mediaUrl = resolveMediaUrl(rawMediaUrl);
 
                 return (
                     <div
