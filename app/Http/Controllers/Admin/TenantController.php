@@ -96,7 +96,7 @@ class TenantController extends Controller
             'tenants' => $tenants,
             'billing' => $billing,
             'webhook' => [
-                'url' => config('app.url') . '/api/msg91/webhook',
+                'url' => rtrim(config('app.url'), '/') . '/api/msg91/webhook',
                 'secret' => config('services.msg91.webhook_secret'),
             ],
         ]);
