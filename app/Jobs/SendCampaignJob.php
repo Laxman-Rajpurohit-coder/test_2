@@ -53,17 +53,7 @@ class SendCampaignJob implements ShouldQueue
         // 3. Now it is safe to use Eloquent models
         $campaign = Campaign::find($this->campaignId);
 
-        if (!$campaign || $campaign->status === 'completed' || $campaign->status === 'failed' || $campaign->status === 'cancelled') {
-            return;
-        }
-
-        // Check tenant balance before sending
-        if (!\App\Services\TenantBalanceService::hasBalance((int) $tenantId)) {
-            Log::warning("SendCampaignJob: Tenant {$tenantId} has zero balance. Halting campaign {$this->campaignId}.");
-            $campaign->update([
-                'status' => 'failed',
-                'failure_reason' => 'Tenant balance depleted. Account suspended. Please recharge to send campaigns.'
-            ]);
+        if (!$campaign || $campaign->status === 'completed' || $campaign->status === 'failed' || $campaign->status === 'cancelled' || $campaign->status === 'paused_insufficient_balance') {
             return;
         }
 
@@ -80,7 +70,6 @@ class SendCampaignJob implements ShouldQueue
             $campaign->update(['status' => 'completed']);
             return;
         }
-        
 
         try {
             $outboundNumber = $tenantResolver->getIntegratedNumber($campaign->tenant_id);
@@ -100,7 +89,24 @@ class SendCampaignJob implements ShouldQueue
             return;
         }
 
+        $templateCategory = $campaign->template_category ?? 'utility';
+        $recipientCost = \App\Services\MessageBillingService::calculateCost(
+            $campaign->message_type,
+            $campaign->message_type === 'template' ? $templateCategory : null,
+            $campaign->tenant_id
+        );
+
         foreach ($recipients as $index => $recipient) {
+            // Recipient-level balance check: pause if balance exhausted
+            if (!\App\Services\MessageBillingService::hasSufficientBalance($campaign->tenant_id, $recipientCost)) {
+                Log::warning("SendCampaignJob: Tenant {$campaign->tenant_id} balance depleted during campaign {$campaign->id} at recipient {$recipient->id}. Pausing campaign.");
+                $campaign->update([
+                    'status' => 'paused_insufficient_balance',
+                    'failure_reason' => 'Tenant wallet balance depleted. Campaign paused. Add balance to resume sending.'
+                ]);
+                return;
+            }
+
             $contact = $recipient->contact;
             $phone = $contact->phone_number;
 
@@ -139,13 +145,24 @@ class SendCampaignJob implements ShouldQueue
                             $outboundNumber
                         );
 
-                        // Route through standard OutboundReplyService (handles queueing and db storage).
-                        // $index is passed as a non-blocking dispatch delay (seconds) so this job
-                        // paces sends at ~1/sec without sleep()-blocking the worker (see ISSUE-004).
-                        \App\Services\OutboundReplyService::send($conversation->id, $campaign->tenant_id, $contentStruct, $msg91Payload, $index);
+                        // Route through standard OutboundReplyService with recipient-level idempotency key
+                        $idempotencyKey = "camp_{$campaign->id}_rec_{$recipient->id}_charge";
+                        $messageId = \App\Services\OutboundReplyService::send(
+                            $conversation->id,
+                            $campaign->tenant_id,
+                            $contentStruct,
+                            $msg91Payload,
+                            $index,
+                            'campaign_recipient',
+                            (string) $recipient->id,
+                            $idempotencyKey
+                        );
 
-                        \Illuminate\Support\Facades\DB::transaction(function () use ($recipient, $campaign) {
-                            $recipient->update(['status' => 'sent']);
+                        \Illuminate\Support\Facades\DB::transaction(function () use ($recipient, $campaign, $messageId) {
+                            $recipient->update([
+                                'status' => 'sent',
+                                'whatsapp_message_id' => $messageId
+                            ]);
                             $campaign->increment('sent_count');
                         });
                     } catch (\Exception $e) {
@@ -264,13 +281,17 @@ class SendCampaignJob implements ShouldQueue
                         $outboundNumber
                     );
 
-                    // $index passed as non-blocking dispatch delay (seconds) — see ISSUE-004.
+                    // $index passed as non-blocking dispatch delay (seconds) with recipient-level idempotency key
+                    $idempotencyKey = "camp_{$campaign->id}_rec_{$recipient->id}_charge";
                     $messageId = \App\Services\OutboundReplyService::send(
                         $conversation->id,
                         $campaign->tenant_id,
                         $contentStruct,
                         $msg91Payload,
-                        $index
+                        $index,
+                        'campaign_recipient',
+                        (string) $recipient->id,
+                        $idempotencyKey
                     );
 
                     \Illuminate\Support\Facades\DB::transaction(function () use ($recipient, $campaign, $messageId) {
@@ -288,6 +309,11 @@ class SendCampaignJob implements ShouldQueue
                     });
                 }
             }
+        }
+
+        // If the campaign was paused during this batch due to insufficient balance, do not requeue next batch
+        if ($campaign->fresh()->status === 'paused_insufficient_balance') {
+            return;
         }
 
         // Requeue for the next batch if there are still pending recipients.

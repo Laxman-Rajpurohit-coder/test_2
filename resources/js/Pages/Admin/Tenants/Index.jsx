@@ -17,9 +17,11 @@ export default function TenantIndex({ auth, tenants, webhook, billing }) {
     const [balancingTenant, setBalancingTenant] = useState(null);
     const { data: balanceData, setData: setBalanceData, post: postBalance, processing: processingBalance, errors: balanceErrors, reset: resetBalance, clearErrors: clearBalanceErrors } = useForm({
         amount: '',
+        type: 'topup',
         payment_reference: '',
         notes: '',
         auto_activate: true,
+        enable_billing: false,
     });
 
     const [ledgerTenant, setLedgerTenant] = useState(null);
@@ -169,8 +171,22 @@ export default function TenantIndex({ auth, tenants, webhook, billing }) {
 
     const openBalanceModal = (tenant) => {
         setBalancingTenant(tenant);
-        resetBalance();
+        setBalanceData({
+            amount: '',
+            type: 'topup',
+            payment_reference: '',
+            notes: '',
+            auto_activate: true,
+            enable_billing: !tenant.billing_enabled,
+        });
         clearBalanceErrors();
+    };
+
+    const toggleBillingEnforcement = (tenant) => {
+        const action = tenant.billing_enabled ? 'disable' : 'enable';
+        if (window.confirm(`Are you sure you want to ${action} prepaid billing enforcement for "${tenant.name}"?`)) {
+            router.patch(route('admin.tenants.billing.toggle', tenant.id), {}, { preserveScroll: true });
+        }
     };
 
     const closeBalanceModal = () => {
@@ -389,9 +405,24 @@ export default function TenantIndex({ auth, tenants, webhook, billing }) {
                                                     <div className="text-xs text-gray-500">Slug: {tenant.slug} (ID: {tenant.id})</div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className={`px-2 py-0.5 inline-flex text-xs leading-5 font-bold rounded-full ${tenant.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                                        {tenant.status}
-                                                    </span>
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className={`px-2 py-0.5 inline-flex text-xs leading-5 font-bold rounded-full ${tenant.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                            {tenant.status}
+                                                        </span>
+                                                        {tenant.billing_enabled ? (
+                                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1 ${
+                                                                tenant.billing_status === 'exhausted'
+                                                                    ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                            }`}>
+                                                                <span>{tenant.billing_status === 'exhausted' ? '🔴 Exhausted' : '🟢 Prepaid'}</span>
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                                                                Unmetered
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 {/* Wallet Balance */}
                                                 <td className="px-6 py-4 whitespace-nowrap">
@@ -440,9 +471,17 @@ export default function TenantIndex({ auth, tenants, webhook, billing }) {
                                                         <button 
                                                             onClick={() => openBalanceModal(tenant)}
                                                             className="text-emerald-600 hover:text-emerald-900 font-semibold"
-                                                            title="Add Balance upon receiving payment"
+                                                            title="Add Balance or promotional credit"
                                                         >
                                                             + Balance
+                                                        </button>
+                                                        <span className="text-gray-300">|</span>
+                                                        <button 
+                                                            onClick={() => toggleBillingEnforcement(tenant)}
+                                                            className={`font-semibold ${tenant.billing_enabled ? 'text-amber-600 hover:text-amber-900' : 'text-indigo-600 hover:text-indigo-900'}`}
+                                                            title="Toggle prepaid billing enforcement"
+                                                        >
+                                                            {tenant.billing_enabled ? 'Disable Prepaid' : 'Enable Prepaid'}
                                                         </button>
                                                         <span className="text-gray-300">|</span>
                                                         <button 
@@ -684,22 +723,39 @@ export default function TenantIndex({ auth, tenants, webhook, billing }) {
                     </div>
 
                     <div className="space-y-4">
-                        <div>
-                            <InputLabel htmlFor="balance_amount" value="Payment Amount Received (₹)" />
-                            <TextInput
-                                id="balance_amount"
-                                type="number"
-                                step="0.01"
-                                min="0.01"
-                                required
-                                name="amount"
-                                value={balanceData.amount}
-                                onChange={(e) => setBalanceData('amount', e.target.value)}
-                                className="mt-1 block w-full text-base font-bold font-mono"
-                                isFocused
-                                placeholder="e.g. 500.00"
-                            />
-                            <InputError message={balanceErrors.amount} className="mt-2" />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <InputLabel htmlFor="balance_type" value="Transaction Type" />
+                                <select
+                                    id="balance_type"
+                                    value={balanceData.type || 'topup'}
+                                    onChange={(e) => setBalanceData('type', e.target.value)}
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm font-semibold"
+                                >
+                                    <option value="topup">💰 Top-Up (Recharge)</option>
+                                    <option value="promotional_credit">🎁 Promotional Credit / Grant</option>
+                                    <option value="adjustment">⚖️ Ledger Adjustment</option>
+                                </select>
+                                <InputError message={balanceErrors.type} className="mt-2" />
+                            </div>
+
+                            <div>
+                                <InputLabel htmlFor="balance_amount" value="Amount (₹)" />
+                                <TextInput
+                                    id="balance_amount"
+                                    type="number"
+                                    step="0.01"
+                                    min="0.01"
+                                    required
+                                    name="amount"
+                                    value={balanceData.amount}
+                                    onChange={(e) => setBalanceData('amount', e.target.value)}
+                                    className="mt-1 block w-full text-base font-bold font-mono"
+                                    isFocused
+                                    placeholder="e.g. 500.00"
+                                />
+                                <InputError message={balanceErrors.amount} className="mt-2" />
+                            </div>
                         </div>
 
                         <div>
@@ -729,17 +785,33 @@ export default function TenantIndex({ auth, tenants, webhook, billing }) {
                             <InputError message={balanceErrors.notes} className="mt-2" />
                         </div>
 
-                        <label className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={balanceData.auto_activate}
-                                onChange={(e) => setBalanceData('auto_activate', e.target.checked)}
-                                className="w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500"
-                            />
-                            <span className="text-xs font-semibold text-gray-700">
-                                Automatically reactivate tenant if currently suspended (Recommended)
-                            </span>
-                        </label>
+                        <div className="space-y-2 pt-1">
+                            {!balancingTenant?.billing_enabled && (
+                                <label className="flex items-center gap-2 p-3 bg-indigo-50/70 rounded-xl border border-indigo-200 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={balanceData.enable_billing}
+                                        onChange={(e) => setBalanceData('enable_billing', e.target.checked)}
+                                        className="w-4 h-4 text-indigo-600 rounded border-indigo-300 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-xs font-semibold text-indigo-900">
+                                        Activate prepaid billing enforcement for this organization now
+                                    </span>
+                                </label>
+                            )}
+
+                            <label className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={balanceData.auto_activate}
+                                    onChange={(e) => setBalanceData('auto_activate', e.target.checked)}
+                                    className="w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500"
+                                />
+                                <span className="text-xs font-semibold text-gray-700">
+                                    Automatically reactivate tenant if currently suspended due to zero balance
+                                </span>
+                            </label>
+                        </div>
                     </div>
 
                     <div className="mt-6 flex justify-end gap-2">
@@ -790,46 +862,61 @@ export default function TenantIndex({ auth, tenants, webhook, billing }) {
                                         <th className="px-3 py-2 text-left font-bold text-gray-500 uppercase">Type</th>
                                         <th className="px-3 py-2 text-right font-bold text-gray-500 uppercase">Amount</th>
                                         <th className="px-3 py-2 text-right font-bold text-gray-500 uppercase">Balance After</th>
-                                        <th className="px-3 py-2 text-left font-bold text-gray-500 uppercase">Ref / Notes</th>
-                                        <th className="px-3 py-2 text-left font-bold text-gray-500 uppercase">Admin</th>
+                                        <th className="px-3 py-2 text-left font-bold text-gray-500 uppercase">Ref / Audit</th>
+                                        <th className="px-3 py-2 text-left font-bold text-gray-500 uppercase">Actor</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 bg-white">
-                                    {ledgerTransactions.map((tx) => (
-                                        <tr key={tx.id} className="hover:bg-gray-50/60">
-                                            <td className="px-3 py-2.5 whitespace-nowrap text-gray-500 font-mono">
-                                                {new Date(tx.created_at).toLocaleString()}
-                                            </td>
-                                            <td className="px-3 py-2.5 whitespace-nowrap">
-                                                <span className={`px-2 py-0.5 rounded-full font-bold uppercase text-[10px] ${
-                                                    tx.type === 'credit' 
-                                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-                                                        : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                    {ledgerTransactions.map((tx) => {
+                                        const isCredit = ['credit', 'topup', 'promotional_credit', 'refund'].includes(tx.type);
+                                        const typeBadgeClasses = {
+                                            topup: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                                            credit: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                                            promotional_credit: 'bg-purple-50 text-purple-700 border-purple-200',
+                                            refund: 'bg-teal-50 text-teal-700 border-teal-200',
+                                            message_charge: 'bg-blue-50 text-blue-700 border-blue-200',
+                                            campaign_charge: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                                            adjustment: 'bg-amber-50 text-amber-700 border-amber-200',
+                                            debit: 'bg-rose-50 text-rose-700 border-rose-200',
+                                        }[tx.type] || 'bg-gray-50 text-gray-700 border-gray-200';
+
+                                        return (
+                                            <tr key={tx.id} className="hover:bg-gray-50/60">
+                                                <td className="px-3 py-2.5 whitespace-nowrap text-gray-500 font-mono">
+                                                    {new Date(tx.created_at).toLocaleString()}
+                                                </td>
+                                                <td className="px-3 py-2.5 whitespace-nowrap">
+                                                    <span className={`px-2 py-0.5 rounded-full font-bold uppercase text-[10px] border ${typeBadgeClasses}`}>
+                                                        {tx.type.replace('_', ' ')}
+                                                    </span>
+                                                </td>
+                                                <td className={`px-3 py-2.5 whitespace-nowrap text-right font-mono font-bold ${
+                                                    isCredit ? 'text-emerald-600' : 'text-rose-600'
                                                 }`}>
-                                                    {tx.type}
-                                                </span>
-                                            </td>
-                                            <td className={`px-3 py-2.5 whitespace-nowrap text-right font-mono font-bold ${
-                                                tx.type === 'credit' ? 'text-emerald-600' : 'text-rose-600'
-                                            }`}>
-                                                {tx.type === 'credit' ? '+' : '-'}₹{parseFloat(tx.amount || 0).toFixed(4)}
-                                            </td>
-                                            <td className="px-3 py-2.5 whitespace-nowrap text-right font-mono font-semibold text-gray-700">
-                                                ₹{parseFloat(tx.balance_after || 0).toFixed(4)}
-                                            </td>
-                                            <td className="px-3 py-2.5 max-w-xs truncate text-gray-600">
-                                                {tx.payment_reference && (
-                                                    <div className="font-mono text-[11px] text-indigo-600 font-semibold">{tx.payment_reference}</div>
-                                                )}
-                                                {tx.description && (
-                                                    <div className="text-[11px] text-gray-500">{tx.description}</div>
-                                                )}
-                                            </td>
-                                            <td className="px-3 py-2.5 whitespace-nowrap text-gray-500 text-[11px]">
-                                                {tx.admin_user?.name || 'System'}
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                    {isCredit ? '+' : '-'}₹{parseFloat(tx.amount || 0).toFixed(4)}
+                                                </td>
+                                                <td className="px-3 py-2.5 whitespace-nowrap text-right font-mono font-semibold text-gray-700">
+                                                    ₹{parseFloat(tx.balance_after || 0).toFixed(4)}
+                                                </td>
+                                                <td className="px-3 py-2.5 max-w-xs text-gray-600">
+                                                    {tx.payment_reference && (
+                                                        <div className="font-mono text-[11px] text-indigo-600 font-semibold">{tx.payment_reference}</div>
+                                                    )}
+                                                    {tx.idempotency_key && (
+                                                        <div className="font-mono text-[10px] text-gray-400 truncate" title={tx.idempotency_key}>
+                                                            key: {tx.idempotency_key}
+                                                        </div>
+                                                    )}
+                                                    {tx.description && (
+                                                        <div className="text-[11px] text-gray-500">{tx.description}</div>
+                                                    )}
+                                                </td>
+                                                <td className="px-3 py-2.5 whitespace-nowrap text-gray-500 text-[11px]">
+                                                    {tx.admin_user?.name || (tx.created_by_type ? 'System' : 'System')}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

@@ -81,6 +81,7 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::post('/impersonate-stop', [\App\Http\Controllers\Admin\ImpersonationController::class, 'stop'])->name('impersonate.stop');
     Route::post('/billing-settings', [\App\Http\Controllers\Admin\TenantController::class, 'updateBillingSettings'])->name('billing.update');
     Route::post('/tenants/{tenant}/balance', [\App\Http\Controllers\Admin\TenantController::class, 'addBalance'])->name('tenants.balance.add');
+    Route::patch('/tenants/{tenant}/toggle-billing', [\App\Http\Controllers\Admin\TenantController::class, 'toggleBilling'])->name('tenants.billing.toggle');
     Route::get('/tenants/{tenant}/transactions', [\App\Http\Controllers\Admin\TenantController::class, 'transactions'])->name('tenants.transactions');
 });
 

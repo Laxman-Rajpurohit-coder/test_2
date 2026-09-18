@@ -9,7 +9,18 @@ class Tenant extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'slug', 'is_active', 'status', 'balance', 'suspended_at', 'features'];
+    protected $fillable = [
+        'name',
+        'slug',
+        'is_active',
+        'status',
+        'suspension_reason',
+        'balance',
+        'billing_enabled',
+        'billing_status',
+        'suspended_at',
+        'features'
+    ];
 
     /**
      * The attributes that should be cast.
@@ -17,7 +28,8 @@ class Tenant extends Model
     protected function casts(): array
     {
         return [
-            'balance' => 'float',
+            'balance' => 'decimal:4',
+            'billing_enabled' => 'boolean',
             'features' => 'array',
             'suspended_at' => 'datetime',
         ];
@@ -58,9 +70,17 @@ class Tenant extends Model
         return $this->hasMany(TenantBalanceTransaction::class);
     }
 
-    public function hasSufficientBalance(): bool
+    public function hasSufficientBalance(string $cost = '0.0000'): bool
     {
-        return (float) $this->balance > 0;
+        if (!$this->billing_enabled) {
+            return true;
+        }
+        return bccomp((string) $this->balance, (string) $cost, 4) >= 0;
+    }
+
+    public function isBillingExhausted(): bool
+    {
+        return (bool) $this->billing_enabled && $this->billing_status === 'exhausted';
     }
 
     public function isSuspended(): bool

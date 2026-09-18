@@ -19,18 +19,31 @@ class OutboundReplyService
      * @param int $tenantId The tenant associated with the conversation.
      * @param array $contentStruct The message content to store.
      * @param array $msg91Payload The payload passed to the Msg91 delivery job.
-     * @param int|null $delaySeconds Optional non-blocking dispatch delay, used by callers
-     *   (e.g. SendCampaignJob) that need to pace outbound sends without blocking the
-     *   dispatching worker with sleep(). The delay is applied to the queued job, not
-     *   to this method's execution — this method still returns immediately.
+     * @param int|null $delaySeconds Optional non-blocking dispatch delay for pacing sends.
+     * @param string $referenceType Reference type for the billing ledger ('message', 'campaign_recipient').
+     * @param string|null $referenceId Specific ID of the reference (e.g. recipient ID).
+     * @param string|null $idempotencyKey Custom idempotency key to prevent double charging across retries.
      */
-    public static function send(int $conversationId, int $tenantId, array $contentStruct, array $msg91Payload, ?int $delaySeconds = null): string
-    {
-        if (!TenantBalanceService::hasBalance($tenantId)) {
-            throw new \RuntimeException("Tenant {$tenantId} has depleted balance and is suspended.");
+    public static function send(
+        int $conversationId,
+        int $tenantId,
+        array $contentStruct,
+        array $msg91Payload,
+        ?int $delaySeconds = null,
+        string $referenceType = 'message',
+        ?string $referenceId = null,
+        ?string $idempotencyKey = null
+    ): string {
+        $type = $contentStruct['type'] ?? 'service';
+        $category = $contentStruct['category'] ?? ($contentStruct['template_category'] ?? null);
+
+        // Pre-flight balance check
+        $canSend = MessageBillingService::canSend($tenantId, $type, $category);
+        if (!$canSend['allowed']) {
+            throw new \RuntimeException($canSend['reason'] ?? "Tenant {$tenantId} wallet balance is insufficient.");
         }
 
-        return DB::transaction(function () use ($conversationId, $tenantId, $contentStruct, $msg91Payload, $delaySeconds) {
+        return DB::transaction(function () use ($conversationId, $tenantId, $contentStruct, $msg91Payload, $delaySeconds, $type, $category, $referenceType, $referenceId, $idempotencyKey) {
             $outboundMessageId = Str::uuid()->toString();
 
             $outboundMessage = Message::create([
@@ -46,9 +59,19 @@ class OutboundReplyService
                 'vendor_timestamp' => now(),
             ]);
 
-            $type = $contentStruct['type'] ?? 'service';
-            $category = $contentStruct['category'] ?? ($contentStruct['template_category'] ?? null);
-            TenantBalanceService::deductForMessage($tenantId, $type, $category, $outboundMessageId);
+            // Single layer idempotent charge
+            $chargeRefId = $referenceId ?: $outboundMessageId;
+            $chargeKey = $idempotencyKey ?: "msg_{$outboundMessageId}_charge";
+
+            MessageBillingService::chargeForMessage(
+                $tenantId,
+                $type,
+                $category,
+                $chargeRefId,
+                $referenceType,
+                $chargeKey,
+                ['conversation_id' => $conversationId]
+            );
 
             Conversation::where('id', $conversationId)
                 ->update(['last_message_at' => now(), 'updated_at' => now()]);

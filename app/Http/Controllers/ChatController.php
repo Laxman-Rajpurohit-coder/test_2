@@ -287,10 +287,16 @@ class ChatController extends Controller
 
 
         // Balance check: prevent sending if tenant balance is depleted
-        if (!\App\Services\TenantBalanceService::hasBalance($conversation->tenant_id)) {
+        $msgType = $request->input('type', 'service');
+        $msgCategory = $request->input('template_category') ?? $request->input('category');
+        $canSend = \App\Services\MessageBillingService::canSend($conversation->tenant_id, $msgType, $msgCategory);
+
+        if (!$canSend['allowed']) {
             return response()->json([
                 'error' => 'Insufficient Balance',
-                'message' => 'Your account balance is zero and has been suspended. Please recharge your balance to continue sending messages.'
+                'message' => $canSend['reason'] ?? 'Your account wallet balance is insufficient. Please add balance to continue sending messages.',
+                'balance' => $canSend['balance'],
+                'cost' => $canSend['cost'],
             ], 402);
         }
 
@@ -343,12 +349,16 @@ class ChatController extends Controller
             'vendor_timestamp' => now(),
         ]);
 
-        // Deduct message charge from tenant balance
-        \App\Services\TenantBalanceService::deductForMessage(
+        // Deduct message charge from tenant balance with idempotency key
+        \App\Services\MessageBillingService::chargeForMessage(
             $conversation->tenant_id,
-            $request->input('type'),
-            $request->input('template_category') ?? $request->input('category'),
-            $messageId
+            $msgType,
+            $msgCategory,
+            $messageId,
+            'message',
+            "msg_{$messageId}_charge",
+            ['customer_number' => $conversation->customer_number],
+            auth()->id()
         );
 
         // 2. Dispatch Background Job to MSG91 using real tenant number
@@ -356,6 +366,14 @@ class ChatController extends Controller
             $integratedNumber = app(\App\Services\TenantResolverService::class)->getIntegratedNumber($conversation->tenant_id);
             if (empty(app(\App\Services\TenantResolverService::class)->getMsg91AuthKey($conversation->tenant_id))) {
                 $newMessage->update(['status' => 'failed', 'failure_reason' => 'MSG91 Auth Key not configured for tenant']);
+                \App\Services\MessageBillingService::refundMessage(
+                    $conversation->tenant_id,
+                    $canSend['cost'],
+                    'Configuration Error: MSG91 Auth Key not configured',
+                    $messageId,
+                    'message',
+                    "msg_{$messageId}_refund"
+                );
                 return response()->json([
                     'error' => 'Configuration Error',
                     'message' => 'WhatsApp API key not configured — set it in Tenant API Settings before sending messages'
@@ -363,6 +381,14 @@ class ChatController extends Controller
             }
         } catch (\Exception $e) {
             $newMessage->update(['status' => 'failed', 'failure_reason' => 'No integrated WhatsApp number found for this tenant.']);
+            \App\Services\MessageBillingService::refundMessage(
+                $conversation->tenant_id,
+                $canSend['cost'],
+                'Configuration Error: No integrated WhatsApp number found',
+                $messageId,
+                'message',
+                "msg_{$messageId}_refund"
+            );
             return response()->json([
                 'error' => 'Configuration Error',
                 'message' => 'No integrated WhatsApp number found for this tenant. Cannot send messages.'
@@ -437,10 +463,15 @@ class ChatController extends Controller
 
 
         // Balance check: prevent sending if tenant balance is depleted
-        if (!\App\Services\TenantBalanceService::hasBalance($conversation->tenant_id)) {
+        $mediaType = $request->input('type');
+        $canSend = \App\Services\MessageBillingService::canSend($conversation->tenant_id, $mediaType);
+
+        if (!$canSend['allowed']) {
             return response()->json([
                 'error' => 'Insufficient Balance',
-                'message' => 'Your account balance is zero and has been suspended. Please recharge your balance to continue sending messages.'
+                'message' => $canSend['reason'] ?? 'Your account wallet balance is insufficient. Please add balance to continue sending messages.',
+                'balance' => $canSend['balance'],
+                'cost' => $canSend['cost'],
             ], 402);
         }
 
@@ -491,7 +522,6 @@ class ChatController extends Controller
         $mediaUrl = rtrim($baseUrl, '/') . '/storage/' . $path;
 
         $messageId = Str::uuid()->toString();
-        $mediaType = $request->input('type');
         
         $contentPayload = [
             'type'    => $mediaType,
@@ -512,12 +542,16 @@ class ChatController extends Controller
             'vendor_timestamp' => now(),
         ]);
 
-        // Deduct media message charge from tenant balance
-        \App\Services\TenantBalanceService::deductForMessage(
+        // Deduct media message charge from tenant balance with idempotency key
+        \App\Services\MessageBillingService::chargeForMessage(
             $conversation->tenant_id,
             $mediaType,
             null,
-            $messageId
+            $messageId,
+            'message',
+            "msg_{$messageId}_charge",
+            ['customer_number' => $conversation->customer_number],
+            auth()->id()
         );
 
         try {
@@ -525,6 +559,14 @@ class ChatController extends Controller
             if (empty(app(\App\Services\TenantResolverService::class)->getMsg91AuthKey($conversation->tenant_id))) {
                 // We created the message above, but we must fail it immediately.
                 $newMessage->update(['status' => 'failed', 'failure_reason' => 'MSG91 Auth Key not configured for tenant']);
+                \App\Services\MessageBillingService::refundMessage(
+                    $conversation->tenant_id,
+                    $canSend['cost'],
+                    'Configuration Error: MSG91 Auth Key not configured',
+                    $messageId,
+                    'message',
+                    "msg_{$messageId}_refund"
+                );
                 return response()->json([
                     'error' => 'Configuration Error',
                     'message' => 'WhatsApp API key not configured — set it in Tenant API Settings before sending messages'
@@ -532,6 +574,14 @@ class ChatController extends Controller
             }
         } catch (\Exception $e) {
             $newMessage->update(['status' => 'failed', 'failure_reason' => 'No integrated WhatsApp number found for this tenant.']);
+            \App\Services\MessageBillingService::refundMessage(
+                $conversation->tenant_id,
+                $canSend['cost'],
+                'Configuration Error: No integrated WhatsApp number found',
+                $messageId,
+                'message',
+                "msg_{$messageId}_refund"
+            );
             return response()->json([
                 'error' => 'Configuration Error',
                 'message' => 'No integrated WhatsApp number found for this tenant. Cannot send messages.'

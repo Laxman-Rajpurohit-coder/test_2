@@ -320,18 +320,27 @@ export default function AppLayout({ children, header }) {
                     <div className="flex items-center gap-3">
                         {tenant && (
                             <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl font-bold text-xs border transition-colors ${
-                                tenantBalance > 0
-                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 shadow-2xs'
-                                    : 'bg-rose-50 text-rose-800 border-rose-200 shadow-2xs'
+                                !tenant.billing_enabled
+                                    ? 'bg-slate-50 text-slate-700 border-slate-200'
+                                    : tenant.billing_status === 'exhausted'
+                                    ? 'bg-rose-50 text-rose-800 border-rose-200 shadow-2xs'
+                                    : tenant.billing_status === 'low_balance'
+                                    ? 'bg-amber-50 text-amber-800 border-amber-200 shadow-2xs'
+                                    : 'bg-emerald-50 text-emerald-800 border-emerald-200 shadow-2xs'
                             }`}>
                                 <span className="text-sm">💰</span>
                                 <span className="font-semibold text-gray-500">Balance:</span>
                                 <span className="font-mono font-extrabold text-xs">
                                     ₹{tenantBalance.toFixed(2)}
                                 </span>
-                                {tenantBalance <= 0 && (
+                                {tenant.billing_enabled && tenant.billing_status === 'exhausted' && (
                                     <span className="text-[10px] bg-rose-600 text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                                        Suspended
+                                        Paused
+                                    </span>
+                                )}
+                                {!tenant.billing_enabled && (
+                                    <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                                        Unmetered
                                     </span>
                                 )}
                             </div>
@@ -353,6 +362,20 @@ export default function AppLayout({ children, header }) {
                         <Link href="/admin/impersonate-stop" method="post" as="button" type="button" className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-sm transition-colors">
                             Exit Impersonation
                         </Link>
+                    </div>
+                )}
+
+                {tenant && tenant.billing_enabled && tenant.billing_status === 'exhausted' && (
+                    <div className="bg-amber-50 border-b border-amber-200 px-6 py-3 flex items-center justify-between sticky top-16 z-30 shadow-2xs">
+                        <div className="flex items-center gap-3 text-amber-900">
+                            <span className="text-xl">⚠️</span>
+                            <div>
+                                <span className="font-bold text-xs md:text-sm">Messaging Paused — Wallet Balance Exhausted (₹{tenantBalance.toFixed(2)})</span>
+                                <p className="text-[11px] md:text-xs text-amber-700">
+                                    Inbound messages, inbox viewing, and analytics remain active. Outbound sending and campaigns are paused. Please contact your administrator or top up balance to resume sending.
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 )}
 

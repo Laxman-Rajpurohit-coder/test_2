@@ -193,33 +193,58 @@ class TenantController extends Controller
     }
 
     /**
-     * Adds balance to a tenant upon receiving payment.
+     * Adds balance to a tenant upon receiving payment or granting credit.
      */
     public function addBalance(Request $request, Tenant $tenant)
     {
         $validated = $request->validate([
             'amount' => 'required|numeric|gt:0',
+            'type' => 'nullable|string|in:topup,promotional_credit,adjustment',
             'payment_reference' => 'nullable|string|max:255',
             'notes' => 'nullable|string|max:1000',
             'auto_activate' => 'nullable|boolean',
+            'enable_billing' => 'nullable|boolean',
         ]);
 
         $autoActivate = $request->has('auto_activate') ? $request->boolean('auto_activate') : true;
+        $type = $validated['type'] ?? 'topup';
+        $enableBilling = $request->has('enable_billing') ? $request->boolean('enable_billing') : null;
 
-        \App\Services\TenantBalanceService::addBalance(
+        \App\Services\MessageBillingService::addBalance(
             $tenant,
-            (float) $validated['amount'],
+            (string) $validated['amount'],
             $validated['payment_reference'] ?? null,
             $validated['notes'] ?? null,
             auth()->guard('admin')->id(),
-            $autoActivate
+            $autoActivate,
+            $type,
+            $enableBilling
         );
 
-        return back()->with('success', "Added ₹{$validated['amount']} balance to {$tenant->name}.");
+        $typeLabel = ucfirst(str_replace('_', ' ', $type));
+        return back()->with('success', "Added ₹{$validated['amount']} ({$typeLabel}) to {$tenant->name}.");
     }
 
     /**
-     * Fetches balance transactions ledger for a tenant.
+     * Toggles prepaid billing enforcement for a tenant.
+     */
+    public function toggleBilling(Request $request, Tenant $tenant)
+    {
+        $newState = !$tenant->billing_enabled;
+        $tenant->update([
+            'billing_enabled' => $newState,
+            'billing_status' => $newState ? (bccomp((string)$tenant->balance, '0.0000', 4) <= 0 ? 'exhausted' : 'active') : 'active',
+        ]);
+
+        $msg = $newState 
+            ? "Prepaid billing enforcement enabled for {$tenant->name}." 
+            : "Prepaid billing disabled for {$tenant->name} (unmetered mode).";
+
+        return back()->with('success', $msg);
+    }
+
+    /**
+     * Fetches balance transactions ledger for a tenant with rich audit metadata.
      */
     public function transactions(Tenant $tenant)
     {
@@ -233,8 +258,11 @@ class TenantController extends Controller
             'tenant' => [
                 'id' => $tenant->id,
                 'name' => $tenant->name,
-                'balance' => (float) $tenant->balance,
+                'balance' => (string) $tenant->balance,
+                'billing_enabled' => (bool) $tenant->billing_enabled,
+                'billing_status' => $tenant->billing_status,
                 'status' => $tenant->status,
+                'suspension_reason' => $tenant->suspension_reason,
             ],
             'transactions' => $transactions,
         ]);
