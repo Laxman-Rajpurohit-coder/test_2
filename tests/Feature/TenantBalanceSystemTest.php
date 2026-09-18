@@ -324,9 +324,9 @@ class TenantBalanceSystemTest extends TestCase
             'tenant_id' => $tenant->id,
             'name' => 'Paused Black Friday Sale',
             'status' => 'paused_insufficient_balance',
-            'channel' => 'whatsapp',
-            'type' => 'template',
+            'message_type' => 'template',
             'template_name' => 'black_friday',
+            'target_type' => 'all',
         ]);
 
         MessageBillingService::addBalance(
