@@ -9,7 +9,7 @@ class Tenant extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'slug', 'is_active', 'status', 'features'];
+    protected $fillable = ['name', 'slug', 'is_active', 'status', 'suspended_at', 'features'];
 
     /**
      * The attributes that should be cast.
@@ -18,6 +18,7 @@ class Tenant extends Model
     {
         return [
             'features' => 'array',
+            'suspended_at' => 'datetime',
         ];
     }
 

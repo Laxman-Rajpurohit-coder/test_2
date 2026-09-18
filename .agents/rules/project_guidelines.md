@@ -1,6 +1,8 @@
 # Project Operational Guidelines & Learned Rules
 
 ## 1. User Directives & Change Enforcement
+- **Plan-First & Explicit Permission**: Never modify, delete, or create source code without first proposing an implementation plan and waiting for explicit user permission.
+- **Zero Assumptions & Log-Driven Diagnostics**: Never assume or guess root causes. Always examine logs first (e.g. `storage/logs/laravel.log`, console logs, service outputs). If no logs are available or findings are inconclusive, pause and ask the user for clarification before proceeding.
 - **Inspection Mode**: When the user asks "just asking dont do changes" or requests diagnostic explanations, inspect files and explain findings ONLY. Do not make code edits or run git commands.
 - **Push & Deployment Guard**: Never stage, commit, or push code to Railway/GitHub unless explicitly directed by the user ("run it", "push code"). Always build (`npm run build`) and test locally first.
 

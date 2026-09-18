@@ -139,6 +139,21 @@ export default function TenantIndex({ auth, tenants, webhook, billing }) {
         });
     };
 
+    const toggleTenantStatus = (tenant) => {
+        const isSuspending = tenant.status === 'active';
+        const confirmMsg = isSuspending
+            ? `Are you sure you want to suspend "${tenant.name}"? All users under this tenant will immediately be locked out from logging in or making requests.`
+            : `Are you sure you want to reactivate "${tenant.name}"? Users will be allowed to log in and use the platform again.`;
+
+        if (window.confirm(confirmMsg)) {
+            router.patch(route('admin.tenants.status', tenant.id), {
+                status: isSuspending ? 'suspended' : 'active',
+            }, {
+                preserveScroll: true,
+            });
+        }
+    };
+
     return (
         <AuthenticatedLayout
             user={auth.user}
@@ -383,6 +398,17 @@ export default function TenantIndex({ auth, tenants, webhook, billing }) {
                                                         >
                                                             Stats
                                                         </Link>
+                                                        <span className="text-gray-300">|</span>
+                                                        <button 
+                                                            onClick={() => toggleTenantStatus(tenant)}
+                                                            className={`font-semibold ${
+                                                                tenant.status === 'active' 
+                                                                    ? 'text-rose-600 hover:text-rose-900' 
+                                                                    : 'text-emerald-600 hover:text-emerald-900'
+                                                            }`}
+                                                        >
+                                                            {tenant.status === 'active' ? 'Suspend' : 'Activate'}
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
