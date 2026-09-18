@@ -333,7 +333,7 @@ class TenantBalanceSystemTest extends TestCase
             tenant: $tenant,
             amount: '200.0000',
             type: 'topup',
-            paymentReference: 'UPI-RECOVERY'
+            paymentRef: 'UPI-RECOVERY'
         );
 
         $campaign->refresh();

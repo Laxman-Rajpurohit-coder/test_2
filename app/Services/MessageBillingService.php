@@ -325,7 +325,8 @@ class MessageBillingService
 
             // If tenant had any campaign paused due to insufficient balance, auto-resume
             try {
-                $pausedCampaigns = Campaign::where('tenant_id', $tenantId)
+                $pausedCampaigns = Campaign::withoutGlobalScope('tenant_isolation')
+                    ->where('tenant_id', $tenantId)
                     ->where('status', 'paused_insufficient_balance')
                     ->get();
 
