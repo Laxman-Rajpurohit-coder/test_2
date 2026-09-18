@@ -275,7 +275,7 @@ class MessageBillingService
         $tenantId = $tenant instanceof Tenant ? $tenant->id : (int) $tenant;
         $amountStr = number_format((float) $amount, 4, '.', '');
 
-        return DB::transaction(function () use ($tenantId, $amountStr, $paymentRef, $notes, $adminId, $autoReactivate, $type, $enableBilling) {
+        $tx = DB::transaction(function () use ($tenantId, $amountStr, $paymentRef, $notes, $adminId, $autoReactivate, $type, $enableBilling) {
             /** @var Tenant $lockedTenant */
             $lockedTenant = Tenant::where('id', $tenantId)->lockForUpdate()->first();
 
@@ -323,26 +323,27 @@ class MessageBillingService
                 'balance_after' => $newBalance,
             ]);
 
-            // If tenant had any campaign paused due to insufficient balance, auto-resume
-            try {
-                $pausedCampaigns = Campaign::withoutGlobalScope('tenant_isolation')
-                    ->where('tenant_id', $tenantId)
-                    ->where('status', 'paused_insufficient_balance')
-                    ->get();
-
-                foreach ($pausedCampaigns as $camp) {
-                    $camp->update([
-                        'status' => 'sending',
-                        'failure_reason' => null,
-                    ]);
-                    SendCampaignJob::dispatch($camp->id);
-                    Log::info("MessageBillingService: Resumed campaign {$camp->id} for tenant {$tenantId} following balance top-up.");
-                }
-            } catch (\Throwable $e) {
-                Log::error("Failed to auto-resume paused campaigns for tenant {$tenantId}: " . $e->getMessage());
-            }
-
             return $tx;
         });
+
+        // After transaction commits successfully, auto-resume any paused campaigns
+        try {
+            $pausedCampaigns = Campaign::withoutGlobalScope('tenant_isolation')
+                ->where('tenant_id', $tenantId)
+                ->where('status', 'paused_insufficient_balance')
+                ->get();
+
+            foreach ($pausedCampaigns as $camp) {
+                $camp->update([
+                    'status' => 'sending',
+                ]);
+                SendCampaignJob::dispatch($camp->id);
+                Log::info("MessageBillingService: Resumed campaign {$camp->id} for tenant {$tenantId} following balance top-up.");
+            }
+        } catch (\Throwable $e) {
+            Log::error("Failed to auto-resume paused campaigns for tenant {$tenantId}: " . $e->getMessage());
+        }
+
+        return $tx;
     }
 }
