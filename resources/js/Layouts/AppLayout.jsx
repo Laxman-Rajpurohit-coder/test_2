@@ -10,6 +10,8 @@ export default function AppLayout({ children, header }) {
     const { auth, tenant_features, flash } = usePage().props;
     const userName = auth?.user?.name || 'MTech Systems';
     const userEmail = auth?.user?.email || 'admin@msg91.com';
+    const tenant = auth?.user?.tenant;
+    const tenantBalance = tenant ? parseFloat(tenant.balance || 0) : null;
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [userDropdownOpen, setUserDropdownOpen] = useState(false);
     const [toast, setToast] = useState(null);
@@ -112,6 +114,25 @@ export default function AppLayout({ children, header }) {
                     ))}
                 </div>
 
+                {/* Sidebar Wallet Balance Display */}
+                {tenant && (
+                    <div className="px-4 pb-2">
+                        <div className="p-2.5 rounded-xl bg-gray-50/90 border border-gray-200/80 flex items-center justify-between shadow-2xs">
+                            <div className="flex items-center gap-1.5 text-xs text-gray-500 font-semibold">
+                                <span>💰</span>
+                                <span>Wallet</span>
+                            </div>
+                            <div className="text-right">
+                                <span className={`text-xs font-bold font-mono ${
+                                    tenantBalance > 0 ? 'text-emerald-600' : 'text-rose-600'
+                                }`}>
+                                    ₹{tenantBalance.toFixed(2)}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Footer User Info & Logout */}
                 <div className="p-4 border-t border-gray-100">
                     <div className="flex items-center justify-between p-2 rounded-xl bg-gray-50/80 border border-gray-100">
@@ -212,6 +233,23 @@ export default function AppLayout({ children, header }) {
                             ))}
                         </div>
 
+                        {/* Mobile Wallet Balance */}
+                        {tenant && (
+                            <div className="pt-2 pb-1">
+                                <div className="p-2.5 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5 text-xs text-gray-600 font-semibold">
+                                        <span>💰</span>
+                                        <span>Wallet Balance</span>
+                                    </div>
+                                    <span className={`text-xs font-bold font-mono ${
+                                        tenantBalance > 0 ? 'text-emerald-600' : 'text-rose-600'
+                                    }`}>
+                                        ₹{tenantBalance.toFixed(2)}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Mobile User Profile & Logout */}
                         <div className="mt-auto pt-4 border-t border-gray-100">
                             <div className="flex items-center justify-between bg-gray-50/80 p-3 rounded-xl border border-gray-100">
@@ -280,6 +318,24 @@ export default function AppLayout({ children, header }) {
                     </div>
 
                     <div className="flex items-center gap-3">
+                        {tenant && (
+                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl font-bold text-xs border transition-colors ${
+                                tenantBalance > 0
+                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 shadow-2xs'
+                                    : 'bg-rose-50 text-rose-800 border-rose-200 shadow-2xs'
+                            }`}>
+                                <span className="text-sm">💰</span>
+                                <span className="font-semibold text-gray-500">Balance:</span>
+                                <span className="font-mono font-extrabold text-xs">
+                                    ₹{tenantBalance.toFixed(2)}
+                                </span>
+                                {tenantBalance <= 0 && (
+                                    <span className="text-[10px] bg-rose-600 text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                                        Suspended
+                                    </span>
+                                )}
+                            </div>
+                        )}
                         <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-[#00a884] border border-emerald-200/60 rounded-xl font-semibold text-xs">
                             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                             <span>System Active</span>

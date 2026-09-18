@@ -26,6 +26,10 @@ class OutboundReplyService
      */
     public static function send(int $conversationId, int $tenantId, array $contentStruct, array $msg91Payload, ?int $delaySeconds = null): string
     {
+        if (!TenantBalanceService::hasBalance($tenantId)) {
+            throw new \RuntimeException("Tenant {$tenantId} has depleted balance and is suspended.");
+        }
+
         return DB::transaction(function () use ($conversationId, $tenantId, $contentStruct, $msg91Payload, $delaySeconds) {
             $outboundMessageId = Str::uuid()->toString();
 
@@ -41,6 +45,10 @@ class OutboundReplyService
                 'failure_reason'   => null,
                 'vendor_timestamp' => now(),
             ]);
+
+            $type = $contentStruct['type'] ?? 'service';
+            $category = $contentStruct['category'] ?? ($contentStruct['template_category'] ?? null);
+            TenantBalanceService::deductForMessage($tenantId, $type, $category, $outboundMessageId);
 
             Conversation::where('id', $conversationId)
                 ->update(['last_message_at' => now(), 'updated_at' => now()]);

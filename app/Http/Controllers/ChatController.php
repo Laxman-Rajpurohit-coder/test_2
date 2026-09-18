@@ -286,6 +286,14 @@ class ChatController extends Controller
         }
 
 
+        // Balance check: prevent sending if tenant balance is depleted
+        if (!\App\Services\TenantBalanceService::hasBalance($conversation->tenant_id)) {
+            return response()->json([
+                'error' => 'Insufficient Balance',
+                'message' => 'Your account balance is zero and has been suspended. Please recharge your balance to continue sending messages.'
+            ], 402);
+        }
+
         // Enforce 24-Hour Session Guard Rail for free-text messages
         $normPhone = preg_replace('/[^0-9]/', '', $conversation->customer_number);
         if (strlen($normPhone) === 10) $normPhone = '91' . $normPhone;
@@ -334,6 +342,14 @@ class ChatController extends Controller
             'content'          => json_encode($dbContent),
             'vendor_timestamp' => now(),
         ]);
+
+        // Deduct message charge from tenant balance
+        \App\Services\TenantBalanceService::deductForMessage(
+            $conversation->tenant_id,
+            $request->input('type'),
+            $request->input('template_category') ?? $request->input('category'),
+            $messageId
+        );
 
         // 2. Dispatch Background Job to MSG91 using real tenant number
         try {
@@ -420,6 +436,14 @@ class ChatController extends Controller
         }
 
 
+        // Balance check: prevent sending if tenant balance is depleted
+        if (!\App\Services\TenantBalanceService::hasBalance($conversation->tenant_id)) {
+            return response()->json([
+                'error' => 'Insufficient Balance',
+                'message' => 'Your account balance is zero and has been suspended. Please recharge your balance to continue sending messages.'
+            ], 402);
+        }
+
         // Enforce 24-Hour Session Guard Rail
         $normPhone = preg_replace('/[^0-9]/', '', $conversation->customer_number);
         if (strlen($normPhone) === 10) $normPhone = '91' . $normPhone;
@@ -487,6 +511,14 @@ class ChatController extends Controller
             'content'          => json_encode($contentPayload),
             'vendor_timestamp' => now(),
         ]);
+
+        // Deduct media message charge from tenant balance
+        \App\Services\TenantBalanceService::deductForMessage(
+            $conversation->tenant_id,
+            $mediaType,
+            null,
+            $messageId
+        );
 
         try {
             $integratedNumber = app(\App\Services\TenantResolverService::class)->getIntegratedNumber($conversation->tenant_id);

@@ -9,7 +9,7 @@ class Tenant extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'slug', 'is_active', 'status', 'suspended_at', 'features'];
+    protected $fillable = ['name', 'slug', 'is_active', 'status', 'balance', 'suspended_at', 'features'];
 
     /**
      * The attributes that should be cast.
@@ -17,6 +17,7 @@ class Tenant extends Model
     protected function casts(): array
     {
         return [
+            'balance' => 'float',
             'features' => 'array',
             'suspended_at' => 'datetime',
         ];
@@ -50,5 +51,20 @@ class Tenant extends Model
     public function users()
     {
         return $this->hasMany(User::class);
+    }
+
+    public function transactions()
+    {
+        return $this->hasMany(TenantBalanceTransaction::class);
+    }
+
+    public function hasSufficientBalance(): bool
+    {
+        return (float) $this->balance > 0;
+    }
+
+    public function isSuspended(): bool
+    {
+        return $this->status === 'suspended';
     }
 }

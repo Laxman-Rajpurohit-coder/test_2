@@ -193,6 +193,54 @@ class TenantController extends Controller
     }
 
     /**
+     * Adds balance to a tenant upon receiving payment.
+     */
+    public function addBalance(Request $request, Tenant $tenant)
+    {
+        $validated = $request->validate([
+            'amount' => 'required|numeric|gt:0',
+            'payment_reference' => 'nullable|string|max:255',
+            'notes' => 'nullable|string|max:1000',
+            'auto_activate' => 'nullable|boolean',
+        ]);
+
+        $autoActivate = $request->has('auto_activate') ? $request->boolean('auto_activate') : true;
+
+        \App\Services\TenantBalanceService::addBalance(
+            $tenant,
+            (float) $validated['amount'],
+            $validated['payment_reference'] ?? null,
+            $validated['notes'] ?? null,
+            auth()->guard('admin')->id(),
+            $autoActivate
+        );
+
+        return back()->with('success', "Added ₹{$validated['amount']} balance to {$tenant->name}.");
+    }
+
+    /**
+     * Fetches balance transactions ledger for a tenant.
+     */
+    public function transactions(Tenant $tenant)
+    {
+        $transactions = $tenant->transactions()
+            ->with('adminUser:id,name,email')
+            ->orderBy('created_at', 'desc')
+            ->take(50)
+            ->get();
+
+        return response()->json([
+            'tenant' => [
+                'id' => $tenant->id,
+                'name' => $tenant->name,
+                'balance' => (float) $tenant->balance,
+                'status' => $tenant->status,
+            ],
+            'transactions' => $transactions,
+        ]);
+    }
+
+    /**
      * Deletes a tenant record.
      */
     public function destroy(Tenant $tenant)

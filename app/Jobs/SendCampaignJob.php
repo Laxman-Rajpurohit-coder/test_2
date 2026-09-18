@@ -57,6 +57,16 @@ class SendCampaignJob implements ShouldQueue
             return;
         }
 
+        // Check tenant balance before sending
+        if (!\App\Services\TenantBalanceService::hasBalance((int) $tenantId)) {
+            Log::warning("SendCampaignJob: Tenant {$tenantId} has zero balance. Halting campaign {$this->campaignId}.");
+            $campaign->update([
+                'status' => 'failed',
+                'failure_reason' => 'Tenant balance depleted. Account suspended. Please recharge to send campaigns.'
+            ]);
+            return;
+        }
+
         $campaign->update(['status' => 'sending']);
 
         // Fetch pending recipients for this batch

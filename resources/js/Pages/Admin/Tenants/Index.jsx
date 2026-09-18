@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Head, Link, useForm, router, usePage } from '@inertiajs/react';
+import axios from 'axios';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Modal from '@/Components/Modal';
 import InputError from '@/Components/InputError';
@@ -12,6 +13,18 @@ export default function TenantIndex({ auth, tenants, webhook, billing }) {
     const { flash } = usePage().props;
     const [invitingTenant, setInvitingTenant] = useState(null);
     const [isCreatingTenant, setIsCreatingTenant] = useState(false);
+
+    const [balancingTenant, setBalancingTenant] = useState(null);
+    const { data: balanceData, setData: setBalanceData, post: postBalance, processing: processingBalance, errors: balanceErrors, reset: resetBalance, clearErrors: clearBalanceErrors } = useForm({
+        amount: '',
+        payment_reference: '',
+        notes: '',
+        auto_activate: true,
+    });
+
+    const [ledgerTenant, setLedgerTenant] = useState(null);
+    const [ledgerTransactions, setLedgerTransactions] = useState([]);
+    const [ledgerLoading, setLedgerLoading] = useState(false);
 
     const { data: billingData, setData: setBillingData, post: postBilling, processing: processingBilling } = useForm({
         rate_unit: billing?.rate_unit || 1000,
@@ -152,6 +165,46 @@ export default function TenantIndex({ auth, tenants, webhook, billing }) {
                 preserveScroll: true,
             });
         }
+    };
+
+    const openBalanceModal = (tenant) => {
+        setBalancingTenant(tenant);
+        resetBalance();
+        clearBalanceErrors();
+    };
+
+    const closeBalanceModal = () => {
+        setBalancingTenant(null);
+        resetBalance();
+        clearBalanceErrors();
+    };
+
+    const submitBalance = (e) => {
+        e.preventDefault();
+        postBalance(route('admin.tenants.balance.add', balancingTenant.id), {
+            onSuccess: () => closeBalanceModal(),
+        });
+    };
+
+    const openLedgerModal = (tenant) => {
+        setLedgerTenant(tenant);
+        setLedgerLoading(true);
+        setLedgerTransactions([]);
+        axios.get(route('admin.tenants.transactions', tenant.id))
+            .then(response => {
+                setLedgerTransactions(response.data.transactions || []);
+            })
+            .catch(err => {
+                console.error('Failed to load transactions:', err);
+            })
+            .finally(() => {
+                setLedgerLoading(false);
+            });
+    };
+
+    const closeLedgerModal = () => {
+        setLedgerTenant(null);
+        setLedgerTransactions([]);
     };
 
     return (
@@ -320,6 +373,7 @@ export default function TenantIndex({ auth, tenants, webhook, billing }) {
                                         <tr>
                                             <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Tenant Organization</th>
                                             <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Status</th>
+                                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Wallet Balance</th>
                                             <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Total Messages</th>
                                             <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Template Breakdown</th>
                                             <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Est. Billing Cost</th>
@@ -338,6 +392,25 @@ export default function TenantIndex({ auth, tenants, webhook, billing }) {
                                                     <span className={`px-2 py-0.5 inline-flex text-xs leading-5 font-bold rounded-full ${tenant.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                                         {tenant.status}
                                                     </span>
+                                                </td>
+                                                {/* Wallet Balance */}
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`px-2.5 py-1 inline-flex items-center gap-1 text-xs font-mono font-extrabold rounded-lg border ${
+                                                            parseFloat(tenant.balance || 0) > 0
+                                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                                : 'bg-rose-50 text-rose-700 border-rose-200'
+                                                        }`}>
+                                                            <span>₹{parseFloat(tenant.balance || 0).toFixed(2)}</span>
+                                                        </span>
+                                                        <button
+                                                            onClick={() => openLedgerModal(tenant)}
+                                                            title="View Transaction History"
+                                                            className="text-xs p-1 text-gray-400 hover:text-indigo-600 rounded hover:bg-gray-100 transition"
+                                                        >
+                                                            📜
+                                                        </button>
+                                                    </div>
                                                 </td>
                                                 {/* Tenant-Wise Message Count */}
                                                 <td className="px-6 py-4 whitespace-nowrap">
@@ -364,6 +437,14 @@ export default function TenantIndex({ auth, tenants, webhook, billing }) {
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-right text-xs font-bold">
                                                     <div className="flex items-center justify-end space-x-2">
+                                                        <button 
+                                                            onClick={() => openBalanceModal(tenant)}
+                                                            className="text-emerald-600 hover:text-emerald-900 font-semibold"
+                                                            title="Add Balance upon receiving payment"
+                                                        >
+                                                            + Balance
+                                                        </button>
+                                                        <span className="text-gray-300">|</span>
                                                         <button 
                                                             onClick={() => openInviteModal(tenant)}
                                                             className="text-purple-600 hover:text-purple-900 font-semibold"
@@ -580,6 +661,186 @@ export default function TenantIndex({ auth, tenants, webhook, billing }) {
                         </PrimaryButton>
                     </div>
                 </form>
+            </Modal>
+
+            {/* Add Balance Modal */}
+            <Modal show={!!balancingTenant} onClose={closeBalanceModal}>
+                <form onSubmit={submitBalance} className="p-6">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
+                        <div>
+                            <h2 className="text-lg font-bold text-gray-900">
+                                Add Balance (Top-Up)
+                            </h2>
+                            <p className="text-xs text-gray-500">
+                                Organization: <strong className="text-gray-800">{balancingTenant?.name}</strong>
+                            </p>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-[10px] uppercase font-bold text-gray-400 block">Current Balance</span>
+                            <span className={`text-sm font-mono font-extrabold ${parseFloat(balancingTenant?.balance || 0) > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                ₹{parseFloat(balancingTenant?.balance || 0).toFixed(2)}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div>
+                            <InputLabel htmlFor="balance_amount" value="Payment Amount Received (₹)" />
+                            <TextInput
+                                id="balance_amount"
+                                type="number"
+                                step="0.01"
+                                min="0.01"
+                                required
+                                name="amount"
+                                value={balanceData.amount}
+                                onChange={(e) => setBalanceData('amount', e.target.value)}
+                                className="mt-1 block w-full text-base font-bold font-mono"
+                                isFocused
+                                placeholder="e.g. 500.00"
+                            />
+                            <InputError message={balanceErrors.amount} className="mt-2" />
+                        </div>
+
+                        <div>
+                            <InputLabel htmlFor="payment_reference" value="Payment Reference / Transaction ID" />
+                            <TextInput
+                                id="payment_reference"
+                                type="text"
+                                name="payment_reference"
+                                value={balanceData.payment_reference}
+                                onChange={(e) => setBalanceData('payment_reference', e.target.value)}
+                                className="mt-1 block w-full font-mono text-sm"
+                                placeholder="e.g. UPI-20260918-0912 / Bank Wire / Cash"
+                            />
+                            <InputError message={balanceErrors.payment_reference} className="mt-2" />
+                        </div>
+
+                        <div>
+                            <InputLabel htmlFor="balance_notes" value="Notes / Internal Memo" />
+                            <textarea
+                                id="balance_notes"
+                                rows={2}
+                                value={balanceData.notes}
+                                onChange={(e) => setBalanceData('notes', e.target.value)}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                placeholder="e.g. 5,000 WhatsApp credits recharge received via UPI"
+                            />
+                            <InputError message={balanceErrors.notes} className="mt-2" />
+                        </div>
+
+                        <label className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={balanceData.auto_activate}
+                                onChange={(e) => setBalanceData('auto_activate', e.target.checked)}
+                                className="w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500"
+                            />
+                            <span className="text-xs font-semibold text-gray-700">
+                                Automatically reactivate tenant if currently suspended (Recommended)
+                            </span>
+                        </label>
+                    </div>
+
+                    <div className="mt-6 flex justify-end gap-2">
+                        <SecondaryButton onClick={closeBalanceModal}>
+                            Cancel
+                        </SecondaryButton>
+                        <PrimaryButton className="bg-emerald-600 hover:bg-emerald-700" disabled={processingBalance}>
+                            {processingBalance ? 'Adding...' : 'Confirm & Add Balance'}
+                        </PrimaryButton>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* Tenant Balance Ledger Modal */}
+            <Modal show={!!ledgerTenant} onClose={closeLedgerModal} maxWidth="2xl">
+                <div className="p-6">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
+                        <div>
+                            <h2 className="text-lg font-bold text-gray-900">
+                                Transaction History & Balance Ledger
+                            </h2>
+                            <p className="text-xs text-gray-500">
+                                Organization: <strong className="text-gray-800">{ledgerTenant?.name}</strong>
+                            </p>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-[10px] uppercase font-bold text-gray-400 block">Current Balance</span>
+                            <span className={`text-base font-mono font-extrabold ${parseFloat(ledgerTenant?.balance || 0) > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                ₹{parseFloat(ledgerTenant?.balance || 0).toFixed(2)}
+                            </span>
+                        </div>
+                    </div>
+
+                    {ledgerLoading ? (
+                        <div className="py-12 text-center text-gray-400 text-sm">
+                            Loading transaction ledger...
+                        </div>
+                    ) : ledgerTransactions.length === 0 ? (
+                        <div className="py-12 text-center text-gray-400 text-sm">
+                            No balance transactions recorded yet for this organization.
+                        </div>
+                    ) : (
+                        <div className="max-h-96 overflow-y-auto overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200 text-xs">
+                                <thead className="bg-gray-50 sticky top-0">
+                                    <tr>
+                                        <th className="px-3 py-2 text-left font-bold text-gray-500 uppercase">Date</th>
+                                        <th className="px-3 py-2 text-left font-bold text-gray-500 uppercase">Type</th>
+                                        <th className="px-3 py-2 text-right font-bold text-gray-500 uppercase">Amount</th>
+                                        <th className="px-3 py-2 text-right font-bold text-gray-500 uppercase">Balance After</th>
+                                        <th className="px-3 py-2 text-left font-bold text-gray-500 uppercase">Ref / Notes</th>
+                                        <th className="px-3 py-2 text-left font-bold text-gray-500 uppercase">Admin</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 bg-white">
+                                    {ledgerTransactions.map((tx) => (
+                                        <tr key={tx.id} className="hover:bg-gray-50/60">
+                                            <td className="px-3 py-2.5 whitespace-nowrap text-gray-500 font-mono">
+                                                {new Date(tx.created_at).toLocaleString()}
+                                            </td>
+                                            <td className="px-3 py-2.5 whitespace-nowrap">
+                                                <span className={`px-2 py-0.5 rounded-full font-bold uppercase text-[10px] ${
+                                                    tx.type === 'credit' 
+                                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                                                        : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                                }`}>
+                                                    {tx.type}
+                                                </span>
+                                            </td>
+                                            <td className={`px-3 py-2.5 whitespace-nowrap text-right font-mono font-bold ${
+                                                tx.type === 'credit' ? 'text-emerald-600' : 'text-rose-600'
+                                            }`}>
+                                                {tx.type === 'credit' ? '+' : '-'}₹{parseFloat(tx.amount || 0).toFixed(4)}
+                                            </td>
+                                            <td className="px-3 py-2.5 whitespace-nowrap text-right font-mono font-semibold text-gray-700">
+                                                ₹{parseFloat(tx.balance_after || 0).toFixed(4)}
+                                            </td>
+                                            <td className="px-3 py-2.5 max-w-xs truncate text-gray-600">
+                                                {tx.payment_reference && (
+                                                    <div className="font-mono text-[11px] text-indigo-600 font-semibold">{tx.payment_reference}</div>
+                                                )}
+                                                {tx.description && (
+                                                    <div className="text-[11px] text-gray-500">{tx.description}</div>
+                                                )}
+                                            </td>
+                                            <td className="px-3 py-2.5 whitespace-nowrap text-gray-500 text-[11px]">
+                                                {tx.admin_user?.name || 'System'}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    <div className="mt-6 flex justify-end">
+                        <SecondaryButton onClick={closeLedgerModal}>
+                            Close
+                        </SecondaryButton>
+                    </div>
+                </div>
             </Modal>
         </AuthenticatedLayout>
     );

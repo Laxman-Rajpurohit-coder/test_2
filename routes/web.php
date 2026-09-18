@@ -80,6 +80,8 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::post('/impersonate/{tenant}', [\App\Http\Controllers\Admin\ImpersonationController::class, 'start'])->name('impersonate.start');
     Route::post('/impersonate-stop', [\App\Http\Controllers\Admin\ImpersonationController::class, 'stop'])->name('impersonate.stop');
     Route::post('/billing-settings', [\App\Http\Controllers\Admin\TenantController::class, 'updateBillingSettings'])->name('billing.update');
+    Route::post('/tenants/{tenant}/balance', [\App\Http\Controllers\Admin\TenantController::class, 'addBalance'])->name('tenants.balance.add');
+    Route::get('/tenants/{tenant}/transactions', [\App\Http\Controllers\Admin\TenantController::class, 'transactions'])->name('tenants.transactions');
 });
 
 Route::middleware(['auth:web,admin', \App\Http\Middleware\BlockImpersonationWrites::class])->group(function () {
